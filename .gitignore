@@ -1,5 +1,0 @@
-*.env
-.env
-.env.*
-Embeddings-scripts/.env
-.gitignore

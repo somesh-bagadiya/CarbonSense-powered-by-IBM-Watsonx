@@ -9,78 +9,66 @@ from ibm_watsonx_ai import Credentials
 from ibm_watsonx_ai.foundation_models import Embeddings
 from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames as EmbedParams
 from ibm_watsonx_ai.foundation_models.utils.enums import EmbeddingTypes
-from docx import Document  # For extracting text from DOCX files
+from docx import Document
+from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
 
-# Load environment variables from .env file
+# Load .env values
 load_dotenv()
 
-# Set up logging
+# Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# IBM COS Configuration
+# IBM COS Config
 COS_API_KEY = os.getenv("COS_API_KEY")
 COS_INSTANCE_ID = os.getenv("COS_INSTANCE_ID")
 COS_ENDPOINT = os.getenv("COS_ENDPOINT")
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 WATSON_STUDIO_PROJECT_ID = os.getenv("WATSON_STUDIO_PROJECT_ID")
 
-# Validate required environment variables
+# Milvus Config
+# MILVUS_HOST = os.getenv("MILVUS_REST_HOST")
+# MILVUS_PORT = os.getenv("MILVUS_REST_PORT")
+MILVUS_HOST = os.getenv("MILVUS_GRPC_HOST")
+MILVUS_PORT = os.getenv("MILVUS_GRPC_PORT")
+print(MILVUS_HOST, MILVUS_PORT, type(MILVUS_HOST), type(MILVUS_PORT))
+
+# IBM User Config
+IBM_USERNAME = os.getenv("IBM_USERNAME")
+IBM_PASSWORD = os.getenv("IBM_PASSWORD")
+
 if not all([COS_API_KEY, COS_INSTANCE_ID, COS_ENDPOINT, BUCKET_NAME]):
-    logging.error("Missing required IBM COS environment variables.")
+    logging.error("Missing required environment variables.")
     exit(1)
 
-logging.info(f"IBM COS Endpoint: {COS_ENDPOINT}")
-logging.info(f"Bucket Name: {BUCKET_NAME}")
+# Connect to IBM COS
+cos_client = ibm_boto3.client(
+    "s3",
+    ibm_api_key_id=COS_API_KEY,
+    ibm_service_instance_id=COS_INSTANCE_ID,
+    config=Config(signature_version="oauth"),
+    endpoint_url=COS_ENDPOINT
+)
 
-# Initialize IBM COS Client
-try:
-    cos_client = ibm_boto3.client(
-        "s3",
-        ibm_api_key_id=COS_API_KEY,
-        ibm_service_instance_id=COS_INSTANCE_ID,
-        config=Config(signature_version="oauth"),
-        endpoint_url=COS_ENDPOINT
-    )
-    logging.info("IBM COS client initialized successfully.")
-except Exception as e:
-    logging.error(f"Error initializing IBM COS client: {e}")
-    exit(1)
+# Connect to Milvus
+connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT, user="ibmlhapikey", password=COS_API_KEY, secure=True)
 
-# Initialize IBM Watsonx.ai Client and Embedding Model
-try:
-    client = Credentials(
-        url="https://us-south.ml.cloud.ibm.com",
-        api_key=COS_API_KEY
-    )
-    embedding = Embeddings(
-        model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
-        project_id=WATSON_STUDIO_PROJECT_ID,
-        credentials=client
-    )
-    logging.info("IBM Watsonx embedding model loaded successfully.")
-except Exception as e:
-    logging.error(f"Error initializing Watsonx.ai model: {e}")
-    exit(1)
+# Init Watsonx Embedding Model
+client = Credentials(url="https://us-south.ml.cloud.ibm.com", api_key=COS_API_KEY)
+embedding = Embeddings(
+    model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
+    project_id=WATSON_STUDIO_PROJECT_ID,
+    credentials=client
+)
 
 def extract_text_from_docx(file_bytes):
-    """Extract text from a DOCX file given its bytes."""
-    try:
-        doc = Document(BytesIO(file_bytes))
-        return "\n".join([para.text for para in doc.paragraphs])
-    except Exception as e:
-        logging.error(f"Error extracting DOCX text: {e}")
-        raise
+    doc = Document(BytesIO(file_bytes))
+    return "\n".join([para.text for para in doc.paragraphs])
 
-def chunk_text(text, max_chars=1000):
-    """
-    Naively chunk text into pieces that do not exceed max_chars.
-    Adjust this logic as needed to better match token limits.
-    """
+def chunk_text(text, max_chars=400):  # Reduced to stay within token limits
     lines = text.splitlines()
     chunks = []
     current_chunk = ""
     for line in lines:
-        # Add line if it does not exceed the maximum length
         if len(current_chunk) + len(line) + 1 <= max_chars:
             current_chunk += line + "\n"
         else:
@@ -90,85 +78,86 @@ def chunk_text(text, max_chars=1000):
         chunks.append(current_chunk.strip())
     return chunks
 
-# List all objects in the bucket
-try:
-    response = cos_client.list_objects_v2(Bucket=BUCKET_NAME)
-    contents = response.get("Contents")
-    if not contents:
-        logging.warning("No files found in the specified IBM COS bucket.")
-        exit(0)
-except Exception as e:
-    logging.error(f"Error listing objects in bucket: {e}")
-    exit(1)
+def create_milvus_collection(collection_name: str, dim: int):
+    if collection_name in Collection.list():
+        return Collection(name=collection_name)
 
-# Process each file in the bucket
+    fields = [
+        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
+        FieldSchema(name="chunk_text", dtype=DataType.VARCHAR, max_length=1000),
+        FieldSchema(name="file_name", dtype=DataType.VARCHAR, max_length=500)
+    ]
+    schema = CollectionSchema(fields, description="CarbonSense document embeddings")
+    collection = Collection(name=collection_name, schema=schema)
+    collection.create_index(field_name="embedding", index_params={"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 1024}})
+    collection.load()
+    return collection
+
+# Process files from COS
+response = cos_client.list_objects_v2(Bucket=BUCKET_NAME)
+contents = response.get("Contents", [])
+if not contents:
+    logging.warning("No files found in bucket.")
+    exit(0)
+
 for obj in contents:
     object_name = obj["Key"]
+
+    # 🚫 Skip already-processed JSON
+    if object_name.endswith(".json"):
+        logging.info(f"Skipping JSON: {object_name}")
+        continue
+
     logging.info(f"Processing file: {object_name}")
 
     try:
-        # Download file from COS
         file_obj = cos_client.get_object(Bucket=BUCKET_NAME, Key=object_name)
-    except Exception as e:
-        logging.error(f"Error retrieving file {object_name}: {e}")
-        continue
+        lower_name = object_name.lower()
 
-    # Determine how to extract text based on file extension
-    file_text = ""
-    lower_name = object_name.lower()
-    try:
-        if lower_name.endswith('.docx'):
-            # For DOCX, extract text using python-docx
+        if lower_name.endswith(".docx"):
             file_bytes = file_obj["Body"].read()
             file_text = extract_text_from_docx(file_bytes)
         else:
-            # Assume other files are text-based (CSV, TXT, etc.)
             file_text = file_obj["Body"].read().decode("utf-8")
-    except Exception as e:
-        logging.error(f"Error processing file {object_name}: {e}")
-        continue
 
-    # Check if text needs chunking (e.g., if it's too long)
-    # Here, we use a simple character count threshold. You might refine this based on tokenization.
-    if len(file_text) > 3000:
-        chunks = chunk_text(file_text, max_chars=1000)
-        logging.info(f"File {object_name} is large; splitting into {len(chunks)} chunks.")
-    else:
-        chunks = [file_text]
+        chunks = chunk_text(file_text, max_chars=400)
+        if len(chunks) > 1:
+            logging.info(f"File {object_name} split into {len(chunks)} chunks.")
 
-    # Generate embeddings for the text (or chunks)
-    try:
-        # The embed_documents method takes a list of texts
-        embedding_result = embedding.embed_documents(chunks)
-        # If multiple chunks, store embeddings for each chunk
-        embeddings = embedding_result
+        embeddings = embedding.embed_documents(chunks)
         logging.info(f"Embeddings generated for {object_name}.")
-    except Exception as e:
-        logging.error(f"Error generating embeddings for {object_name}: {e}")
-        continue
 
-    # Prepare and save embeddings to a JSON file
-    embedding_data = {
-        "file_name": object_name,
-        "chunks": chunks,
-        "embeddings": embeddings
-    }
-    local_embedding_file = f"embeddings_{object_name.replace('/', '_')}.json"
-    try:
-        with open(local_embedding_file, "w") as f:
+        # Save locally as backup
+        embedding_data = {
+            "file_name": object_name,
+            "chunks": chunks,
+            "embeddings": embeddings
+        }
+        local_file = f"embeddings_{object_name.replace('/', '_')}.json"
+        with open(local_file, "w") as f:
             json.dump(embedding_data, f)
-        logging.info(f"Embeddings saved locally: {local_embedding_file}")
+        logging.info(f"Saved locally: {local_file}")
+
+        # Upload to COS
+        cos_key = f"embeddings/{object_name.replace('/', '_')}.json"
+        cos_client.upload_file(Filename=local_file, Bucket=BUCKET_NAME, Key=cos_key)
+        logging.info(f"Uploaded to COS: {cos_key}")
+
+        # ➕ Insert into Milvus
+        dim = len(embeddings[0])
+        collection = create_milvus_collection("carbon_embeddings", dim)
+
+        insert_data = [
+            embeddings,                  # embeddings (List[List[float]])
+            chunks,                      # chunk_texts
+            [object_name] * len(chunks)  # file_name
+        ]
+        collection.insert(insert_data)
+        logging.info(f"Inserted {len(chunks)} vectors into Milvus for {object_name}.")
+
     except Exception as e:
-        logging.error(f"Error saving embeddings locally for {object_name}: {e}")
+        logging.error(f"Error processing {object_name}: {e}")
         continue
 
-    # Upload embeddings JSON file to IBM COS
-    embedding_cos_key = f"embeddings/{object_name.replace('/', '_')}.json"
-    try:
-        cos_client.upload_file(Filename=local_embedding_file, Bucket=BUCKET_NAME, Key=embedding_cos_key)
-        logging.info(f"Embeddings uploaded to COS: {embedding_cos_key}")
-    except Exception as e:
-        logging.error(f"Error uploading embeddings to COS for {object_name}: {e}")
-        continue
-
-logging.info("Embedding processing completed successfully.")
+logging.info("All files processed successfully.")

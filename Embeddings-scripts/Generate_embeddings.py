@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from io import BytesIO
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import ibm_boto3
 from ibm_botocore.client import Config
 from ibm_watsonx_ai import Credentials
@@ -13,7 +13,7 @@ from docx import Document
 from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
 
 # Load .env values
-load_dotenv()
+load_dotenv(override=True)
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -31,10 +31,6 @@ WATSON_STUDIO_PROJECT_ID = os.getenv("WATSON_STUDIO_PROJECT_ID")
 MILVUS_HOST = os.getenv("MILVUS_GRPC_HOST")
 MILVUS_PORT = os.getenv("MILVUS_GRPC_PORT")
 print(MILVUS_HOST, MILVUS_PORT, type(MILVUS_HOST), type(MILVUS_PORT))
-
-# IBM User Config
-IBM_USERNAME = os.getenv("IBM_USERNAME")
-IBM_PASSWORD = os.getenv("IBM_PASSWORD")
 
 if not all([COS_API_KEY, COS_INSTANCE_ID, COS_ENDPOINT, BUCKET_NAME]):
     logging.error("Missing required environment variables.")
@@ -79,20 +75,28 @@ def chunk_text(text, max_chars=400):  # Reduced to stay within token limits
     return chunks
 
 def create_milvus_collection(collection_name: str, dim: int):
-    if collection_name in Collection.list():
-        return Collection(name=collection_name)
-
-    fields = [
-        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
-        FieldSchema(name="chunk_text", dtype=DataType.VARCHAR, max_length=1000),
-        FieldSchema(name="file_name", dtype=DataType.VARCHAR, max_length=500)
-    ]
-    schema = CollectionSchema(fields, description="CarbonSense document embeddings")
-    collection = Collection(name=collection_name, schema=schema)
-    collection.create_index(field_name="embedding", index_params={"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 1024}})
-    collection.load()
-    return collection
+    try:
+        # Try to get existing collection
+        collection = Collection(name=collection_name)
+        logging.info(f"Collection '{collection_name}' already exists")
+        collection.load()
+        return collection
+    except Exception as e:
+        logging.info(f"Creating new collection '{collection_name}'")
+        fields = [
+            FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),  # Fixed dimension for IBM SLATE 30M
+            FieldSchema(name="chunk_text", dtype=DataType.VARCHAR, max_length=1000),
+            FieldSchema(name="file_name", dtype=DataType.VARCHAR, max_length=500)
+        ]
+        schema = CollectionSchema(fields, description="CarbonSense document embeddings")
+        collection = Collection(name=collection_name, schema=schema)
+        collection.create_index(
+            field_name="embedding",
+            index_params={"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 1024}}
+        )
+        collection.load()
+        return collection
 
 # Process files from COS
 response = cos_client.list_objects_v2(Bucket=BUCKET_NAME)
@@ -148,13 +152,22 @@ for obj in contents:
         dim = len(embeddings[0])
         collection = create_milvus_collection("carbon_embeddings", dim)
 
-        insert_data = [
-            embeddings,                  # embeddings (List[List[float]])
-            chunks,                      # chunk_texts
-            [object_name] * len(chunks)  # file_name
-        ]
-        collection.insert(insert_data)
+        # Prepare data for insertion
+        entities = []
+        for i in range(len(chunks)):
+            entities.append({
+                "embedding": embeddings[i],
+                "chunk_text": chunks[i],
+                "file_name": object_name
+            })
+
+        # Insert data
+        collection.insert(entities)
         logging.info(f"Inserted {len(chunks)} vectors into Milvus for {object_name}.")
+
+        # Flush to ensure data is persisted
+        collection.flush()
+        logging.info(f"Flushed data for {object_name}")
 
     except Exception as e:
         logging.error(f"Error processing {object_name}: {e}")

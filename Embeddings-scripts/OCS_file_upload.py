@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
+from ibm_botocore.client import Config, ClientError
 import ibm_boto3
-from ibm_botocore.client import Config
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,7 +27,7 @@ cos = ibm_boto3.client(
 
 # Define local file paths and corresponding object names in IBM COS
 files_to_upload = {
-    "/Users/rajatsharma/IBM-CarbonSense-powered-by-Watsonx/Data/dataset_carbon.xlsx"
+    "/Users/rajatsharma/IBM-CarbonSense-powered-by-Watsonx/Data/dataset_carbon.xlsx": "dataset_carbon.xlsx"
 }
 
 # Upload function

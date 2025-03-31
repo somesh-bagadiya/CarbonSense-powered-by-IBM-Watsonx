@@ -27,9 +27,7 @@ cos = ibm_boto3.client(
 
 # Define local file paths and corresponding object names in IBM COS
 files_to_upload = {
-    r"C:\Users\somes\OneDrive\Documents\GitHub\IBM-CarbonSense-powered-by-Watsonx\Data\NAICS_byGHG_CO2e_USD2022\Aboutv1.3SupplyChainGHGEmissionFactors.docx": "documents/Aboutv1.3SupplyChainGHGEmissionFactors.docx",
-    r"C:\Users\somes\OneDrive\Documents\GitHub\IBM-CarbonSense-powered-by-Watsonx\Data\NAICS_byGHG_CO2e_USD2022\SupplyChainGHGEmissionFactors_v1.3.0_NAICS_byGHG_USD2022.csv": "documents/SupplyChainGHGEmissionFactors_v1.3.0_NAICS_byGHG_USD2022.csv",
-    r"C:\Users\somes\OneDrive\Documents\GitHub\IBM-CarbonSense-powered-by-Watsonx\Data\NAICS_byGHG_CO2e_USD2022\SupplyChainGHGEmissionFactors_v1.3.0_NAICS_CO2e_USD2022.csv": "documents/SupplyChainGHGEmissionFactors_v1.3.0_NAICS_CO2e_USD2022.csv",
+    "/Users/rajatsharma/IBM-CarbonSense-powered-by-Watsonx/Data/dataset_carbon.xlsx"
 }
 
 # Upload function

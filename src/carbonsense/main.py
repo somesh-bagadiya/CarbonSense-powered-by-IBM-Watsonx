@@ -52,32 +52,42 @@ def main():
                 
         elif args.mode == "verify":
             milvus = MilvusService(config)
-            stats = milvus.verify_collection("carbon_embeddings_granite")
             
-            if "error" in stats:
-                print(f"Error: {stats['error']}")
-            else:
-                print("\nCollection Verification Results:")
+            # Check all model collections
+            collections = {
+                "30m": "carbon_embeddings_30m",
+                "125m": "carbon_embeddings_125m",
+                "granite": "carbon_embeddings_granite"
+            }
+            
+            for model_name, collection_name in collections.items():
+                print(f"\nVerifying {model_name} model collection:")
                 print("=" * 80)
-                print(f"Total vectors: {stats['num_entities']}")
-                print(f"Unique files: {len(stats['unique_files'])}")
-                print(f"Model types: {', '.join(stats['model_types'])}")
                 
-                print("\nData Consistency:")
-                print("-" * 40)
-                print(f"Has valid embeddings: {stats.get('has_valid_embeddings', 'Unknown')}")
-                print(f"Has valid metadata: {stats.get('has_valid_metadata', 'Unknown')}")
-                if 'data_consistency_error' in stats:
-                    print(f"Data consistency error: {stats['data_consistency_error']}")
+                stats = milvus.verify_collection(collection_name)
                 
-                print("\nFiles in collection:")
-                for file in stats['unique_files']:
-                    print(f"- {file}")
-                
-                print("\nSchema:")
-                print(stats['schema'])
-                print("\nIndexes:")
-                print(stats['indexes'])
+                if "error" in stats:
+                    print(f"Error: {stats['error']}")
+                else:
+                    print(f"Total vectors: {stats['num_entities']}")
+                    print(f"Unique files: {len(stats['unique_files'])}")
+                    print(f"Model types: {', '.join(stats['model_types'])}")
+                    
+                    print("\nData Consistency:")
+                    print("-" * 40)
+                    print(f"Has valid embeddings: {stats.get('has_valid_embeddings', 'Unknown')}")
+                    print(f"Has valid metadata: {stats.get('has_valid_metadata', 'Unknown')}")
+                    if 'data_consistency_error' in stats:
+                        print(f"Data consistency error: {stats['data_consistency_error']}")
+                    
+                    print("\nFiles in collection:")
+                    for file in stats['unique_files']:
+                        print(f"- {file}")
+                    
+                    print("\nSchema:")
+                    print(stats['schema'])
+                    print("\nIndexes:")
+                    print(stats['indexes'])
                 
         elif args.mode == "cleanup":
             try:

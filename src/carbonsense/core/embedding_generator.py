@@ -33,11 +33,15 @@ class EmbeddingGenerator:
     def _is_file_processed(self, file_name: str, use_125m: bool = False, use_granite: bool = False) -> bool:
         """Check if a file has already been processed."""
         try:
-            # Check local embeddings
-            local_path = os.path.join("Embeddings", f"{file_name}.json")
+            # Determine model type and directory
+            model_type = "granite" if use_granite else "125m" if use_125m else "30m"
+            model_dir = os.path.join("Embeddings", f"Embeddings_{model_type}")
+            
+            # Check local embeddings in model-specific directory
+            local_path = os.path.join(model_dir, f"{file_name}.json")
             if os.path.exists(local_path):
                 # Check if embeddings exist in Milvus
-                collection_name = "carbon_embeddings_granite" if use_granite else "carbon_embeddings_125m" if use_125m else "carbon_embeddings_30m"
+                collection_name = f"carbon_embeddings_{model_type}"
                 
                 # First check if collection exists
                 if not self.milvus.collection_exists(collection_name):
@@ -54,8 +58,8 @@ class EmbeddingGenerator:
                     logger.info(f"File '{file_name}' exists locally but not in Milvus, will be reprocessed")
                     return False
             
-            # Check COS embeddings
-            cos_path = f"embeddings/{file_name}.json"
+            # Check COS embeddings in model-specific directory
+            cos_path = f"embeddings/{model_type}/{file_name}.json"
             if self.cos.file_exists(cos_path):
                 logger.info(f"File '{file_name}' already processed and exists in COS")
                 return True
@@ -244,15 +248,21 @@ class EmbeddingGenerator:
             use_granite: Whether to use granite model
         """
         try:
-            # Save locally
-            os.makedirs("Embeddings", exist_ok=True)
-            local_path = os.path.join("Embeddings", f"{object_name}.json")
+            # Determine model type and directory
+            model_type = "granite" if use_granite else "125m" if use_125m else "30m"
+            model_dir = os.path.join("Embeddings", f"Embeddings_{model_type}")
+            
+            # Create model-specific directory if it doesn't exist
+            os.makedirs(model_dir, exist_ok=True)
+            
+            # Save locally in model-specific directory
+            local_path = os.path.join(model_dir, f"{object_name}.json")
             
             # Prepare data for saving
             data = {
                 "chunks": chunks,
                 "embeddings": embeddings,
-                "model_type": "granite" if use_granite else "125m" if use_125m else "30m",
+                "model_type": model_type,
                 "timestamp": datetime.now().isoformat()
             }
             
@@ -261,8 +271,8 @@ class EmbeddingGenerator:
                 json.dump(data, f, indent=2)
             logger.info(f"Saved embeddings locally to {local_path}")
             
-            # Save to COS
-            cos_path = f"embeddings/{object_name}.json"
+            # Save to COS with model-specific path
+            cos_path = f"embeddings/{model_type}/{object_name}.json"
             self.cos.upload_file(local_path, cos_path)
             logger.info(f"Uploaded embeddings to COS at {cos_path}")
             

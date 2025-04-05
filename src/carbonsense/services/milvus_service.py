@@ -377,12 +377,29 @@ class MilvusService:
     def _get_unique_values(self, collection: Collection, field: str) -> List[str]:
         """Get unique values for a field in the collection."""
         try:
-            results = collection.query(
-                expr=f"{field} != ''",
-                output_fields=[field],
-                limit=1000  # Limit to prevent memory issues
-            )
-            return list(set(result[field] for result in results))
+            unique_values = set()
+            offset = 0
+            batch_size = 1000
+            
+            while True:
+                results = collection.query(
+                    expr=f"{field} != ''",
+                    output_fields=[field],
+                    offset=offset,
+                    limit=batch_size
+                )
+                
+                if not results:
+                    break
+                    
+                unique_values.update(result[field] for result in results)
+                offset += batch_size
+                
+                # If we got fewer results than the batch size, we've reached the end
+                if len(results) < batch_size:
+                    break
+            
+            return list(unique_values)
         except Exception as e:
             logger.error(f"Error getting unique values for field {field}: {str(e)}")
             return []

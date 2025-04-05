@@ -31,4 +31,4 @@ except socket.gaierror as e:
 
 except Exception as e:
     print(f"❌ Failed to fetch certificate from {host}:{port}")
-    print(f"Error: {e}")
+    print(f"Error: {e}") 

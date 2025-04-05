@@ -45,7 +45,7 @@ class COSService:
                 
             with open(file_path, "rb") as data:
                 self.client.put_object(
-                    Bucket=self.cos_config["bucket_name"],
+                    Bucket=self.cos_config["bucket"],
                     Key=object_key,
                     Body=data
                 )
@@ -68,7 +68,7 @@ class COSService:
         """
         try:
             self.client.download_file(
-                Bucket=self.cos_config["bucket_name"],
+                Bucket=self.cos_config["bucket"],
                 Key=object_key,
                 Filename=local_path
             )
@@ -86,7 +86,7 @@ class COSService:
             List of dictionaries containing file information
         """
         try:
-            objects = self.client.list_objects_v2(Bucket=self.cos_config["bucket_name"])
+            objects = self.client.list_objects_v2(Bucket=self.cos_config["bucket"])
             if "Contents" not in objects:
                 logging.warning("No files found in the bucket")
                 return []
@@ -115,7 +115,7 @@ class COSService:
         """
         try:
             self.client.delete_object(
-                Bucket=self.cos_config["bucket_name"],
+                Bucket=self.cos_config["bucket"],
                 Key=object_key
             )
             logging.info(f"Deleted: {object_key}")
@@ -123,4 +123,25 @@ class COSService:
             
         except Exception as e:
             logging.error(f"Error deleting {object_key}: {str(e)}")
+            return False
+    
+    def file_exists(self, object_name: str) -> bool:
+        """Check if a file exists in COS.
+        
+        Args:
+            object_name: Name of the file to check
+            
+        Returns:
+            bool: True if file exists, False otherwise
+        """
+        try:
+            self.client.head_object(
+                Bucket=self.config.get_cos_config()["bucket"],
+                Key=object_name
+            )
+            return True
+        except Exception as e:
+            if "404" in str(e):
+                return False
+            logging.error(f"Error checking if file {object_name} exists: {str(e)}")
             return False 

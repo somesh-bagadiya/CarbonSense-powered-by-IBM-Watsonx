@@ -1,0 +1,94 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Environment variables
+.env
+*.env
+
+# Certificates
+*.crt
+*.key
+*.pem
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Data files
+*.csv
+*.xlsx
+*.xls
+*.json
+*.docx
+*.doc
+
+# Logs
+*.log
+logs/
+log/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Test cache
+.pytest_cache/
+.mypy_cache/
+
+# Embeddings and model files
+embeddings/
+models/
+*.bin
+*.h5
+*.pkl
+
+# Keep specific data files
+!requirements.txt
+!setup.py
+!pyproject.toml
+!pytest.ini
+!.flake8
+!mypy.ini

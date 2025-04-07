@@ -193,8 +193,8 @@ class MilvusService:
                     logger.error(f"Missing required field '{field}' in entity")
                     return False
                 
-                if not isinstance(entity[field], field_type):
-                    logger.error(f"Field '{field}' must be of type {field_type.__name__}")
+                    if not isinstance(entity[field], field_type):
+                        logger.error(f"Field '{field}' must be of type {field_type.__name__}")
                     return False
                 
             # Validate embedding
@@ -426,7 +426,7 @@ class MilvusService:
                 f"- Traceback:\n{traceback.format_exc()}"
             )
             logger.error(error_msg)
-            raise
+            raise 
 
     def search_vectors(self, collection_name: str, query_embedding: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
         """Search for similar vectors in a collection.
@@ -446,6 +446,16 @@ class MilvusService:
 
             collection = Collection(collection_name)
             collection.load()
+            
+            # Get collection schema to verify vector dimensions
+            schema = collection.schema
+            for field in schema.fields:
+                if field.name == "embedding":
+                    expected_dim = field.dim
+                    actual_dim = len(query_embedding)
+                    if expected_dim != actual_dim:
+                        logger.error(f"Vector dimension mismatch. Expected: {expected_dim}, Actual: {actual_dim}")
+                        return []
             
             # Prepare search parameters
             search_params = {
@@ -476,11 +486,8 @@ class MilvusService:
             return formatted_results
             
         except Exception as e:
-            error_msg = (
-                f"Error searching vectors in collection '{collection_name}'. Details:\n"
-                f"- Error Type: {type(e).__name__}\n"
-                f"- Error Message: {str(e)}\n"
-                f"- Traceback:\n{traceback.format_exc()}"
-            )
-            logger.error(error_msg)
+            logger.error(f"Error searching vectors in collection '{collection_name}'. Details:\n"
+                        f"- Error Type: {type(e).__name__}\n"
+                        f"- Error Message: {str(e)}\n"
+                        f"- Traceback:\n{traceback.format_exc()}")
             return [] 

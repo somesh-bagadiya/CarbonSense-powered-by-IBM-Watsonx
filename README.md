@@ -233,3 +233,28 @@ The system implements comprehensive logging:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Watson Discovery Setup
+
+To enable web search functionality using Watson Discovery:
+
+1. Create a Watson Discovery instance in IBM Cloud:
+   - Go to [IBM Cloud](https://cloud.ibm.com)
+   - Create a new Watson Discovery service
+   - Note down the API key and service URL
+
+2. Create a project:
+   - In the Watson Discovery dashboard, create a new project
+   - Note down the project ID
+
+3. Set the following environment variables:
+   ```bash
+   export WATSON_DISCOVERY_API_KEY=your-api-key
+   export WATSON_DISCOVERY_URL=your-service-url
+   export WATSON_DISCOVERY_PROJECT_ID=your-project-id
+   ```
+
+4. Test the integration:
+   ```bash
+   python test_discovery.py
+   ```

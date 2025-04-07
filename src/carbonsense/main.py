@@ -7,16 +7,17 @@ from .utils.logger import setup_logger
 import os
 from .services.milvus_service import MilvusService
 import sys
+# from ..core.carbon_agent import CarbonAgent
 
 # Set up logger
 logger = setup_logger(__name__)
 
 def main():
     """Main entry point for the application."""
-    parser = argparse.ArgumentParser(description="CarbonSense CLI")
+    parser = argparse.ArgumentParser(description="CarbonSense - Carbon Footprint Analysis")
     parser.add_argument("--mode", choices=["generate", "query", "verify", "cleanup"], required=True, help="Operation mode")
     parser.add_argument("--model", choices=["125m", "granite", "30m"], help="Model to use for embeddings")
-    parser.add_argument("--query", help="Query text for RAG")
+    parser.add_argument("--query", help="Query string for query mode")
     parser.add_argument("--show_context", action="store_true", help="Show context in query results")
     parser.add_argument("--files", nargs="+", help="Specific files to process")
     args = parser.parse_args()
@@ -33,23 +34,33 @@ def main():
             generator.process_all_files(use_125m, use_granite, args.files)
             
         elif args.mode == "query":
-            query_service = QueryService(config)
-            result = query_service.process_query(args.query, args.show_context)
+            if not args.query:
+                print("Error: --query argument is required for query mode")
+                return
             
-            # Print results
-            print("\nQuery Results:")
-            print("=" * 80)
-            print(f"Query: {result['query']}\n")
-            
-            for i, r in enumerate(result['results'], 1):
-                print(f"\nResult {i}:")
-                print(f"File: {r['file_name']}")
-                print(f"Score: {r['score']:.4f}")
-                print(f"Text: {r['chunk']}")
-                if 'context' in r:
-                    print(f"Context: {r['context']}")
-                print("-" * 80)
+            try:
+                agent = CarbonAgent(config)
+                result = agent.process_query(args.query)
                 
+                if "error" in result:
+                    print(f"Error: {result['error']}")
+                    return
+                
+                print("\nResponse:")
+                print("=" * 80)
+                print(result["response"])
+                
+                if args.show_context:
+                    print("\nSources:")
+                    print("-" * 40)
+                    for source in result["sources"]:
+                        print(f"- {source}")
+                
+                print(f"\nConfidence Score: {result['confidence']:.2f}")
+                
+            except Exception as e:
+                print(f"Error processing query: {str(e)}")
+            
         elif args.mode == "verify":
             milvus = MilvusService(config)
             
@@ -91,23 +102,14 @@ def main():
                 
         elif args.mode == "cleanup":
             try:
-                from cleanup import CleanupManager
-                cleanup_manager = CleanupManager()
+                from .services.cleanup_service import CleanupService
+                cleanup_service = CleanupService(config)
                 
                 print("\nStarting cleanup process...")
                 print("=" * 80)
                 
-                # Clean up COS bucket
-                print("\nCleaning up COS bucket...")
-                cleanup_manager.cleanup_cos_bucket()
-                
-                # Clean up Milvus collections
-                print("\nCleaning up Milvus collections...")
-                cleanup_manager.cleanup_milvus()
-                
-                # Clean up local embeddings
-                print("\nCleaning up local embeddings...")
-                cleanup_manager.cleanup_local_embeddings()
+                # Use the cleanup_all method which handles everything properly
+                cleanup_service.cleanup_all()
                 
                 print("\nCleanup completed successfully")
                 

@@ -2,6 +2,8 @@ import os
 import json
 from typing import Dict, Any
 from pathlib import Path
+import logging
+from dotenv import load_dotenv
 
 class ConfigManager:
     """Manager for application configuration."""
@@ -14,6 +16,28 @@ class ConfigManager:
         """
         self.config_path = config_path or os.getenv('CONFIG_PATH', 'config.json')
         self.config = self._load_config()
+        load_dotenv(override=True)
+        self._validate_environment()
+    
+    def _validate_environment(self) -> None:
+        """Validates required environment variables."""
+        required_vars = {
+            "COS_API_KEY": "IBM Cloud Object Storage API Key",
+            "COS_INSTANCE_ID": "IBM Cloud Object Storage Instance ID",
+            "COS_ENDPOINT": "IBM Cloud Object Storage Endpoint",
+            "BUCKET_NAME": "IBM Cloud Object Storage Bucket Name",
+            "WATSON_STUDIO_PROJECT_ID": "Watson Studio Project ID",
+            "MILVUS_GRPC_HOST": "Milvus GRPC Host",
+            "MILVUS_GRPC_PORT": "Milvus GRPC Port",
+            "MILVUS_CERT_PATH": "Milvus Certificate Path",
+            "WATSON_DISCOVERY_API_KEY": "Watson Discovery API Key",
+            "WATSON_DISCOVERY_URL": "Watson Discovery Service URL",
+            "WATSON_DISCOVERY_PROJECT_ID": "Watson Discovery Project ID"
+        }
+        
+        missing_vars = [var for var, desc in required_vars.items() if not os.getenv(var)]
+        if missing_vars:
+            raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
     
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from file."""
@@ -104,6 +128,30 @@ class ConfigManager:
             "chunk_size": 1000,
             "overlap": 200
         })
+    
+    def get_web_search_config(self) -> Dict[str, str]:
+        """Get web search configuration.
+        
+        Returns:
+            Dictionary containing web search API settings
+        """
+        return {
+            "api_key": os.getenv("GOOGLE_SEARCH_API_KEY", ""),
+            "engine_id": os.getenv("GOOGLE_SEARCH_ENGINE_ID", "")
+        }
+    
+    def get_discovery_config(self) -> Dict[str, str]:
+        """Get Watson Discovery configuration.
+        
+        Returns:
+            Dictionary containing Watson Discovery configuration
+        """
+        return {
+            "api_key": os.getenv("WATSON_DISCOVERY_API_KEY"),
+            "url": os.getenv("WATSON_DISCOVERY_URL"),
+            "version": os.getenv("WATSON_DISCOVERY_VERSION", "2023-11-17"),
+            "project_id": os.getenv("WATSON_DISCOVERY_PROJECT_ID")
+        }
     
     def save_config(self):
         """Save configuration to file."""

@@ -54,5 +54,4 @@ foreach ($dir in $directories) {
 
 Write-Host "`nSetup complete! Next steps:"
 Write-Host "1. Update the .env file with your credentials"
-Write-Host "2. Run 'python -m carbonsense.main --mode generate' to generate embeddings"
-Write-Host "3. Run 'uvicorn carbonsense.api.app:app --reload' to start the API server" 
+Write-Host "2. Run 'python -m carbonsense.main --mode generate' to generate embeddings" 

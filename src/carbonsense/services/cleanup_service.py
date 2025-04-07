@@ -1,65 +1,53 @@
 import os
 import logging
-from dotenv import load_dotenv
-from pymilvus import connections, Collection
+from typing import Dict, Any
+from pymilvus import connections, Collection, utility
 import ibm_boto3
 from ibm_botocore.client import Config
+from ..config.config_manager import ConfigManager
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class CleanupManager:
-    """Manages cleanup of stored files and embeddings."""
+class CleanupService:
+    """Service for cleaning up stored files and embeddings."""
     
-    def __init__(self):
-        """Initialize the cleanup manager."""
-        load_dotenv(override=True)
-        self._validate_environment()
+    def __init__(self, config: ConfigManager):
+        """Initialize the cleanup service.
+        
+        Args:
+            config: Configuration manager instance
+        """
+        self.config = config
         self._init_clients()
         
-    def _validate_environment(self) -> None:
-        """Validates required environment variables."""
-        required_vars = {
-            "COS_API_KEY": "IBM Cloud Object Storage API Key",
-            "COS_INSTANCE_ID": "IBM Cloud Object Storage Instance ID",
-            "COS_ENDPOINT": "IBM Cloud Object Storage Endpoint",
-            "BUCKET_NAME": "IBM Cloud Object Storage Bucket Name",
-            "MILVUS_GRPC_HOST": "Milvus GRPC Host",
-            "MILVUS_GRPC_PORT": "Milvus GRPC Port",
-            "MILVUS_CERT_PATH": "Milvus Certificate Path"
-        }
-        
-        missing_vars = [var for var, desc in required_vars.items() if not os.getenv(var)]
-        if missing_vars:
-            raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
-    
     def _init_clients(self) -> None:
         """Initialize COS and Milvus clients."""
         # Initialize COS client
+        cos_config = self.config.get_cos_config()
         self.cos_client = ibm_boto3.client(
             "s3",
-            ibm_api_key_id=os.getenv("COS_API_KEY"),
-            ibm_service_instance_id=os.getenv("COS_INSTANCE_ID"),
+            ibm_api_key_id=cos_config["api_key"],
+            ibm_service_instance_id=cos_config["instance_id"],
             config=Config(signature_version="oauth"),
-            endpoint_url=os.getenv("COS_ENDPOINT")
+            endpoint_url=cos_config["endpoint"]
         )
         
         # Initialize Milvus connection
+        milvus_config = self.config.get_milvus_config()
         connections.connect(
             alias="default",
-            host=os.getenv("MILVUS_GRPC_HOST"),
-            port=os.getenv("MILVUS_GRPC_PORT"),
+            host=milvus_config["host"],
+            port=milvus_config["port"],
             user="ibmlhapikey",
-            password=os.getenv("COS_API_KEY"),
+            password=cos_config["api_key"],
             secure=True,
-            server_ca=os.getenv("MILVUS_CERT_PATH")
+            server_ca=milvus_config["cert_path"]
         )
     
     def cleanup_cos_bucket(self) -> None:
         """Delete all files from the COS bucket."""
         try:
-            bucket_name = os.getenv("BUCKET_NAME")
+            bucket_name = self.config.get_cos_config()["bucket_name"]
             
             # List all objects in the bucket
             objects = self.cos_client.list_objects_v2(Bucket=bucket_name)
@@ -88,7 +76,6 @@ class CleanupManager:
         """Drop all collections from Milvus."""
         try:
             # Get list of collections
-            from pymilvus import utility
             collections = utility.list_collections()
             
             # Drop each collection
@@ -149,12 +136,4 @@ class CleanupManager:
             raise
         finally:
             # Close Milvus connection
-            connections.disconnect("default")
-
-if __name__ == "__main__":
-    try:
-        cleanup_manager = CleanupManager()
-        cleanup_manager.cleanup_all()
-    except Exception as e:
-        logger.error(f"Cleanup failed: {str(e)}")
-        exit(1) 
+            connections.disconnect("default") 

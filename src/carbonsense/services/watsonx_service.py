@@ -63,7 +63,7 @@ class WatsonxService:
     def _init_llm_model(self) -> ModelInference:
         """Initialize Watsonx LLM model."""
         return ModelInference(
-            model_id=ModelTypes.GRANITE_13B_INSTRUCT_V2,
+            model_id="meta-llama/llama-3-3-70b-instruct",
             project_id=self.watsonx_config["project_id"],
             credentials=self.credentials
         )
@@ -109,7 +109,7 @@ class WatsonxService:
             max_retries = 3
             batch_size = self._calculate_optimal_batch_size(model_type, total_texts)
             
-            logging.info(f"\n🤖 Starting embedding generation for {total_texts} texts using {model_type} model")
+            logging.info(f"Starting embedding generation for {total_texts} texts using {model_type} model")
             logging.info(f"Using batch size: {batch_size}")
             
             # Initialize performance metrics

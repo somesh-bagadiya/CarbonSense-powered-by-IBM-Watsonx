@@ -54,13 +54,13 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Data files
-*.csv
-*.xlsx
-*.xls
-*.json
-*.docx
-*.doc
+# # Data files
+# *.csv
+# *.xlsx
+# *.xls
+# *.json
+# *.docx
+# *.doc
 
 # Logs
 *.log
@@ -85,10 +85,10 @@ models/
 *.h5
 *.pkl
 
-# Keep specific data files
-!requirements.txt
-!setup.py
-!pyproject.toml
-!pytest.ini
-!.flake8
-!mypy.ini
+# # Keep specific data files
+# !requirements.txt
+# !setup.py
+# !pyproject.toml
+# !pytest.ini
+# !.flake8
+# !mypy.ini

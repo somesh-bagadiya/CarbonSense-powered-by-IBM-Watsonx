@@ -196,18 +196,6 @@ Available options:
 - `--show_context`: Optional. Shows the sources used to generate the answer
 - `--model`: Optional. Specify which model to use (30m, 125m, or granite)
 
-### 4. Cleanup
-
-#### Clean All Data
-
-```powershell
-python -m carbonsense.main --mode cleanup
-```
-
-Available options:
-
-- `--mode cleanup`: Required. Specifies the cleanup mode
-
 ## Troubleshooting
 
 ### 1. Common Issues

@@ -9,6 +9,14 @@ For detailed technical documentation, please refer to:
 
 ## Prerequisites
 
+### 1. System Requirements
+
+- Python 3.8 or higher
+- 8GB RAM minimum (16GB recommended)
+- 20GB free disk space
+- Internet connection for API access
+- Windows operating system (for Windows-specific setup)
+
 ### 2. Required Services
 
 - IBM Cloud Account
@@ -26,23 +34,43 @@ git clone https://github.com/your-org/IBM-CarbonSense-powered-by-Watsonx.git
 cd IBM-CarbonSense-powered-by-Watsonx
 ```
 
-### 2. Setup Environment (Windows)
+### 2. Create and Activate Virtual Environment
 
 ```powershell
-# Run the setup script
-.\scripts\setup.ps1
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+.\venv\Scripts\activate
 ```
 
-The setup script will:
+### 3. Install Dependencies
 
-- Create a virtual environment
-- Install dependencies
-- Create a `.env` file template
-- Set up required directories
+```powershell
+# Install the package and its dependencies
+pip install -e .
+```
 
-### 3. Environment Configuration
+This will install all required dependencies:
+- python-dotenv (>=0.19.0)
+- ibm-watsonx-ai (>=0.1.0)
+- ibm-cos-sdk (>=2.0.0)
+- pymilvus (>=2.3.0)
+- python-docx (>=0.8.11)
+- pydantic (>=1.8.2)
+- pandas (>=2.0.0)
+- openpyxl (>=3.0.0)
+- ibm-watson (>=7.0.0)
+- ibm-cloud-sdk-core (>=3.16.0)
+- requests (>=2.31.0)
+- numpy (>=1.24.0)
+- tqdm (>=4.65.0)
+- python-magic (>=0.4.27)
+- python-magic-bin (>=0.4.14) [Windows only]
 
-Update the `.env` file with your credentials:
+### 4. Environment Configuration
+
+Create a `.env` file in the root directory with your credentials:
 
 ```env
 # IBM Cloud Object Storage
@@ -67,27 +95,24 @@ WATSON_DISCOVERY_URL=your_discovery_url
 WATSON_DISCOVERY_PROJECT_ID=your_discovery_project_id
 ```
 
-### 4. Fetch Milvus Certificates
+### 5. Fetch Milvus Certificates
 
 Before using the system, you need to fetch the required Milvus certificates:
 
-```bash
+```powershell
 # Fetch and install Milvus certificates
 python -m carbonsense.main --mode fetch_certs
 ```
 
 This command will:
-
-- Create a `milvus_cert` directory
-- Download the root CA certificate
-- Download the client certificate
+- Create a backup of any existing certificate
+- Fetch the new certificate from the Milvus server
+- Save it in the root directory as `milvus-grpc.crt`
 - Update the environment variables
-
-The certificates will be stored in the `milvus_cert` directory by default. You can specify a different path in your `.env` file using the `MILVUS_CERT_PATH` variable.
 
 ## Directory Structure
 
-The setup script creates the following structure:
+The system creates the following structure:
 
 ```
 .
@@ -100,9 +125,7 @@ The setup script creates the following structure:
 │   ├── embeddings_30m/   # 30M model embeddings
 │   ├── embeddings_125m/  # 125M model embeddings
 │   └── embeddings_granite/# Granite model embeddings
-├── milvus_cert/          # Milvus certificates
-│   ├── root_ca.pem       # Root CA certificate
-│   └── client.pem        # Client certificate
+├── milvus-grpc.crt       # Milvus certificate
 ├── src/                  # Source code
 │   └── carbonsense/     # Main package
 └── scripts/             # Utility scripts
@@ -114,7 +137,7 @@ The setup script creates the following structure:
 
 #### Process All Files
 
-```bash
+```powershell
 # Use default model (30M)
 python -m carbonsense.main --mode generate
 
@@ -126,7 +149,6 @@ python -m carbonsense.main --mode generate --files Data_processed/Global/file1.x
 ```
 
 Available options:
-
 - `--mode generate`: Required. Specifies the generation mode
 - `--model`: Optional. Specify which model to use (30m, 125m, or granite)
 - `--files`: Optional. List of specific files to process
@@ -135,45 +157,35 @@ Available options:
 
 #### Verify All Models
 
-```bash
+```powershell
 python -m carbonsense.main --mode verify
 ```
 
 #### Verify Specific Model
 
-```bash
+```powershell
 python -m carbonsense.main --mode verify --model granite
 ```
 
 Available options:
-
 - `--mode verify`: Required. Specifies the verification mode
 - `--model`: Optional. Specify which model to verify (30m, 125m, or granite)
-
-The verification process will:
-
-- Check collection statistics
-- Verify data consistency
-- List all files in the collection
-- Display schema and index information
-- Show model types and unique files
 
 ### 3. Querying Data
 
 #### Basic Query
 
-```bash
+```powershell
 python -m carbonsense.main --mode rag_agent --query "What is the carbon footprint of 10 paper napkins?"
 ```
 
 #### Query with Context
 
-```bash
+```powershell
 python -m carbonsense.main --mode rag_agent --query "your question" --show_context
 ```
 
 Available options:
-
 - `--mode rag_agent`: Required. Specifies the query mode
 - `--query`: Required. The question to ask about carbon footprint
 - `--show_context`: Optional. Shows the sources used to generate the answer
@@ -183,12 +195,11 @@ Available options:
 
 #### Clean All Data
 
-```bash
+```powershell
 python -m carbonsense.main --mode cleanup
 ```
 
 Available options:
-
 - `--mode cleanup`: Required. Specifies the cleanup mode
 
 ## Troubleshooting

@@ -3,6 +3,7 @@
 A comprehensive system for carbon footprint data analysis powered by IBM watsonx.ai. This system processes, analyzes, and provides insights into carbon footprint data from various sources.
 
 For detailed technical documentation, please refer to:
+
 - [Implementation Details](IMPLEMENTATION.md) - Technical implementation details and configurations
 - [System Architecture](ARCHITECTURE.md) - System design and component interactions
 
@@ -116,9 +117,7 @@ The setup script creates the following structure:
 
 ## Usage
 
-### 1. Data Preparation
-
-### 2. Generating Embeddings
+### 1. Generating Embeddings
 
 #### Process All Files
 
@@ -139,7 +138,7 @@ Available options:
 - `--model`: Optional. Specify which model to use (30m, 125m, or granite)
 - `--files`: Optional. List of specific files to process
 
-### 3. Verification
+### 2. Verification
 
 #### Verify All Models
 
@@ -166,7 +165,7 @@ The verification process will:
 - Display schema and index information
 - Show model types and unique files
 
-### 4. Querying Data
+### 3. Querying Data
 
 #### Basic Query
 
@@ -187,7 +186,7 @@ Available options:
 - `--show_context`: Optional. Shows the sources used to generate the answer
 - `--model`: Optional. Specify which model to use (30m, 125m, or granite)
 
-### 5. Cleanup
+### 4. Cleanup
 
 #### Clean All Data
 

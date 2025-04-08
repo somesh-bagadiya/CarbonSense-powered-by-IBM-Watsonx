@@ -30,7 +30,7 @@ def fetch_certificates(config: ConfigManager) -> None:
         
         # Backup existing certificate if it exists
         if os.path.exists(cert_file):
-            backup_file = f"{cert_file}_backup_{int(time.time())}"
+            backup_file = os.path.join(cert_path, f"milvus-grpc_backup_{int(time.time())}.crt")
             shutil.copy2(cert_file, backup_file)
             logger.info(f"✅ Existing certificate backed up to: {backup_file}")
         

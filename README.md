@@ -1,4 +1,4 @@
-# IBM CarbonSense powered by Watsonx
+# CarbonSense powered IBM by Watsonx
 
 A comprehensive system for carbon footprint data analysis powered by IBM watsonx.ai. This system processes, analyzes, and provides insights into carbon footprint data from various sources.
 
@@ -10,6 +10,7 @@ For detailed technical documentation, please refer to:
 ## Prerequisites
 
 <<<<<<< HEAD
+
 ### 1. System Requirements
 
 - Python 3.8 or higher
@@ -19,9 +20,18 @@ For detailed technical documentation, please refer to:
 - Windows operating system (for Windows-specific setup)
 
 ### 2. Required Services
+
 =======
+
 ### 1. Required Services
+
 >>>>>>> cce03e40a74bed45d68b4fa6a65284ee896da0ce
+>>>>>>>
+>>>>>>
+>>>>>
+>>>>
+>>>
+>>
 
 - IBM Cloud Account
 - Watsonx.ai access
@@ -56,6 +66,7 @@ pip install -e .
 ```
 
 This will install all required dependencies:
+
 - python-dotenv (>=0.19.0)
 - ibm-watsonx-ai (>=0.1.0)
 - ibm-cos-sdk (>=2.0.0)
@@ -109,6 +120,7 @@ python -m carbonsense.main --mode fetch_certs
 ```
 
 This command will:
+
 - Create a backup of any existing certificate
 - Fetch the new certificate from the Milvus server
 - Save it in the root directory as `milvus-grpc.crt`
@@ -153,6 +165,7 @@ python -m carbonsense.main --mode generate --files Data_processed/Global/file1.x
 ```
 
 Available options:
+
 - `--mode generate`: Required. Specifies the generation mode
 - `--model`: Optional. Specify which model to use (30m, 125m, or granite)
 - `--files`: Optional. List of specific files to process
@@ -172,6 +185,7 @@ python -m carbonsense.main --mode verify --model granite
 ```
 
 Available options:
+
 - `--mode verify`: Required. Specifies the verification mode
 - `--model`: Optional. Specify which model to verify (30m, 125m, or granite)
 
@@ -190,6 +204,7 @@ python -m carbonsense.main --mode rag_agent --query "your question" --show_conte
 ```
 
 Available options:
+
 - `--mode rag_agent`: Required. Specifies the query mode
 - `--query`: Required. The question to ask about carbon footprint
 - `--show_context`: Optional. Shows the sources used to generate the answer
@@ -204,6 +219,7 @@ python -m carbonsense.main --mode cleanup
 ```
 
 Available options:
+
 - `--mode cleanup`: Required. Specifies the cleanup mode
 
 ## Troubleshooting

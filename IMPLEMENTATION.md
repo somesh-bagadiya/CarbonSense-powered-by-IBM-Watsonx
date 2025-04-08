@@ -5,6 +5,7 @@
 ### 1. Data Processing Implementation
 
 #### File Ingestion
+
 ```python
 # Supported file types and their handlers
 file_handlers = {
@@ -22,6 +23,7 @@ def validate_file(file_path):
 ```
 
 #### Preprocessing Pipeline
+
 ```python
 # Text standardization
 def standardize_text(text):
@@ -31,13 +33,14 @@ def standardize_text(text):
         'co2': 'carbon dioxide', # Standardizes CO2 references
         '%': 'percent'         # Converts percentage symbols to words
     }
-    
+  
     # Special character handling - Removes or standardizes special characters
     # Context marker addition - Adds markers to identify important information
     # Excel-specific formatting - Preserves Excel-specific data formatting
 ```
 
 #### Chunking Implementation
+
 ```python
 # Excel chunking configuration
 excel_config = {
@@ -59,6 +62,7 @@ text_config = {
 ### 2. Embedding Generation
 
 #### Model Configuration
+
 ```python
 # Model specifications - Different AI models for processing text
 models = {
@@ -91,6 +95,7 @@ rate_limit = {
 ### 3. Storage Implementation
 
 #### Milvus Schema
+
 ```python
 # Collection schema definition - Structure of the database
 schema = {
@@ -122,6 +127,7 @@ index_config = {
 ```
 
 #### COS Integration
+
 ```python
 # Cloud Object Storage configuration
 cos_config = {
@@ -141,6 +147,7 @@ def upload_to_cos(file_path, object_name):
 ### 4. Query System Implementation
 
 #### CarbonAgent
+
 ```python
 class CarbonAgent:
     def __init__(self, config):
@@ -149,7 +156,7 @@ class CarbonAgent:
         self.watsonx = WatsonxService(config)    # AI model service
         self.discovery = DiscoveryService(config) # Web search service
         self.confidence_threshold = 0.6  # Minimum confidence score for results
-    
+  
     def process_query(self, query):
         # 1. Extract product and quantity - Identify key information
         # 2. Search Milvus - Find relevant data in database
@@ -159,6 +166,7 @@ class CarbonAgent:
 ```
 
 #### Web Search Integration
+
 ```python
 # Watson Discovery configuration - Web search service settings
 discovery_config = {
@@ -172,6 +180,7 @@ discovery_config = {
 ## Error Handling
 
 ### 1. Data Processing Errors
+
 ```python
 # Error handling strategies - How different errors are managed
 error_handlers = {
@@ -183,6 +192,7 @@ error_handlers = {
 ```
 
 ### 2. API Errors
+
 ```python
 # API error handling - Managing external service errors
 def handle_api_error(error):
@@ -193,6 +203,7 @@ def handle_api_error(error):
 ```
 
 ### 3. Storage Errors
+
 ```python
 # Storage error handling - Managing database issues
 def handle_storage_error(error):
@@ -205,6 +216,7 @@ def handle_storage_error(error):
 ## Performance Optimization
 
 ### 1. Batch Processing
+
 ```python
 # Batch configuration - Group processing settings
 batch_config = {
@@ -215,6 +227,7 @@ batch_config = {
 ```
 
 ### 2. Caching
+
 ```python
 # Cache configuration - Temporary storage settings
 cache_config = {
@@ -225,6 +238,7 @@ cache_config = {
 ```
 
 ### 3. Parallel Processing
+
 ```python
 # Parallel processing setup - Concurrent execution settings
 parallel_config = {
@@ -237,6 +251,7 @@ parallel_config = {
 ## Monitoring and Logging
 
 ### 1. Logging Configuration
+
 ```python
 # Logging setup - System activity recording
 logging_config = {
@@ -250,6 +265,7 @@ logging_config = {
 ```
 
 ### 2. Metrics Collection
+
 ```python
 # Metrics configuration - Performance measurement
 metrics_config = {
@@ -260,6 +276,7 @@ metrics_config = {
 ```
 
 ### 3. Alerting
+
 ```python
 # Alert configuration - System monitoring
 alert_config = {
@@ -270,4 +287,4 @@ alert_config = {
     },
     'notifications': ['email', 'slack']  # Alert delivery methods
 }
-``` 
+```

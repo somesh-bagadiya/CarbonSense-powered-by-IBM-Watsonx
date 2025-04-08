@@ -9,6 +9,7 @@ For detailed technical documentation, please refer to:
 
 ## Prerequisites
 
+<<<<<<< HEAD
 ### 1. System Requirements
 
 - Python 3.8 or higher
@@ -18,6 +19,9 @@ For detailed technical documentation, please refer to:
 - Windows operating system (for Windows-specific setup)
 
 ### 2. Required Services
+=======
+### 1. Required Services
+>>>>>>> cce03e40a74bed45d68b4fa6a65284ee896da0ce
 
 - IBM Cloud Account
 - Watsonx.ai access

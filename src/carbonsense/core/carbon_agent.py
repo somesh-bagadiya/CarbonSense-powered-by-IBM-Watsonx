@@ -3,11 +3,13 @@ from typing import Dict, List, Any, Optional, Tuple
 from ..services.milvus_service import MilvusService
 from ..services.watsonx_service import WatsonxService
 from ..services.discovery_service import DiscoveryService
+from ..utils.logger import setup_logger
 import requests
 from datetime import datetime
 import re
 
-logger = logging.getLogger(__name__)
+# Set up logger with colored output
+logger = setup_logger(__name__)
 
 class CarbonAgent:
     """Agent for processing carbon footprint queries with fallback to web search."""
@@ -23,10 +25,10 @@ class CarbonAgent:
         self.milvus = MilvusService(config)
         self.watsonx = WatsonxService(config)
         self.discovery = DiscoveryService(config)
-        self.confidence_threshold = 0.4  # Adjustable threshold for Milvus search confidence
+        self.confidence_threshold = 0.6  # Adjustable threshold for Milvus search confidence
         self.web_search_api_key = config.get_web_search_config()["api_key"]
         self.web_search_engine_id = config.get_web_search_config()["engine_id"]
-        logger.info("CarbonAgent initialized successfully")
+        logger.info("✅ CarbonAgent initialized successfully")
     
     def process_query(self, query: str) -> Dict[str, Any]:
         """Process a user query about carbon footprint.
@@ -37,40 +39,38 @@ class CarbonAgent:
         Returns:
             Dictionary containing the response and metadata
         """
-        logger.info(f"\nProcessing query: {query}")
+        logger.info(f"\n🔍 Processing query: {query}")
         try:
             # Step 1: Extract product and quantity
-            logger.info("Extracting product and quantity from query...")
+            logger.info("📝 Extracting product and quantity from query...")
             product, quantity = self._extract_product_and_quantity(query)
             
             if not product:
-                logger.warning("Could not identify a product in the query")
+                logger.warning("❌ Could not identify a product in the query")
                 return {
                     "error": "Could not identify a product in the query",
                     "suggestion": "Please provide a specific product name in your query."
                 }
             
             # Step 2: Search Milvus
-            logger.info(f"Searching Milvus for information about {product}...")
+            logger.info(f"🔎 Searching Milvus for information about {product}...")
             milvus_results = self._search_milvus(product)
             
             # Step 3: Check confidence and decide on web search
             web_search_used = False
             if milvus_results["confidence"] < self.confidence_threshold:
-                logger.info(f"Low confidence ({milvus_results['confidence']:.2f}) from Milvus, falling back to web search")
+                logger.info(f"⚠️ Low confidence ({milvus_results['confidence']:.2f}) from Milvus, falling back to web search")
                 web_context = self._search_web(product)
                 context = self._combine_contexts(milvus_results["context"], web_context)
                 web_search_used = True
             else:
-                logger.info("Using only Milvus results due to high confidence")
+                logger.info("✅ Using only Milvus results due to high confidence")
                 context = milvus_results["context"]
             
             # Step 4: Generate response
             response = self._generate_response(product, quantity, context)
-            logger.info("Response generated successfully")
+            logger.info("✅ Response generated successfully")
             
-            print("\n\n",response, "\n\n")
-
             return {
                 "response": response,
                 "product": product,
@@ -81,7 +81,7 @@ class CarbonAgent:
             }
             
         except Exception as e:
-            logger.error(f"Error processing query: {str(e)}", exc_info=True)
+            logger.error(f"❌ Error processing query: {str(e)}", exc_info=True)
             return {
                 "error": "An unexpected error occurred while processing your query.",
                 "details": str(e)
@@ -96,7 +96,7 @@ class CarbonAgent:
         Returns:
             Tuple of (product, quantity) or (None, None) if extraction fails
         """
-        logger.info("Starting product and quantity extraction...")
+        logger.info("📝 Starting product and quantity extraction...")
         try:
             # Use Watsonx to extract product and quantity
             prompt = f"""
@@ -122,7 +122,7 @@ class CarbonAgent:
             )
 
             response = self.watsonx.generate_text(prompt)
-            logger.info(f"Extraction response: {response}")
+            logger.info(f"📝 Extraction response: {response}")
             
             # Clean and normalize the response
             response = response.lower().strip()
@@ -164,14 +164,14 @@ class CarbonAgent:
                 product = ' '.join(product.split())
             
             if not product:
-                logger.warning("Failed to extract product name from response")
+                logger.warning("❌ Failed to extract product name from response")
                 return None, None
                 
-            logger.info(f"Extracted - Product: {product}, Quantity: {quantity}")
+            logger.info(f"✅ Extracted - Product: {product}, Quantity: {quantity}")
             return product, quantity
             
         except Exception as e:
-            logger.error(f"Error extracting product and quantity: {str(e)}", exc_info=True)
+            logger.error(f"❌ Error extracting product and quantity: {str(e)}", exc_info=True)
             return None, None
     
     def _search_milvus(self, product: str) -> Dict[str, Any]:
@@ -183,17 +183,17 @@ class CarbonAgent:
         Returns:
             Dictionary containing context, confidence score, and sources
         """
-        logger.info(f"Starting Milvus search for {product}...")
+        logger.info(f"🔎 Starting Milvus search for {product}...")
         try:
             # Generate query embedding using the granite model (3072 dimensions)
             query_embedding = self.watsonx.generate_embedding(
                 f"carbon footprint of {product}",
                 model_type="granite"
             )
-            logger.info("Query embedding generated")
+            logger.info("✅ Query embedding generated")
             
             if not query_embedding:
-                logger.error("Failed to generate query embedding")
+                logger.error("❌ Failed to generate query embedding")
                 return {
                     "context": "",
                     "confidence": 0.0,
@@ -206,10 +206,19 @@ class CarbonAgent:
                 query_embedding=query_embedding,
                 top_k=5
             )
-            logger.info(f"Found {len(results)} results in Milvus")
+            logger.info(f"✅ Found {len(results)} results in Milvus")
+            
+            # Print Milvus search results
+            print("\n📋 Milvus Search Results:")
+            print("=" * 80)
+            for i, result in enumerate(results, 1):
+                print(f"\nResult {i}:")
+                print(f"Score: {result['score']:.4f}")
+                print(f"Source: {result['source_file']}")
+                print(f"Text: {result['text']}")
             
             if not results:
-                logger.warning("No results found in Milvus")
+                logger.warning("⚠️ No results found in Milvus")
                 return {
                     "context": "",
                     "confidence": 0.0,
@@ -218,7 +227,7 @@ class CarbonAgent:
             
             # Calculate average confidence score
             confidence = sum(result["score"] for result in results) / len(results)
-            logger.info(f"Average confidence score: {confidence:.2f}")
+            logger.info(f"📊 Average confidence score: {confidence:.2f}")
             
             # Extract context and sources
             context = "\n".join(result["text"] for result in results)
@@ -231,7 +240,7 @@ class CarbonAgent:
             }
             
         except Exception as e:
-            logger.error(f"Error searching Milvus: {str(e)}", exc_info=True)
+            logger.error(f"❌ Error searching Milvus: {str(e)}", exc_info=True)
             return {
                 "context": "",
                 "confidence": 0.0,
@@ -247,31 +256,42 @@ class CarbonAgent:
         Returns:
             Combined context from web search results
         """
-        logger.info(f"Starting web search for {product}...")
+        logger.info(f"🌐 Starting web search for {product}...")
         try:
             search_query = f"carbon footprint of {product}"
             results = self.discovery.search_web(search_query, max_results=5)
-            logger.info(f"Found {len(results)} web search results")
+            logger.info(f"✅ Found {len(results)} web search results")
+            
+            # # Print Watson Discovery results
+            # print("\n📋 Watson Discovery Results:")
+            # print("=" * 80)
+            # for i, result in enumerate(results, 1):
+            #     print(f"\nResult {i}:")
+            #     print(f"Title: {result.get('title', 'Unknown')}")
+            #     print(f"Text: {result.get('text', '')}")
             
             if not results:
-                logger.warning("No web search results found")
+                logger.warning("⚠️ No web search results found")
                 return ""
             
             # Extract and format context from results
             context_parts = []
+
             for result in results:
-                if result["confidence"] > 0.5:  # Only include high-confidence results
+                # Get the first passage if available, otherwise use the full text
+                text = result.get('document_passages', [{}])[0].get('passage_text', result.get('text', ''))
+                if text:  # Only include results with content
                     context_parts.append(
-                        f"[Source: {result['title']} ({result['url']})]\n"
-                        f"{result['text']}"
+                        f"[Source: {result.get('title', 'Unknown')}]\n"
+                        f"{text}"
                     )
             
             context = "\n\n".join(context_parts)
-            logger.info(f"Web search context length: {len(context)} characters")
+            logger.info(f"📝 Web search context length: {len(context)} characters")
             return context
             
         except Exception as e:
-            logger.error(f"Error searching web: {str(e)}", exc_info=True)
+            logger.error(f"❌ Error searching web: {str(e)}", exc_info=True)
             return ""
     
     def _combine_contexts(self, milvus_context: str, web_context: str) -> str:
@@ -342,7 +362,7 @@ class CarbonAgent:
             }
             
 
-            print("\n\n",prompt, "\n\n")
+            # print("\n\n",prompt, "\n\n")
             response = self.watsonx.generate_text(
                 prompt=prompt,
                 params=params,
@@ -351,5 +371,5 @@ class CarbonAgent:
             return response
             
         except Exception as e:
-            logger.error(f"Error generating response: {str(e)}", exc_info=True)
+            logger.error(f"❌ Error generating response: {str(e)}", exc_info=True)
             return "I apologize, but I encountered an error while generating the response. Please try again later." 

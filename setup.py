@@ -27,3 +27,5 @@ setup(
     description="A RAG-based system for carbon footprint analysis using IBM Watsonx",
     keywords="rag, watsonx, carbon-footprint, milvus, watson-discovery",
 ) 
+
+# pip install -e .

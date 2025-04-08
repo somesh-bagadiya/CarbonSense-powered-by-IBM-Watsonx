@@ -9,13 +9,6 @@ For detailed technical documentation, please refer to:
 
 ## Prerequisites
 
-### 1. System Requirements
-
-- Python 3.8 or higher
-- 8GB RAM minimum (16GB recommended)
-- 20GB free disk space
-- Internet connection for API access
-
 ### 2. Required Services
 
 - IBM Cloud Account

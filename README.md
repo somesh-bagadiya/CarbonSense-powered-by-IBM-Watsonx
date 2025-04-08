@@ -9,7 +9,7 @@ For detailed technical documentation, please refer to:
 
 ## Prerequisites
 
-### 2. Required Services
+### 1. Required Services
 
 - IBM Cloud Account
 - Watsonx.ai access

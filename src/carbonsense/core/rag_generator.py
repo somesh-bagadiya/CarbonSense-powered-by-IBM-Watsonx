@@ -140,7 +140,7 @@ class RAGGenerator:
         """
         return f"""
         Based on the following context, please answer the question: {query}
-        
+    
         Context:
         {context}
         

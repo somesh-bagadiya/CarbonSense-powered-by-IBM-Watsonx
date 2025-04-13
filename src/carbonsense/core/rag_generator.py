@@ -69,11 +69,6 @@ class RAGGenerator:
                 "TEMPERATURE": 0.7,     # Controls randomness (0.0 to 1.0)
                 "TOP_P": 0.9,          # Nucleus sampling parameter
                 "TOP_K": 50,           # Number of highest probability tokens to consider
-                # "REPETITION_PENALTY": 1.2,  # Penalty for repeated tokens
-                # "LENGTH_PENALTY": {    # Controls length of generated text
-                #     "start_index": 50,
-                #     "decay_factor": 1.2
-                # },
                 "STOP_SEQUENCES": ["\n\n", "Sources:", "References:"],  # Stop generation at these sequences
                 "DECODING_METHOD": "greedy"  # Use greedy decoding for more focused responses
             }
@@ -81,7 +76,6 @@ class RAGGenerator:
             response = self.watsonx.generate_text(
                 prompt=prompt,
                 params=params
-                # guardrails=True  # Enable content moderation
             )
             return response
             
@@ -153,4 +147,4 @@ class RAGGenerator:
         Keep your response focused and to the point.
         
         If the context does not contain relevant information, please state that clearly.
-        """ 
+        """

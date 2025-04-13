@@ -32,7 +32,11 @@ class ConfigManager:
             "MILVUS_CERT_PATH": "Milvus Certificate Path",
             "WATSON_DISCOVERY_API_KEY": "Watson Discovery API Key",
             "WATSON_DISCOVERY_URL": "Watson Discovery Service URL",
-            "WATSON_DISCOVERY_PROJECT_ID": "Watson Discovery Project ID"
+            "WATSON_DISCOVERY_PROJECT_ID": "Watson Discovery Project ID",
+            "IBM_STT_API_KEY": "IBM Speech to Text API Key",
+            "IBM_STT_URL": "IBM Speech to Text Service URL",
+            "WATSONX_URL": "Base URL of your WatsonX instance",
+            "WATSONX_APIKEY": "IBM Cloud API Key for WatsonX",
         }
         
         missing_vars = [var for var, desc in required_vars.items() if not os.getenv(var)]
@@ -93,7 +97,21 @@ class ConfigManager:
     
     def get_watsonx_config(self) -> Dict[str, str]:
         """Get Watsonx configuration."""
-        return self.config["watsonx"]
+        config = {
+            "url": os.getenv("WATSONX_URL", ""),
+            "api_key": os.getenv("WATSONX_APIKEY", ""),
+            "project_id": os.getenv("WATSON_STUDIO_PROJECT_ID", ""),
+        }
+        
+        # Add optional configurations if present
+        if token := os.getenv("WATSONX_TOKEN"):
+            config["token"] = token
+        if space_id := os.getenv("WATSONX_DEPLOYMENT_SPACE_ID"):
+            config["deployment_space_id"] = space_id
+        if zen_key := os.getenv("WATSONX_ZENAPIKEY"):
+            config["zen_api_key"] = zen_key
+            
+        return config
     
     def get_milvus_config(self) -> Dict[str, Any]:
         """Get Milvus configuration."""
@@ -153,7 +171,14 @@ class ConfigManager:
             "project_id": os.getenv("WATSON_DISCOVERY_PROJECT_ID")
         }
     
+    def get_stt_config(self) -> Dict[str, str]:
+        """Get IBM Speech to Text configuration."""
+        return {
+            "api_key": os.getenv("IBM_STT_API_KEY"),
+            "url": os.getenv("IBM_STT_URL")
+        }
+    
     def save_config(self):
         """Save configuration to file."""
         with open(self.config_path, 'w') as f:
-            json.dump(self.config, f, indent=2) 
+            json.dump(self.config, f, indent=2)

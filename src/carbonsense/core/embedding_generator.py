@@ -368,6 +368,16 @@ class EmbeddingGenerator:
         Returns:
             List of text chunks
         """
+        # Handle empty or very small text
+        if not text.strip():
+            logger.warning("Empty Excel text provided")
+            return []
+            
+        # For very small Excel files, return the entire content as one chunk
+        if len(text) < chunk_size:
+            logger.info(f"Excel text is smaller than chunk size ({len(text)} < {chunk_size}), using single chunk")
+            return [text]
+            
         chunks = []
         rows = text.split('\n')
         logger.info(f"Processing Excel data with {len(rows)} rows")
@@ -385,12 +395,19 @@ class EmbeddingGenerator:
             metadata['column_types'] = self._analyze_column_types(rows, header_columns)
             metadata['important_columns'] = self._identify_important_columns(header_columns)
         
+        # For small number of rows, return as single chunk with header
+        if len(rows) <= 5:  # If 5 or fewer rows, keep as one chunk
+            logger.info(f"Small Excel file detected ({len(rows)} rows), using single chunk")
+            if header:
+                return [header + '\n' + '\n'.join(rows)]
+            return ['\n'.join(rows)]
+        
         # Group rows by their relationships
         row_groups = []
         current_group = []
         current_columns = None
         current_size = 0
-        current_context = {}  # Track context for the current group
+        current_context = {}
         
         for row in rows:
             if not row.strip():  # Skip empty rows
@@ -463,6 +480,13 @@ class EmbeddingGenerator:
             if chunk:
                 chunks.append('\n'.join(chunk))
                 logger.debug(f"Created final chunk for group {i+1} with {len(chunk)} rows")
+        
+        # If no chunks were created, return the entire content as one chunk
+        if not chunks:
+            logger.info("No chunks created, returning entire content as single chunk")
+            if header:
+                return [header + '\n' + '\n'.join(rows)]
+            return ['\n'.join(rows)]
         
         logger.info(f"Excel chunking complete. Created {len(chunks)} chunks")
         return chunks
@@ -644,8 +668,18 @@ class EmbeddingGenerator:
         text_length = len(text)
         logger.info(f"Starting regular text splitting. Text length: {text_length}")
         
-        # Safety check to prevent infinite chunking
-        max_chunks = (text_length // chunk_size) * 2  # Allow for some overlap
+        # Adaptive chunk size based on text length
+        if text_length < chunk_size:
+            # For very small texts, use a single chunk
+            logger.info(f"Text is smaller than chunk size ({text_length} < {chunk_size}), using single chunk")
+            return [text]
+        
+        # Calculate maximum chunks based on text length and overlap
+        # This ensures we have enough chunks while preventing excessive splitting
+        max_chunks = min(
+            (text_length // (chunk_size - overlap)) + 2,  # Base calculation
+            text_length // 100  # Upper limit to prevent too many small chunks
+        )
         chunk_count = 0
         
         while start < text_length and chunk_count < max_chunks:
@@ -680,7 +714,7 @@ class EmbeddingGenerator:
                 logger.info(f"Processed {len(chunks)} chunks so far. Current position: {start}/{text_length}")
         
         if chunk_count >= max_chunks:
-            logger.warning(f"Reached maximum chunk limit ({max_chunks}). Stopping chunking process.")
+            logger.info(f"Created {len(chunks)} chunks for text of length {text_length} characters")
         
         logger.info(f"Regular text splitting complete. Created {len(chunks)} chunks")
         return chunks 

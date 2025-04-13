@@ -1,10 +1,7 @@
 ###############################################
 # CarbonSense AI Parameters Configuration
 ###############################################
-# This file documents all AI generation parameters used by different agents
-# Last updated: 2025-04-12
 
-# Global default parameters for IBM watsonx.ai
 default:
   # Core model parameters
   model: "watsonx/meta-llama/llama-3-3-70b-instruct"  # Default model for all agents
@@ -33,7 +30,7 @@ agents:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more factual/precise responses
     reasoning_effort: "high"  # Higher reasoning for research
-    max_tokens: 1024        # Larger context for research
+    max_tokens: 512        # Larger context for research
     sources_tracked: true   # This agent tracks Milvus and Watson Discovery sources
   
   analyst:
@@ -42,7 +39,7 @@ agents:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.3        # Moderate temperature for analysis
     reasoning_effort: "high"  # Higher reasoning for analysis
-    max_tokens: 1024        # Standard context size
+    max_tokens: 512        # Standard context size
     sources_tracked: false
   
   formatter:
@@ -51,16 +48,16 @@ agents:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.5        # Higher temperature for more creative output
     reasoning_effort: "medium"  # Standard reasoning for formatting
-    max_tokens: 1024        # Standard context size
+    max_tokens: 512        # Standard context size
     sources_tracked: false
   
   compiler:
     role: "Carbon Footprint Information Compiler"
     goal: "Compile and analyze carbon footprint data from multiple sources"
-    model: "watsonx/ibm/granite-13b-instruct-v1"
+    model: "watsonx/ibm/granite-13b-instruct-v2"
     temperature: 0.3        # Moderate temperature for balanced output
     reasoning_effort: "high"  # Higher reasoning for compilation
-    max_tokens: 1024        # Larger context for compilation
+    max_tokens: 512        # Larger context for compilation
     sources_tracked: false
     
   manager:
@@ -69,7 +66,7 @@ agents:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more precise task management
     reasoning_effort: "high"  # Higher reasoning for management
-    max_tokens: 1024        # Standard context size
+    max_tokens: 512        # Standard context size
     sources_tracked: false
 
 # Response structure for the final compiler agent output

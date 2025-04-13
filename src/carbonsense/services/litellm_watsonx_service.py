@@ -6,178 +6,115 @@ from typing import List, Dict, Any, Optional
 import litellm
 from litellm import completion
 from ..config.config_manager import ConfigManager
-from datetime import datetime
+from ..utils.logger import setup_logger
 
-# Configure logging to reduce HTTP logs
-logging.getLogger("httpx").setLevel(logging.WARNING)
+# Configure logging
+logger = setup_logger(__name__)
+
+# Configure LiteLLM globally
+litellm.set_verbose = False
+os.environ["LITELLM_LOG_LEVEL"] = "WARNING"
 
 class LiteLLMWatsonxService:
-    """Service for interacting with IBM Watsonx AI models using LiteLLM specifically for CrewAI."""
+    """Service for interacting with WatsonX through LiteLLM."""
     
     def __init__(self, config: ConfigManager):
-        """Initialize the LiteLLM Watsonx service.
-        
-        Args:
-            config: Configuration manager instance
-        """
+        """Initialize the LiteLLM WatsonX service."""
         self.config = config
-        self.watsonx_config = config.get_watsonx_config()
         
-        # Set up environment variables for LiteLLM
-        os.environ["WATSONX_URL"] = self.watsonx_config["url"]
-        os.environ["WATSONX_APIKEY"] = self.watsonx_config["api_key"]
-        os.environ["WATSONX_PROJECT_ID"] = self.watsonx_config["project_id"]
-        
-        # Model mapping - follows LiteLLM's model naming convention
-        self.model_mapping = {
-            "chat": "watsonx/meta-llama/llama-3-1-8b-instruct",  # Chat endpoint
-            "generation": "watsonx/ibm/granite-13b-chat-v2",     # Generation endpoint
-            "embeddings": "watsonx/embedding-models"
+        # Set up WatsonX configuration
+        self.watsonx_config = {
+            "model": "watsonx/meta-llama/llama-2-70b-instruct",
+            "api_base": os.getenv("WATSONX_URL"),
+            "api_key": os.getenv("WATSONX_APIKEY"),
+            "api_version": os.getenv("WATSONX_VERSION", "2023-05-29"),
+            "project_id": os.getenv("WATSONX_PROJECT_ID")
+        }
+    
+    def _format_error_response(self, exception: Exception) -> Dict[str, Any]:
+        """Format error response in a consistent structure."""
+        error_info = {
+            "error": {
+                "message": str(exception),
+                "type": type(exception).__name__,
+                "param": None,
+                "code": None
+            }
         }
         
-        # Rate limiting configuration
-        self.last_api_call = 0
-        self.min_call_interval = 0.5  # Minimum time between API calls in seconds
+        if hasattr(exception, 'response'):
+            error_info["response"] = exception.response
+        if hasattr(exception, 'body'):
+            error_info["body"] = exception.body
+            
+        return error_info
+
+    def _process_stream_chunk(self, chunk):
+        """Process a single stream chunk quietly."""
+        if not chunk or not chunk.choices:
+            return None
         
-        logging.info("LiteLLM Watsonx service initialized successfully")
-    
-    def _wait_for_rate_limit(self):
-        """Wait if necessary to respect rate limits."""
-        current_time = time.time()
-        time_since_last_call = current_time - self.last_api_call
-        if time_since_last_call < self.min_call_interval:
-            time.sleep(self.min_call_interval - time_since_last_call)
-        self.last_api_call = time.time()
-    
-    def generate_text(self, prompt: str, use_chat: bool = True, **kwargs) -> str:
-        """Generate text using the LLM model.
+        choice = chunk.choices[0]
+        if not hasattr(choice, 'delta') or not choice.delta:
+            return None
+            
+        return choice.delta.content if hasattr(choice.delta, 'content') else None
+
+    def complete(self, 
+                prompt: str,
+                max_tokens: int = 1000,
+                temperature: float = 0.7,
+                stop: Optional[list] = None,
+                stream: bool = False,
+                **kwargs) -> Dict[str, Any]:
+        """
+        Generate a completion using WatsonX through LiteLLM.
         
         Args:
-            prompt: Input prompt for text generation
-            use_chat: Whether to use the chat endpoint (True) or generation endpoint (False)
-            **kwargs: Additional parameters for text generation
+            prompt: The prompt to generate completion for
+            max_tokens: Maximum number of tokens to generate
+            temperature: Sampling temperature (0-1)
+            stop: Optional list of stop sequences
+            stream: Whether to stream the response
+            **kwargs: Additional parameters to pass to the API
             
         Returns:
-            Generated text
+            Dictionary containing the completion response
         """
         try:
-            self._wait_for_rate_limit()
-            
-            # Prepare messages in the format expected by LiteLLM
+            # Prepare the messages format
             messages = [{"role": "user", "content": prompt}]
-            
-            # Select model based on endpoint type
-            model = self.model_mapping["chat"] if use_chat else self.model_mapping["generation"]
             
             # Call LiteLLM completion
             response = completion(
-                model=model,
+                model=self.watsonx_config["model"],
                 messages=messages,
+                api_base=self.watsonx_config["api_base"],
+                api_key=self.watsonx_config["api_key"],
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stop=stop,
+                stream=stream,
                 **kwargs
             )
             
-            if response and hasattr(response, 'choices') and len(response.choices) > 0:
-                return response.choices[0].message.content
-                
-            return "No response generated from the model."
+            if stream:
+                return response  # Return stream object directly
             
-        except Exception as e:
-            logging.error(f"Error generating text with LiteLLM: {str(e)}")
-            return f"Error generating response: {str(e)}"
-    
-    def generate_text_for_crew(self, prompt: str, **kwargs) -> str:
-        """Generate text using the LLM model specifically for CrewAI integration.
-        
-        Args:
-            prompt: Input prompt for text generation
-            **kwargs: Additional parameters for text generation
-            
-        Returns:
-            Generated text
-        """
-        try:
-            # Check if the prompt is valid
-            if not isinstance(prompt, str):
-                prompt = str(prompt)
-            
-            # Define generation parameters optimized for CrewAI
-            params = {
-                "max_tokens": 1000,
-                "temperature": 0.7,
-                "top_p": 1.0,
-                "frequency_penalty": 0,
-                "presence_penalty": 0
+            # Format the non-streaming response
+            return {
+                "choices": [{
+                    "text": response.choices[0].message.content,
+                    "finish_reason": response.choices[0].finish_reason
+                }],
+                "usage": response.usage._asdict() if hasattr(response, 'usage') else {}
             }
             
-            # Update params with any provided kwargs
-            params.update(kwargs)
-            
-            return self.generate_text(prompt, use_chat=True, **params)
-            
         except Exception as e:
-            logging.error(f"Error in text generation for CrewAI with LiteLLM: {str(e)}")
-            return f"Error generating response: {str(e)}"
-    
-    def construct_rag_prompt(self, query: str, context: str) -> str:
-        """Construct a prompt for RAG-based question answering.
-        
-        Args:
-            query: User's question
-            context: Retrieved context from vector database
-            
-        Returns:
-            Formatted prompt
-        """
-        return f"""You are an expert in environmental science and carbon emissions. Use the context below to provide a detailed and informative answer to the user's question. Include specific numbers and units when available. If the information cannot be found in the context, say "I cannot find detailed information about that in the available data."
-
-Context:
-{context}
-
-Question:
-{query}
-
-Provide a detailed answer with the following structure:
-1. Direct answer to the question with specific numbers/metrics
-2. Additional context or explanation
-3. Source information
-
-Answer:"""
-
-    def generate_embedding(self, text: str, model_type: str = "30m") -> List[float]:
-        """Generate embedding for a single text chunk using LiteLLM.
-        
-        Args:
-            text: Text to generate embedding for
-            model_type: Type of model to use ("30m", "125m", or "granite")
-            
-        Returns:
-            List of floats representing the embedding
-        """
-        try:
-            self._wait_for_rate_limit()
-            
-            # Map model type to actual model name
-            model_names = {
-                "30m": "watsonx/ibm/slate-30m-english-rtrvr-v2",
-                "125m": "watsonx/ibm/slate-125m-english-rtrvr-v2",
-                "granite": "watsonx/ibm/granite-embedding-278m-multilingual"
+            logger.error(f"Error in WatsonX completion: {str(e)}")
+            error_info = self._format_error_response(e)
+            return {
+                "error": error_info["error"]["message"],
+                "choices": [{"text": "", "finish_reason": "error"}],
+                "usage": {}
             }
-            
-            model = model_names.get(model_type)
-            if not model:
-                raise ValueError(f"Invalid model type: {model_type}. Must be '30m', '125m', or 'granite'")
-            
-            # Generate embedding using LiteLLM
-            response = litellm.embedding(
-                model=model,
-                input=[text]  # LiteLLM expects a list of texts
-            )
-            
-            if response and hasattr(response, 'data') and len(response.data) > 0:
-                return response.data[0].embedding
-            
-            raise ValueError("No embedding generated from the model")
-            
-        except Exception as e:
-            logging.error(f"Error generating embedding with LiteLLM: {str(e)}")
-            return None

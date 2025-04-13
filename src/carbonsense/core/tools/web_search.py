@@ -1,33 +1,32 @@
 import logging
 from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
 from ...services.discovery_service import DiscoveryService
 from ...utils.logger import setup_logger
 
 # Set up logger
 logger = setup_logger(__name__)
 
+class WebSearchInput(BaseModel):
+    """Input schema for WebSearchTool."""
+    query: str = Field(
+        ...,
+        description="The search query to find carbon footprint information"
+    )
+
 class WebSearchTool(BaseTool):
     """Tool for searching the web for carbon footprint information."""
+    name: str = "web_search"
+    description: str = "Searches the web for carbon footprint information and returns relevant results"
+    args_schema: type[BaseModel] = WebSearchInput
     
     def __init__(self, discovery_service: DiscoveryService):
         """Initialize the web search tool."""
-        super().__init__(
-            name="web_search",
-            description="Searches the web for carbon footprint information",
-            inputs=["query"]
-        )
-        # Store service as protected instance variable after BaseTool initialization
+        super().__init__()
         self._discovery_service = discovery_service
     
     def _run(self, query: str) -> str:
-        """Execute the tool to search the web.
-        
-        Args:
-            query: The search query
-            
-        Returns:
-            The search results as a string
-        """
+        """Execute the tool to search the web."""
         logger.info(f"🌐 Searching web with query: {query}")
         
         try:

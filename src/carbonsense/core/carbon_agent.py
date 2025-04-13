@@ -88,39 +88,26 @@ class CarbonAgent:
             }
     
     def _extract_product_and_quantity(self, query: str) -> Tuple[Optional[str], Optional[int]]:
-        """Extract product and quantity from a query.
+        """Extract product name and quantity from the query.
         
         Args:
             query: User's query string
             
         Returns:
-            Tuple of (product, quantity) or (None, None) if extraction fails
+            Tuple of (product name, quantity)
         """
-        logger.info("📝 Starting product and quantity extraction...")
         try:
-            # Use Watsonx to extract product and quantity
-            prompt = f"""
-            Extract the product and quantity from this query about carbon footprint.
-            The query is: {query}
-            
-            Strictly return ONLY the product name and quantity in this format:
-            Product, Quantity
-            Example:
-            Banana, 6
-            
-            If no specific quantity is mentioned, use 1 as default.
-            """
+            # Prepare prompt for extraction
+            prompt = """Extract the product name and quantity from the following query. 
+            Format your response as 'product: [product name], quantity: [number]'
+            If no quantity is specified, assume 1.
+            Query: {query}"""
             
             params = {
-                "MAX_NEW_TOKENS": 50,  # Maximum length of generated text
+                "query": query
             }
             
-            response = self.watsonx.generate_text(
-                prompt=prompt,
-                params=params,
-            )
-
-            response = self.watsonx.generate_text(prompt)
+            response = self.watsonx.generate_text(prompt.format(**params))
             logger.info(f"📝 Extraction response: {response}")
             
             # Clean and normalize the response
@@ -130,7 +117,16 @@ class CarbonAgent:
             product = None
             quantity = 1  # Default quantity
             
-            # Pattern 1: Look for common quantity indicators
+            # Pattern 1: Look for structured response
+            structured_pattern = r'product:\s*([^,]+),\s*quantity:\s*(\d+)'
+            match = re.search(structured_pattern, response)
+            if match:
+                product = match.group(1).strip()
+                quantity = int(match.group(2))
+                logger.info(f"✅ Extracted using structured pattern - Product: {product}, Quantity: {quantity}")
+                return product, quantity
+                
+            # Pattern 2: Look for quantity indicators
             quantity_patterns = [
                 r'(\d+)\s*(kg|kgs|kilogram|kilograms|g|grams|ton|tons|unit|units|piece|pieces)',
                 r'(\d+)\s*(of|for)',
@@ -146,7 +142,7 @@ class CarbonAgent:
                     except (ValueError, IndexError):
                         continue
             
-            # Pattern 2: Look for product mentions
+            # Pattern 3: Look for product mentions
             # Remove quantity-related words to isolate the product
             quantity_words = ['kg', 'kgs', 'kilogram', 'kilograms', 'g', 'grams', 
                             'ton', 'tons', 'unit', 'units', 'piece', 'pieces', 

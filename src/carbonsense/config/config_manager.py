@@ -14,9 +14,19 @@ class ConfigManager:
         Args:
             config_path: Optional path to configuration file
         """
-        self.config_path = config_path or os.getenv('CONFIG_PATH', 'config.json')
-        self.config = self._load_config()
-        load_dotenv(override=True)
+        # Find the project root (where .env file is located)
+        project_root = Path(__file__).parent.parent.parent.parent.absolute()
+        
+        # Load environment variables from .env file
+        env_file = project_root / '.env'
+        if env_file.exists():
+            load_dotenv(dotenv_path=env_file, override=True)
+            logging.info(f"Loaded environment variables from {env_file}")
+        else:
+            logging.warning(f".env file not found at {env_file}")
+        
+        self.config_path = config_path
+        self.config = self._load_config() if config_path else self._create_default_config()
         self._validate_environment()
     
     def _validate_environment(self) -> None:
@@ -26,20 +36,28 @@ class ConfigManager:
             "COS_INSTANCE_ID": "IBM Cloud Object Storage Instance ID",
             "COS_ENDPOINT": "IBM Cloud Object Storage Endpoint",
             "BUCKET_NAME": "IBM Cloud Object Storage Bucket Name",
-            "WATSON_STUDIO_PROJECT_ID": "Watson Studio Project ID",
+            "IBM_STT_API_KEY": "IBM Speech to Text API Key",
+            "IBM_STT_URL": "IBM Speech to Text Service URL",
             "MILVUS_GRPC_HOST": "Milvus GRPC Host",
             "MILVUS_GRPC_PORT": "Milvus GRPC Port",
             "MILVUS_CERT_PATH": "Milvus Certificate Path",
             "WATSON_DISCOVERY_API_KEY": "Watson Discovery API Key",
             "WATSON_DISCOVERY_URL": "Watson Discovery Service URL",
             "WATSON_DISCOVERY_PROJECT_ID": "Watson Discovery Project ID",
-            "IBM_STT_API_KEY": "IBM Speech to Text API Key",
-            "IBM_STT_URL": "IBM Speech to Text Service URL",
+            "WATSON_STUDIO_PROJECT_ID": "Watson Studio Project ID",
+            "WATSONX_PROJECT_ID": "WatsonX Project ID",
             "WATSONX_URL": "Base URL of your WatsonX instance",
-            "WATSONX_APIKEY": "IBM Cloud API Key for WatsonX",
         }
         
-        missing_vars = [var for var, desc in required_vars.items() if not os.getenv(var)]
+        # Special handling for WatsonX API key which can be in either variable
+        if not (os.getenv("WATSONX_APIKEY") or os.getenv("WATSONX_API_KEY")):
+            missing_vars = ["WATSONX API Key (either WATSONX_APIKEY or WATSONX_API_KEY)"]
+        else:
+            missing_vars = []
+        
+        # Check other required variables
+        missing_vars.extend([var for var, desc in required_vars.items() if not os.getenv(var)])
+        
         if missing_vars:
             raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
     
@@ -99,8 +117,9 @@ class ConfigManager:
         """Get Watsonx configuration."""
         config = {
             "url": os.getenv("WATSONX_URL", ""),
-            "api_key": os.getenv("WATSONX_APIKEY", ""),
-            "project_id": os.getenv("WATSON_STUDIO_PROJECT_ID", ""),
+            # Try both API key environment variables
+            "api_key": os.getenv("WATSONX_APIKEY") or os.getenv("WATSONX_API_KEY", ""),
+            "project_id": os.getenv("WATSONX_PROJECT_ID") or os.getenv("WATSON_STUDIO_PROJECT_ID", ""),
         }
         
         # Add optional configurations if present

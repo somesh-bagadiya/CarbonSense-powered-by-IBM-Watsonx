@@ -1,26 +1,26 @@
 import argparse
 import logging
-from .core.embedding_generator import EmbeddingGenerator
-from .config.config_manager import ConfigManager
-from .utils.logger import setup_logger
 import os
-from .services.milvus_service import MilvusService
 import sys
-from .core.carbon_agent import CarbonAgent
-from .core.crew_agent import CrewAgentManager
-import requests
-from pathlib import Path
-import ssl
-import socket
-import shutil
 import time
-from ibm_watson import SpeechToTextV1
-from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+import tempfile
+from pathlib import Path
+import shutil
+
+# Audio related imports
 import sounddevice as sd
 import scipy.io.wavfile as wav
 import numpy as np
-import tempfile
-from .core.tools import CarbonResearchTool, WebSearchTool, initialize_tools
+from ibm_watson import SpeechToTextV1
+from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+
+# Local imports
+from .core.embedding_generator import EmbeddingGenerator
+from .config.config_manager import ConfigManager
+from .utils.logger import setup_logger
+from .services.milvus_service import MilvusService
+from .core.carbon_agent import CarbonAgent
+from .core.crew_agent import CrewAgentManager
 
 # Set up logger
 logger = setup_logger(__name__)
@@ -200,6 +200,45 @@ def transcribe_audio(config: ConfigManager, audio_file_path: str) -> str:
             except OSError as e:
                 logger.error(f" Error cleaning up temp file {audio_file_path}: {str(e)}")
 
+def process_stt_query(config: ConfigManager, audio_file_path: str, show_context: bool = False) -> dict:
+    """Process a speech query using transcription and CrewAgentManager.
+    
+    Args:
+        config: Configuration manager instance
+        audio_file_path: Path to the audio file
+        show_context: Whether to show context in results
+        
+    Returns:
+        Dictionary containing the response and metadata
+    """
+    try:
+        # Transcribe the audio
+        transcript = transcribe_audio(config, audio_file_path)
+        if not transcript:
+            return {
+                "error": "Could not transcribe audio or transcription is empty.",
+                "response": "Failed to transcribe audio. Please try again."
+            }
+            
+        print(f"\nTranscribed Query: {transcript}")
+        
+        # Process query using CrewAgentManager
+        crew_manager = CrewAgentManager(
+            config=config,
+            use_cache=True,  # Enable caching for better performance
+            use_hierarchical=True,  # Use hierarchical processing for complex queries
+            debug_mode=False  # Set to True for detailed logs
+        )
+        
+        return crew_manager.process_query(transcript, show_context)
+        
+    except Exception as e:
+        logger.error(f"Error processing STT query: {str(e)}", exc_info=True)
+        return {
+            "error": f"Failed to process speech query: {str(e)}",
+            "response": "Sorry, I encountered an error while processing your speech query."
+        }
+
 def main():
     """Main entry point for the application."""
     parser = argparse.ArgumentParser(description="CarbonSense - Carbon Footprint Analysis")
@@ -308,38 +347,28 @@ def main():
                     return
 
             try:
-                # Record audio using the specified duration and selected device
-                temp_audio_path = record_audio(args.record_duration, SAMPLE_RATE, CHANNELS, device_index=selected_device_index)
-
-                # Transcribe the recorded audio file
-                transcript = transcribe_audio(config, temp_audio_path)
-
-                if not transcript:
-                    print("Error: Could not transcribe audio or transcription is empty.")
-                    return
-
-                print(f"\n Transcribed Query: {transcript}")
-
-                # Use the transcript as the query for the RAG agent
-                agent = CarbonAgent(config)
-                result = agent.process_query(transcript)
-
+                # Record audio
+                temp_audio_path = record_audio(args.record_duration, SAMPLE_RATE, CHANNELS, 
+                                        device_index=selected_device_index)
+                
+                # Process the query using CrewAgentManager
+                result = process_stt_query(config, temp_audio_path, args.show_context)
+                
                 if "error" in result:
                     print(f"Error: {result['error']}")
                     return
-
+                    
                 print("\nResponse:")
                 print("=" * 80)
                 print(result["response"])
-
-                if args.show_context:
+                
+                if args.show_context and result.get("context"):
                     print("\nSources:")
                     print("-" * 40)
-                    for source in result["sources"]:
-                        print(f"- {source}")
-
-                print(f"\nConfidence Score: {result['confidence']:.2f}")
-
+                    if result["context"].get("sources"):
+                        for source in result["context"]["sources"]:
+                            print(f"- {source}")
+                
             except Exception as e:
                 print(f"Error processing STT query: {str(e)}")
 

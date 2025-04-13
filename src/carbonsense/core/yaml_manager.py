@@ -106,29 +106,25 @@ class YamlManager:
                     agent_name: str, 
                     llm_provider, 
                     tools_dict: Optional[Dict[str, BaseTool]] = None) -> Agent:
-        """Create an Agent object from YAML configuration.
+        """Create an agent from configuration.
         
         Args:
-            agent_name: Name of the agent
-            llm_provider: LLM provider to use for the agent
-            tools_dict: Dictionary mapping tool names to tool objects
+            agent_name: Name of the agent to create
+            llm_provider: LLM provider instance
+            tools_dict: Dictionary of available tools (optional)
             
         Returns:
-            Configured Agent object
+            Created agent instance
         """
-        config = self.load_agent_config(agent_name)
-        
-        # Apply temperature to LLM if specified in config
-        if 'temperature' in config and hasattr(llm_provider, 'temperature'):
-            llm_provider.temperature = config.get('temperature')
-            
-        # Create the agent with minimal parameters
         try:
-            # Create agent with required parameters only
+            # Load agent configuration
+            config = self.load_agent_config(agent_name)
+            
+            # Create the agent with basic configuration
             agent = Agent(
-                role=config.get('role', ''),
-                goal=config.get('goal', ''),
-                backstory=config.get('backstory', ''),
+                role=config['role'],
+                goal=config['goal'],
+                backstory=config['backstory'],
                 llm=llm_provider
             )
             
@@ -142,7 +138,7 @@ class YamlManager:
             if hasattr(agent, 'allow_delegation') and 'allow_delegation' in config:
                 agent.allow_delegation = config.get('allow_delegation', False)
             
-            # Add tools after agent creation (not during initialization)
+            # Add tools after agent creation
             if tools_dict and config.get('tools'):
                 agent_tools = []
                 for tool_name in config['tools']:
@@ -151,8 +147,11 @@ class YamlManager:
                     else:
                         logger.warning(f"Tool '{tool_name}' specified in agent '{agent_name}' not found in tools dictionary")
                         
+                # Only set tools if we found any valid ones
                 if agent_tools:
                     agent.tools = agent_tools
+                else:
+                    logger.warning(f"No valid tools found for agent '{agent_name}'")
             
             logger.info(f"Created agent: {agent_name}")
             return agent

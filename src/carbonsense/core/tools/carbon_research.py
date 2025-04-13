@@ -1,5 +1,7 @@
 import logging
 from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import Type
 from ...services.milvus_service import MilvusService
 from ...services.watsonx_service import WatsonxService
 from ...utils.logger import setup_logger
@@ -7,17 +9,18 @@ from ...utils.logger import setup_logger
 # Set up logger
 logger = setup_logger(__name__)
 
+class CarbonResearchInput(BaseModel):
+    """Input schema for CarbonResearchTool."""
+    query: str = Field(..., description="The search query for finding carbon footprint data.")
+
 class CarbonResearchTool(BaseTool):
-    """Tool for retrieving carbon footprint data from Milvus."""
+    name: str = "carbon_research"
+    description: str = "Searches for carbon footprint data in the Milvus database using semantic search"
+    args_schema: Type[BaseModel] = CarbonResearchInput
     
     def __init__(self, milvus_service: MilvusService, watsonx_service: WatsonxService):
         """Initialize the carbon research tool."""
-        super().__init__(
-            name="carbon_research",
-            description="Searches for carbon footprint data in the Milvus database",
-            inputs=["query"]
-        )
-        # Store services as instance variables after BaseTool initialization
+        super().__init__()
         self._milvus_service = milvus_service
         self._watsonx_service = watsonx_service
     

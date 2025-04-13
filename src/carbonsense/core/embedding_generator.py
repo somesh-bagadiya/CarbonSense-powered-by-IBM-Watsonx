@@ -505,19 +505,26 @@ class EmbeddingGenerator:
         sample_size = min(100, len(rows))  # Analyze first 100 rows
         
         for i, col_name in enumerate(header_columns):
-            values = [row.split('\t')[i] for row in rows[:sample_size]]
-            
-            # Check for numeric patterns
-            if all(re.match(r'^-?\d+(\.\d+)?$', v.strip()) for v in values):
-                column_types[col_name] = 'numeric'
-            # Check for date patterns
-            elif all(re.match(r'^\d{4}-\d{2}-\d{2}$', v.strip()) for v in values):
-                column_types[col_name] = 'date'
-            # Check for categorical patterns
-            elif len(set(values)) < sample_size * 0.5:  # Less than 50% unique values
-                column_types[col_name] = 'categorical'
-            else:
-                column_types[col_name] = 'text'
+            try:
+                values = [row.split('\t')[i].strip() for row in rows[:sample_size] if row and len(row.split('\t')) > i]
+                if not values:
+                    column_types[col_name] = 'text'
+                    continue
+                    
+                # Check for numeric patterns
+                if all(re.match(r'^-?\d+(\.\d+)?$', v) for v in values if v):
+                    column_types[col_name] = 'numeric'
+                # Check for date patterns
+                elif all(re.match(r'^\d{4}-\d{2}-\d{2}$', v) for v in values if v):
+                    column_types[col_name] = 'date'
+                # Check for categorical patterns (less than 50% unique values)
+                elif len(set(values)) < sample_size * 0.5:
+                    column_types[col_name] = 'categorical'
+                else:
+                    column_types[col_name] = 'text'
+            except Exception as e:
+                logger.warning(f"Error analyzing column {col_name}: {str(e)}")
+                column_types[col_name] = 'text'  # Default to text on error
         
         return column_types
 
@@ -717,4 +724,4 @@ class EmbeddingGenerator:
             logger.info(f"Created {len(chunks)} chunks for text of length {text_length} characters")
         
         logger.info(f"Regular text splitting complete. Created {len(chunks)} chunks")
-        return chunks 
+        return chunks

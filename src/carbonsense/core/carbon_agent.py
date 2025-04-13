@@ -118,7 +118,6 @@ class CarbonAgent:
             response = self.watsonx.generate_text(
                 prompt=prompt,
                 params=params,
-                # guardrails=True  # Enable content moderation
             )
 
             response = self.watsonx.generate_text(prompt)
@@ -208,7 +207,7 @@ class CarbonAgent:
             )
             logger.info(f"✅ Found {len(results)} results in Milvus")
             
-            # Print Milvus search results
+# Print Milvus search results
             print("\n📋 Milvus Search Results:")
             print("=" * 80)
             for i, result in enumerate(results, 1):
@@ -261,14 +260,6 @@ class CarbonAgent:
             search_query = f"carbon footprint of {product}"
             results = self.discovery.search_web(search_query, max_results=5)
             logger.info(f"✅ Found {len(results)} web search results")
-            
-            # # Print Watson Discovery results
-            # print("\n📋 Watson Discovery Results:")
-            # print("=" * 80)
-            # for i, result in enumerate(results, 1):
-            #     print(f"\nResult {i}:")
-            #     print(f"Title: {result.get('title', 'Unknown')}")
-            #     print(f"Text: {result.get('text', '')}")
             
             if not results:
                 logger.warning("⚠️ No web search results found")
@@ -352,24 +343,15 @@ class CarbonAgent:
                 "TEMPERATURE": 0.7,     # Controls randomness (0.0 to 1.0)
                 "TOP_P": 0.9,          # Nucleus sampling parameter
                 "TOP_K": 50,           # Number of highest probability tokens to consider
-                # "REPETITION_PENALTY": 1.2,  # Penalty for repeated tokens
-                # "LENGTH_PENALTY": {    # Controls length of generated text
-                #     "start_index": 50,
-                #     "decay_factor": 1.2
-                # },
-                # "STOP_SEQUENCES": ["\n\n", "Sources:", "References:"],  # Stop generation at these sequences
                 "DECODING_METHOD": "greedy"  # Use greedy decoding for more focused responses
             }
             
-
-            # print("\n\n",prompt, "\n\n")
             response = self.watsonx.generate_text(
                 prompt=prompt,
-                params=params,
-                # guardrails=True  # Enable content moderation
+                params=params
             )
             return response
             
         except Exception as e:
             logger.error(f"❌ Error generating response: {str(e)}", exc_info=True)
-            return "I apologize, but I encountered an error while generating the response. Please try again later." 
+            return "I apologize, but I encountered an error while generating the response. Please try again later."

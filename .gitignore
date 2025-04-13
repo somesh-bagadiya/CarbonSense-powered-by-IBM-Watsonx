@@ -21,7 +21,7 @@ wheels/
 *.egg
 
 # Virtual Environment
-venv/
+carbon_env/
 env/
 ENV/
 
@@ -32,12 +32,13 @@ ENV/
 *.swo
 
 # Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
+# .ipynb_checkpoints
+# *.ipynb
 
 # Environment variables
 .env
 *.env
+.github
 
 # Certificates
 *.crt

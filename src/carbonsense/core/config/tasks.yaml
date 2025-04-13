@@ -1,0 +1,31 @@
+research_task: 
+  description: > 
+    Research carbon footprint data related to {query}. Find the most up-to-date and relevant information from reliable sources. Consider both direct and indirect emissions where applicable.
+  expected_output: > 
+    A comprehensive collection of carbon footprint data related to the query, including sources, measurements, and relevant context.
+  agent: "researcher"
+  output_file: researcher.md
+
+analysis_task:
+  description: >
+    Analyze the carbon footprint data collected by the researcher. Identify patterns, anomalies, and key insights. Compare with industry standards or benchmarks where possible.
+  expected_output: > 
+    A detailed analysis of the carbon footprint data, highlighting key insights, comparisons, and any notable patterns or trends.
+  agent: "analyst"
+  output_file: analyst.md
+
+formatting_task:
+  description: >
+    Take the analyzed data and format it into clear, accessible information. Create visual representations where appropriate. Ensure the information is presented in a user-friendly manner.
+  expected_output: > 
+    Well-formatted information that presents the carbon footprint data and analysis in a clear and accessible way, suitable for diverse audiences.
+  agent: "formatter"
+  output_file: formatter.md
+
+compilation_task:
+  description: >
+    Compile all research, analysis, and formatted information into a cohesive report. Ensure all key points are included and properly contextualized. Add recommendations where appropriate.
+  expected_output: > 
+    A comprehensive final report on the carbon footprint query that integrates all relevant data, analysis, and insights in a well-structured format.
+  agent: "compiler"
+  output_file: final_report.md

@@ -1,0 +1,106 @@
+###############################################
+# CarbonSense AI Parameters Configuration
+###############################################
+# This file documents all AI generation parameters used by different agents
+# Last updated: 2025-04-12
+
+# Global default parameters for IBM watsonx.ai
+default:
+  # Core model parameters
+  model: "watsonx/meta-llama/llama-3-3-70b-instruct"  # Default model for all agents
+  temperature: 0.7                         # Controls randomness (0-1)
+  top_p: 1.0                              # Nucleus sampling parameter
+  # n: 1                                    # Number of completions
+  max_tokens: 1024                        # Maximum tokens in completion
+  # presence_penalty: 0.0                   # Penalty for repeated topics (-2 to 2)
+  # frequency_penalty: 0.0                  # Penalty for repeated tokens (-2 to 2)
+  # logit_bias: {}                          # Token biasing dictionary
+  # stop: []                               # List of stop sequences
+  # stream: true                           # Enable streaming responses
+  # timeout: 120                           # Request timeout in seconds
+  
+  # Advanced parameters
+  # reasoning_effort: "medium"              # Options: none, low, medium, high
+  # seed: null                             # Random seed for reproducibility
+  # logprobs: null                         # Return log probabilities
+  # top_logprobs: null                     # Number of most likely tokens
+
+# Agent-specific parameters - only override what differs from defaults
+agents:
+  researcher:
+    role: "Carbon Footprint Researcher"
+    goal: "Find accurate carbon footprint data from the database and web"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
+    temperature: 0.2        # Lower temperature for more factual/precise responses
+    reasoning_effort: "high"  # Higher reasoning for research
+    max_tokens: 1024        # Larger context for research
+    sources_tracked: true   # This agent tracks Milvus and Watson Discovery sources
+  
+  analyst:
+    role: "Carbon Footprint Analyst" 
+    goal: "Analyze carbon footprint data and calculate environmental impact"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
+    temperature: 0.3        # Moderate temperature for analysis
+    reasoning_effort: "high"  # Higher reasoning for analysis
+    max_tokens: 1024        # Standard context size
+    sources_tracked: false
+  
+  formatter:
+    role: "Carbon Footprint Report Formatter"
+    goal: "Create clear and engaging responses about carbon footprint data"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
+    temperature: 0.5        # Higher temperature for more creative output
+    reasoning_effort: "medium"  # Standard reasoning for formatting
+    max_tokens: 1024        # Standard context size
+    sources_tracked: false
+  
+  compiler:
+    role: "Carbon Footprint Information Compiler"
+    goal: "Compile and analyze carbon footprint data from multiple sources"
+    model: "watsonx/ibm/granite-13b-instruct-v1"
+    temperature: 0.3        # Moderate temperature for balanced output
+    reasoning_effort: "high"  # Higher reasoning for compilation
+    max_tokens: 1024        # Larger context for compilation
+    sources_tracked: false
+    
+  manager:
+    role: "Crew Manager"
+    goal: "Coordinate tasks between agents for optimal carbon footprint analysis"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
+    temperature: 0.2        # Lower temperature for more precise task management
+    reasoning_effort: "high"  # Higher reasoning for management
+    max_tokens: 1024        # Standard context size
+    sources_tracked: false
+
+# Response structure for the final compiler agent output
+output_format:
+  line1: "Carbon footprint in kg CO2e (numeric value with units)"
+  line2: "Creative comparison relating CO2 emissions to real life"
+  final_section: "Short, practical suggestions for reducing this carbon footprint"
+  source_attribution: true  # Include sources in output
+
+# Data sources tracked
+data_sources:
+  milvus_database:
+    description: "Vector database containing pre-processed carbon footprint data"
+    collections:
+      - "carbon_embeddings_30m"   # 30M model embeddings
+      - "carbon_embeddings_125m"  # 125M model embeddings
+      - "carbon_embeddings_granite" # Granite model embeddings (preferred)
+  
+  watson_discovery:
+    description: "External web search for carbon footprint data not in local database"
+    confidence_threshold: 0.6   # Minimum confidence score for web results
+    max_results: 5             # Maximum number of search results to return
+
+# Tool parameters
+tools:
+  carbon_research:
+    description: "Tool for retrieving carbon footprint data from various sources"
+    real_world_equivalents:
+      driving: 0.192        # kg CO2e per km driven in average car
+      smartphone_charging: 0.009  # kg CO2e per full charge
+      tree_day: 0.022       # kg CO2e absorbed by one tree in a day
+      led_bulb_hour: 0.005  # kg CO2e for 1 hour of LED light bulb
+      beef_burger: 3.0      # kg CO2e for one beef burger
+      flight_km: 0.115      # kg CO2e per km in economy flight

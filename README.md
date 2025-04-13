@@ -177,24 +177,59 @@ Available options:
 
 ### 3. Querying Data
 
-#### Basic Query
+#### Basic Query (RAG Agent)
 
 ```powershell
 python -m carbonsense.main --mode rag_agent --query "What is the carbon footprint of 10 paper napkins?"
+```
+
+#### Multi-Agent Query (BeeAI Agent)
+
+```powershell
+python -m carbonsense.main --mode bee_agent --query "Compare the carbon footprint of paper vs plastic bags"
 ```
 
 #### Query with Context
 
 ```powershell
 python -m carbonsense.main --mode rag_agent --query "your question" --show_context
+# or
+python -m carbonsense.main --mode bee_agent --query "your question" --show_context
+```
+
+#### Voice Query
+
+```powershell
+python -m carbonsense.main --mode stt_query --record_duration 15
+```
+
+You can query the system using different modes:
+
+```powershell
+# Standard RAG-based agent
+python -m carbonsense.main --mode rag_agent --query "your question here"
+
+# Advanced CrewAI agent (using direct IBM SDK)
+python -m carbonsense.main --mode bee_agent --query "your question here"
+
+# Advanced CrewAI agent (using LiteLLM - recommended for CrewAI)
+python -m carbonsense.main --mode bee_agent --query "your question here" --use_litellm
+
+# Voice input with Speech-to-Text
+python -m carbonsense.main --mode stt_query --record_duration 15
 ```
 
 Available options:
 
-- `--mode rag_agent`: Required. Specifies the query mode
-- `--query`: Required. The question to ask about carbon footprint
-- `--show_context`: Optional. Shows the sources used to generate the answer
-- `--model`: Optional. Specify which model to use (30m, 125m, or granite)
+- `--mode`: Choose between `rag_agent` (standard), `bee_agent` (CrewAI), or `stt_query` (voice)
+- `--query`: Your question about carbon footprint (required for text queries)
+- `--show_context`: Shows the sources or agents used to generate the answer
+- `--model`: Specify which model to use (30m, 125m, or granite)
+- `--record_duration`: Duration of recording for voice input (seconds)
+- `--use_litellm`: Use LiteLLM integration for WatsonX (optimized for CrewAI)
+- `--debug`: Enable debug mode for detailed agent interactions
+- `--no_cache`: Disable caching of query results
+- `--sequential`: Use sequential process instead of hierarchical
 
 ## Troubleshooting
 

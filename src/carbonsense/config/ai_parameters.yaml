@@ -24,12 +24,19 @@ default:
 
 # Agent-specific parameters - only override what differs from defaults
 agents:
-  researcher:
+  milvus_researcher:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more factual/precise responses
     reasoning_effort: "low"  # Higher reasoning for research
-    max_tokens: 512        # Larger context for research
-    sources_tracked: true   # This agent tracks Milvus and Watson Discovery sources
+    max_tokens: 256        # Larger context for research
+    sources_tracked: true   # This agent tracks Milvus
+
+  discovery_researcher:
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
+    temperature: 0.2
+    reasoning_effort: "low"
+    max_tokens: 256
+    sources_tracked: true
   
   analyst:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
@@ -45,12 +52,12 @@ agents:
     max_tokens: 512        # Standard context size
     sources_tracked: false
   
-  compiler:
-    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
-    temperature: 0.3        # Moderate temperature for balanced output
-    reasoning_effort: "low"  # Higher reasoning for compilation
-    max_tokens: 512        # Larger context for compilation
-    sources_tracked: false
+  # compiler:
+  #   model: "watsonx/meta-llama/llama-3-3-70b-instruct"
+  #   temperature: 0.3        # Moderate temperature for balanced output
+  #   reasoning_effort: "low"  # Higher reasoning for compilation
+  #   max_tokens: 512        # Larger context for compilation
+  #   sources_tracked: false
     
   manager:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"

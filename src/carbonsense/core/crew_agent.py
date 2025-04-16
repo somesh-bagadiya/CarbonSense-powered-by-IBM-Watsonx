@@ -122,14 +122,26 @@ class CarbonSenseCrew:
             raise RuntimeError(f"Failed to load config files: {str(e)}")
     
     @agent
-    def researcher(self) -> Agent:
+    def milvus_researcher(self) -> Agent:
         """Carbon Data Researcher agent."""
         tools = initialize_tools(self.config)
         return Agent(
-            config=self.agents_config['researcher'],
+            config=self.agents_config['milvus_researcher'],
             verbose=self.debug_mode,  # Only verbose in debug mode
-            llm=self.agent_llms['researcher'],
+            llm=self.agent_llms['milvus_researcher'],
             tools=[tools['carbon_research']],
+            max_retry_limit=1
+        )
+        
+    @agent
+    def discovery_researcher(self) -> Agent:
+        """Carbon Data Researcher agent."""
+        tools = initialize_tools(self.config)
+        return Agent(
+            config=self.agents_config['discovery_researcher'],
+            verbose=self.debug_mode,  # Only verbose in debug mode
+            llm=self.agent_llms['discovery_researcher'],
+            tools=[tools['web_search']],
             max_retry_limit=1
         )
     
@@ -153,17 +165,17 @@ class CarbonSenseCrew:
             max_retry_limit=1
         )
     
-    @agent
-    def compiler(self) -> Agent:
-        """Report Compiler agent."""
-        tools = initialize_tools(self.config)
-        return Agent(
-            config=self.agents_config['compiler'],
-            verbose=self.debug_mode,  # Only verbose in debug mode
-            llm=self.agent_llms['compiler'],
-            tools=[tools['web_search']],
-            max_retry_limit=1
-        )
+    # @agent
+    # def compiler(self) -> Agent:
+    #     """Report Compiler agent."""
+    #     tools = initialize_tools(self.config)
+    #     return Agent(
+    #         config=self.agents_config['compiler'],
+    #         verbose=self.debug_mode,  # Only verbose in debug mode
+    #         llm=self.agent_llms['compiler'],
+    #         tools=[tools['web_search']],
+    #         max_retry_limit=1
+    #     )
     
     @task
     def research_task(self) -> Task:

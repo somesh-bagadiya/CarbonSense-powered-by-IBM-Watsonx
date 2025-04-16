@@ -1,15 +1,27 @@
 research_task:
   description: >
-    Research information about the carbon footprint impact based on the following query: {query}
-    Focus on finding accurate, verifiable data from our knowledge base and trusted sources.
-  agent: researcher
+    Determine the carbon footprint for the specified product: {query}.
+    Emphasize returning a clear, consolidated value.
+  agent: milvus_researcher
   expected_output: >
-    A detailed research report containing:
-    1. Primary carbon footprint data
-    2. Environmental impact statistics
-    3. Sources and references
-    4. Confidence levels in the data
+    A single, clear carbon footprint metric for the product, formatted as:
+    "[value] [emission unit] per [product unit], confidence: [score]"
+    Example: "2.5 kg CO₂e per kg, confidence: 0.85"
   output_file: researcher.txt
+
+discovery_research_task:
+  description: >
+    Given a product-related query: {query}, find the carbon footprint using Watson Discovery.
+    Return:
+    - Carbon footprint value
+    - Emission unit (e.g., kg CO₂e)
+    - Product unit (e.g., per item, per 100g)
+    - Confidence score (between 0 and 1)
+  agent: discovery_researcher
+  expected_output: >
+    "[value] [emission unit] per [product unit], confidence: [score]"
+    Example: "1.8 kg CO₂e per 100g, confidence: 0.87"
+  output_file: discovery_result.txt
 
 analysis_task:
   description: >
@@ -37,15 +49,15 @@ formatting_task:
     4. Visual elements (if applicable)
   output_file: formatter.txt
 
-compilation_task:
-  description: >
-    Compile all findings into a final comprehensive response.
-    Ensure all key information is included and properly attributed.
-  agent: compiler
-  expected_output: >
-    A complete response containing:
-    1. Main findings and conclusions
-    2. Supporting data and analysis
-    3. Sources and references
-    4. Confidence levels
-  output_file: final_report.txt
+# compilation_task:
+#   description: >
+#     Compile all findings into a final comprehensive response.
+#     Ensure all key information is included and properly attributed.
+#   agent: compiler
+#   expected_output: >
+#     A complete response containing:
+#     1. Main findings and conclusions
+#     2. Supporting data and analysis
+#     3. Sources and references
+#     4. Confidence levels
+#   output_file: final_report.txt

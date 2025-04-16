@@ -24,6 +24,7 @@ wheels/
 carbon_env/
 env/
 ENV/
+venv/
 
 # IDE
 .idea/
@@ -39,6 +40,7 @@ ENV/
 .env
 *.env
 .github
+
 
 # Certificates
 *.crt

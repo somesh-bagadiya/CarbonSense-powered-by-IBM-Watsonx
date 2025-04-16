@@ -260,69 +260,58 @@ class CrewAgentManager:
         """Process a query using the crew agents."""
         logger.info(f"Processing query: {query}")
         
-        # try:
-        # Check for cached response if caching is enabled
-        if self.use_cache and self.carbon_crew.cache_manager:
-            cached_result = self.carbon_crew.cache_manager.get(query)
-            if cached_result:
-                logger.info("Using cached response")
-                return cached_result
-        
-        # Set the current query in the crew
-        self.carbon_crew.current_query = query
-        
-        # # Set up task dependencies
-        # research_task = self.carbon_crew.research_task()
-        # analysis_task = self.carbon_crew.analysis_task()
-        # # analysis_task.context.append(research_task)  # Analysis depends on research
-        
-        # formatting_task = self.carbon_crew.formatting_task()
-        # # formatting_task.context.extend([research_task, analysis_task])  # Formatting depends on both
-        
-        # compilation_task = self.carbon_crew.compilation_task()
-        # # compilation_task.context.extend([research_task, analysis_task, formatting_task])  # Compilation depends on all
-        
-        # Run the crew with the query and task dependencies
-        result = self.carbon_crew.crew().kickoff(
-            inputs={
-                "query": query,
-                "show_context": show_context
-            }
-        )
-        
-        # Format the response
-        response_data = {
-            "response": result,
-            "context": {}
-        }
-        
-        # Add sources if available and requested
-        if show_context:
-            sources = []
-            if isinstance(result, str) and "SOURCES:" in result:
-                parts = result.split("SOURCES:")
-                if len(parts) > 1:
-                    sources_text = parts[1].strip()
-                    sources = [s.strip() for s in sources_text.split("\n") if s.strip()]
+        try:
+            # Check for cached response if caching is enabled
+            if self.use_cache and self.carbon_crew.cache_manager:
+                cached_result = self.carbon_crew.cache_manager.get(query)
+                if cached_result:
+                    logger.info("Using cached response")
+                    return cached_result
             
-            response_data["context"] = {
-                "sources": sources,
-                "show_context": show_context
-            }
-        
-        # Cache the response if caching is enabled
-        if self.use_cache and self.carbon_crew.cache_manager:
-            self.carbon_crew.cache_manager.set(query, response_data)
-        
-        logger.info("Query processed successfully")
-        return response_data
+            # Set the current query in the crew
+            self.carbon_crew.current_query = query
             
-        # except Exception as e:
-        #     logger.error(f"Error processing query: {str(e)}", exc_info=True)
-        #     return {
-        #         "error": f"Failed to process query: {str(e)}",
-        #         "response": "Sorry, I encountered an error while processing your query."
-        #     }
+            # Run the crew with the query and task dependencies
+            result = self.carbon_crew.crew().kickoff(
+                inputs={
+                    "query": query,
+                    "show_context": show_context
+                }
+            )
+            
+            # Format the response
+            response_data = {
+                "response": result,
+                "context": {}
+            }
+            
+            # Add sources if available and requested
+            if show_context:
+                sources = []
+                if isinstance(result, str) and "SOURCES:" in result:
+                    parts = result.split("SOURCES:")
+                    if len(parts) > 1:
+                        sources_text = parts[1].strip()
+                        sources = [s.strip() for s in sources_text.split("\n") if s.strip()]
+                
+                response_data["context"] = {
+                    "sources": sources,
+                    "show_context": show_context
+                }
+            
+            # Cache the response if caching is enabled
+            if self.use_cache and self.carbon_crew.cache_manager:
+                self.carbon_crew.cache_manager.set(query, response_data)
+            
+            logger.info("Query processed successfully")
+            return response_data
+            
+        except Exception as e:
+            logger.error(f"Error processing query: {str(e)}", exc_info=True)
+            return {
+                "error": f"Failed to process query: {str(e)}",
+                "response": "Sorry, I encountered an error while processing your query."
+            }
 
     def clear_cache(self) -> None:
         """Clear the query cache."""

@@ -25,8 +25,6 @@ default:
 # Agent-specific parameters - only override what differs from defaults
 agents:
   researcher:
-    role: "Carbon Footprint Researcher"
-    goal: "Find accurate carbon footprint data from the database and web"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more factual/precise responses
     reasoning_effort: "low"  # Higher reasoning for research
@@ -34,8 +32,6 @@ agents:
     sources_tracked: true   # This agent tracks Milvus and Watson Discovery sources
   
   analyst:
-    role: "Carbon Footprint Analyst" 
-    goal: "Analyze carbon footprint data and calculate environmental impact"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.3        # Moderate temperature for analysis
     reasoning_effort: "low"  # Higher reasoning for analysis
@@ -43,8 +39,6 @@ agents:
     sources_tracked: false
   
   formatter:
-    role: "Carbon Footprint Report Formatter"
-    goal: "Create clear and engaging responses about carbon footprint data"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.5        # Higher temperature for more creative output
     reasoning_effort: "low"  # Standard reasoning for formatting
@@ -52,8 +46,6 @@ agents:
     sources_tracked: false
   
   compiler:
-    role: "Carbon Footprint Information Compiler"
-    goal: "Compile and analyze carbon footprint data from multiple sources"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.3        # Moderate temperature for balanced output
     reasoning_effort: "low"  # Higher reasoning for compilation
@@ -61,8 +53,6 @@ agents:
     sources_tracked: false
     
   manager:
-    role: "Crew Manager"
-    goal: "Coordinate tasks between agents for optimal carbon footprint analysis"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more precise task management
     reasoning_effort: "low"  # Higher reasoning for management

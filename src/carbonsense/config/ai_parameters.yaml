@@ -24,6 +24,13 @@ default:
 
 # Agent-specific parameters - only override what differs from defaults
 agents:
+  query_processor:
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
+    temperature: 0.2
+    reasoning_effort: "low"
+    max_tokens: 256
+    sources_tracked: false
+
   milvus_researcher:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more factual/precise responses
@@ -37,27 +44,27 @@ agents:
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: true
-  
-  analyst:
+
+  serper_researcher:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
-    temperature: 0.3        # Moderate temperature for analysis
-    reasoning_effort: "low"  # Higher reasoning for analysis
-    max_tokens: 512        # Standard context size
-    sources_tracked: false
-  
-  formatter:
+    temperature: 0.2
+    reasoning_effort: "low"
+    max_tokens: 256
+    sources_tracked: true
+
+  answer_consolidator:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
-    temperature: 0.5        # Higher temperature for more creative output
-    reasoning_effort: "low"  # Standard reasoning for formatting
-    max_tokens: 512        # Standard context size
+    temperature: 0.2
+    reasoning_effort: "medium"  # Slightly higher for comparative evaluation
+    max_tokens: 256
+    sources_tracked: true
+
+  answer_formatter:
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
+    temperature: 0.2
+    reasoning_effort: "low"
+    max_tokens: 256
     sources_tracked: false
-  
-  # compiler:
-  #   model: "watsonx/meta-llama/llama-3-3-70b-instruct"
-  #   temperature: 0.3        # Moderate temperature for balanced output
-  #   reasoning_effort: "low"  # Higher reasoning for compilation
-  #   max_tokens: 512        # Larger context for compilation
-  #   sources_tracked: false
     
   manager:
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
@@ -86,15 +93,3 @@ data_sources:
     description: "External web search for carbon footprint data not in local database"
     confidence_threshold: 0.6   # Minimum confidence score for web results
     max_results: 5             # Maximum number of search results to return
-
-# Tool parameters
-tools:
-  carbon_research:
-    description: "Tool for retrieving carbon footprint data from various sources"
-    real_world_equivalents:
-      driving: 0.192        # kg CO2e per km driven in average car
-      smartphone_charging: 0.009  # kg CO2e per full charge
-      tree_day: 0.022       # kg CO2e absorbed by one tree in a day
-      led_bulb_hour: 0.005  # kg CO2e for 1 hour of LED light bulb
-      beef_burger: 3.0      # kg CO2e for one beef burger
-      flight_km: 0.115      # kg CO2e per km in economy flight

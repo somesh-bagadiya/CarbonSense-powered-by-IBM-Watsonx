@@ -85,13 +85,30 @@ class EmbeddingGenerator:
                 logger.info(f"Skipping already processed file: {file_name}")
                 return
             
+            chunks = []
+            row_data_list = []  # Store row data for metadata
+            
             # Read the file content
             if file_path.endswith('.xlsx'):
                 try:
                     logger.info(f"Reading Excel file: {file_name}")
                     df = pd.read_excel(file_path)
-                    text = df.to_string(index=False)
                     logger.info(f"Successfully loaded Excel file: {file_name} with {len(df)} rows")
+                    
+                    # Row-based chunking for Excel files
+                    rows = df.to_dict(orient="records")
+                    for row_idx, row_data in enumerate(rows):
+                        # Build chunk text from row data
+                        chunk_parts = []
+                        for col, val in row_data.items():
+                            chunk_parts.append(f"{col}: {val}")
+                        
+                        chunk_text = " | ".join(chunk_parts)
+                        chunks.append(chunk_text)
+                        row_data_list.append(row_data)
+                    
+                    logger.info(f"Row-based chunking created {len(chunks)} chunks from {len(rows)} rows")
+                    
                 except Exception as e:
                     error_msg = (
                         f"Failed to read Excel file '{file_name}'. Details:\n"
@@ -106,6 +123,16 @@ class EmbeddingGenerator:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         text = f.read()
                     logger.info(f"Successfully loaded text file: {file_name} with {len(text)} characters")
+                    
+                    # Preprocess text
+                    logger.info(f"Preprocessing text for {file_name}")
+                    text = self.document_processor.preprocess_text(text)
+                    
+                    # Split text into chunks using traditional method
+                    logger.info(f"Splitting text into chunks for {file_name}")
+                    chunks = self._split_text(text)
+                    # For non-Excel files, row_data_list remains empty
+                    
                 except Exception as e:
                     error_msg = (
                         f"Failed to read text file '{file_name}'. Details:\n"
@@ -115,23 +142,15 @@ class EmbeddingGenerator:
                     logger.error(error_msg)
                     raise
             
-            # Preprocess text
-            logger.info(f"Preprocessing text for {file_name}")
-            text = self.document_processor.preprocess_text(text)
-            
-            # Split text into chunks
-            logger.info(f"Splitting text into chunks for {file_name}")
-            chunks = self._split_text(text)
             if not chunks:
                 error_msg = (
                     f"No chunks extracted from '{file_name}'. Details:\n"
-                    f"- File size: {len(text)} bytes\n"
                     f"- File type: {'Excel' if file_path.endswith('.xlsx') else 'Text'}"
                 )
                 logger.error(error_msg)
                 return
             
-            logger.info(f"Successfully split '{file_name}' into {len(chunks)} chunks")
+            logger.info(f"Successfully created {len(chunks)} chunks from '{file_name}'")
             
             # Generate embeddings using Watsonx
             embeddings = []
@@ -172,7 +191,7 @@ class EmbeddingGenerator:
             logger.info(f"Saving embeddings for '{file_name}'")
             try:
                 self._save_embeddings(file_name, chunks, embeddings, use_125m, use_granite)
-                self._store_in_milvus(file_name, chunks, embeddings, use_125m, use_granite)
+                self._store_in_milvus(file_name, chunks, embeddings, use_125m, use_granite, row_data_list)
                 logger.info(f"Successfully processed '{file_name}'")
             except Exception as e:
                 error_msg = (
@@ -281,12 +300,24 @@ class EmbeddingGenerator:
             raise
     
     def _store_in_milvus(self, object_name: str, chunks: List[str], embeddings: List[List[float]], 
-                        use_125m: bool = False, use_granite: bool = False) -> None:
+                        use_125m: bool = False, use_granite: bool = False, row_data_list: List[Dict[str, Any]] = None) -> None:
         """Store embeddings in Milvus."""
         try:
             # Prepare entities for Milvus
             entities = []
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                # Extract industry and region from row data, if available
+                metadata = {}
+                if row_data_list and i < len(row_data_list):
+                    row_data = row_data_list[i]
+                    # Extract industry and region specifically for better filtering
+                    if 'industry' in row_data:
+                        metadata['industry'] = row_data['industry']
+                    if 'region' in row_data:
+                        metadata['region'] = row_data['region']
+                    # Add full row data for reference
+                    metadata['full_data'] = row_data
+                
                 # Create entity with proper data types
                 entity = {
                     "id": str(f"{object_name}_{i}"),
@@ -298,7 +329,7 @@ class EmbeddingGenerator:
                     "version": str("1.0"),
                     "chunk_index": int(i),
                     "total_chunks": int(len(chunks)),
-                    "metadata": str("{}"),
+                    "metadata": json.dumps(metadata),
                     "processing_info": str("{}")
                 }
                 entities.append(entity)
@@ -330,8 +361,8 @@ class EmbeddingGenerator:
                 f"- Traceback:\n{traceback.format_exc()}"
             )
             logger.error(error_msg)
-            raise
-
+            raise    
+        
     def _split_text(self, text: str) -> List[str]:
         """Split text into meaningful chunks with overlap.
         
@@ -348,316 +379,10 @@ class EmbeddingGenerator:
         overlap = self.config.get_chunking_config()["overlap"]
         logger.info(f"Using chunk size: {chunk_size}, overlap: {overlap}")
         
-        # If the text is from Excel, use specialized Excel chunking
-        if '\n' in text and '\t' in text:  # Likely Excel data
-            logger.info("Detected Excel-like data format, using specialized Excel chunking")
-            return self._split_excel_text(text, chunk_size, overlap)
-        
-        # For non-Excel text, use the original splitting logic
+        # Note: Excel files are handled directly in process_file method with row-based chunking
+        # This method is now only for text files
         logger.info("Using regular text chunking")
         return self._split_regular_text(text, chunk_size, overlap)
-
-    def _split_excel_text(self, text: str, chunk_size: int, overlap: int) -> List[str]:
-        """Split Excel data into meaningful chunks while preserving data relationships.
-        
-        Args:
-            text: Excel data as text
-            chunk_size: Maximum size of each chunk
-            overlap: Number of characters to overlap between chunks
-            
-        Returns:
-            List of text chunks
-        """
-        # Handle empty or very small text
-        if not text.strip():
-            logger.warning("Empty Excel text provided")
-            return []
-            
-        # For very small Excel files, return the entire content as one chunk
-        if len(text) < chunk_size:
-            logger.info(f"Excel text is smaller than chunk size ({len(text)} < {chunk_size}), using single chunk")
-            return [text]
-            
-        chunks = []
-        rows = text.split('\n')
-        logger.info(f"Processing Excel data with {len(rows)} rows")
-        
-        # Extract header and metadata
-        header = None
-        metadata = {}
-        if rows and '\t' in rows[0]:  # First row might be header
-            header = rows[0]
-            rows = rows[1:]
-            logger.info(f"Detected header row: {header}")
-            
-            # Extract column types and importance
-            header_columns = header.split('\t')
-            metadata['column_types'] = self._analyze_column_types(rows, header_columns)
-            metadata['important_columns'] = self._identify_important_columns(header_columns)
-        
-        # For small number of rows, return as single chunk with header
-        if len(rows) <= 5:  # If 5 or fewer rows, keep as one chunk
-            logger.info(f"Small Excel file detected ({len(rows)} rows), using single chunk")
-            if header:
-                return [header + '\n' + '\n'.join(rows)]
-            return ['\n'.join(rows)]
-        
-        # Group rows by their relationships
-        row_groups = []
-        current_group = []
-        current_columns = None
-        current_size = 0
-        current_context = {}
-        
-        for row in rows:
-            if not row.strip():  # Skip empty rows
-                continue
-                
-            columns = row.split('\t')
-            if current_columns is None:
-                current_columns = len(columns)
-                logger.info(f"Initial row structure detected: {current_columns} columns")
-            
-            row_size = len(row)
-            row_context = self._extract_row_context(columns, header_columns, metadata)
-            
-            # Check if we should start a new group based on:
-            # 1. Structure change
-            # 2. Size limit
-            # 3. Context change (e.g., different category, significant value change)
-            if (len(columns) != current_columns or 
-                current_size + row_size > chunk_size or
-                self._should_start_new_group(row_context, current_context)):
-                
-                if current_group:
-                    row_groups.append({
-                        'rows': current_group,
-                        'context': current_context,
-                        'size': current_size
-                    })
-                    logger.debug(f"Created new row group with {len(current_group)} rows")
-                
-                current_group = []
-                current_columns = len(columns)
-                current_size = 0
-                current_context = row_context
-            
-            current_group.append(row)
-            current_size += row_size
-            current_context = self._update_context(current_context, row_context)
-        
-        if current_group:
-            row_groups.append({
-                'rows': current_group,
-                'context': current_context,
-                'size': current_size
-            })
-        
-        logger.info(f"Created {len(row_groups)} row groups")
-        
-        # Create chunks from row groups with proper context
-        for i, group in enumerate(row_groups):
-            chunk = []
-            
-            # Add context information
-            if header:
-                chunk.append(header)
-            chunk.append(self._format_context(group['context']))
-            
-            # Add rows with proper formatting
-            for row in group['rows']:
-                if len(chunk) + len(row) > chunk_size and len(chunk) > 1:
-                    chunks.append('\n'.join(chunk))
-                    logger.debug(f"Created chunk {len(chunks)} with {len(chunk)} rows")
-                    # Keep context and last few rows for overlap
-                    overlap_rows = min(len(group['rows']), 3)
-                    chunk = [header] if header else []
-                    chunk.append(self._format_context(group['context']))
-                    chunk.extend(group['rows'][-overlap_rows:])
-                
-                chunk.append(row)
-            
-            if chunk:
-                chunks.append('\n'.join(chunk))
-                logger.debug(f"Created final chunk for group {i+1} with {len(chunk)} rows")
-        
-        # If no chunks were created, return the entire content as one chunk
-        if not chunks:
-            logger.info("No chunks created, returning entire content as single chunk")
-            if header:
-                return [header + '\n' + '\n'.join(rows)]
-            return ['\n'.join(rows)]
-        
-        logger.info(f"Excel chunking complete. Created {len(chunks)} chunks")
-        return chunks
-
-    def _analyze_column_types(self, rows: List[str], header_columns: List[str]) -> Dict[str, str]:
-        """Analyze column types based on data patterns.
-        
-        Args:
-            rows: List of data rows
-            header_columns: List of column headers
-            
-        Returns:
-            Dictionary mapping column names to their types
-        """
-        column_types = {}
-        sample_size = min(100, len(rows))  # Analyze first 100 rows
-        
-        for i, col_name in enumerate(header_columns):
-            try:
-                values = [row.split('\t')[i].strip() for row in rows[:sample_size] if row and len(row.split('\t')) > i]
-                if not values:
-                    column_types[col_name] = 'text'
-                    continue
-                    
-                # Check for numeric patterns
-                if all(re.match(r'^-?\d+(\.\d+)?$', v) for v in values if v):
-                    column_types[col_name] = 'numeric'
-                # Check for date patterns
-                elif all(re.match(r'^\d{4}-\d{2}-\d{2}$', v) for v in values if v):
-                    column_types[col_name] = 'date'
-                # Check for categorical patterns (less than 50% unique values)
-                elif len(set(values)) < sample_size * 0.5:
-                    column_types[col_name] = 'categorical'
-                else:
-                    column_types[col_name] = 'text'
-            except Exception as e:
-                logger.warning(f"Error analyzing column {col_name}: {str(e)}")
-                column_types[col_name] = 'text'  # Default to text on error
-        
-        return column_types
-
-    def _identify_important_columns(self, header_columns: List[str]) -> List[str]:
-        """Identify important columns based on naming patterns.
-        
-        Args:
-            header_columns: List of column headers
-            
-        Returns:
-            List of important column names
-        """
-        important_patterns = [
-            r'id$', r'key$', r'name$', r'code$',  # Identifier patterns
-            r'date$', r'time$', r'year$',          # Temporal patterns
-            r'amount$', r'value$', r'total$',      # Value patterns
-            r'category$', r'type$', r'class$'      # Classification patterns
-        ]
-        
-        important_columns = []
-        for col in header_columns:
-            if any(re.search(pattern, col.lower()) for pattern in important_patterns):
-                important_columns.append(col)
-        
-        return important_columns
-
-    def _extract_row_context(self, columns: List[str], header_columns: List[str], 
-                           metadata: Dict) -> Dict[str, Any]:
-        """Extract context from a row.
-        
-        Args:
-            columns: Row data
-            header_columns: Column headers
-            metadata: Column metadata
-            
-        Returns:
-            Dictionary containing row context
-        """
-        context = {}
-        for i, (col, val) in enumerate(zip(header_columns, columns)):
-            col_type = metadata['column_types'].get(col, 'text')
-            if col in metadata['important_columns']:
-                context[col] = {
-                    'value': val,
-                    'type': col_type
-                }
-        return context
-
-    def _should_start_new_group(self, row_context: Dict[str, Any], 
-                              current_context: Dict[str, Any]) -> bool:
-        """Determine if a new group should be started based on context changes.
-        
-        Args:
-            row_context: Context of the current row
-            current_context: Context of the current group
-            
-        Returns:
-            True if a new group should be started
-        """
-        if not current_context:
-            return False
-            
-        # Check for significant changes in important columns
-        for col, data in row_context.items():
-            if col not in current_context:
-                return True
-                
-            current_val = current_context[col]['value']
-            new_val = data['value']
-            
-            # Different handling based on column type
-            if data['type'] == 'numeric':
-                try:
-                    current = float(current_val)
-                    new = float(new_val)
-                    if abs(new - current) > current * 0.5:  # 50% change
-                        return True
-                except ValueError:
-                    if current_val != new_val:
-                        return True
-            elif data['type'] == 'categorical':
-                if current_val != new_val:
-                    return True
-        
-        return False
-
-    def _update_context(self, current_context: Dict[str, Any], 
-                       row_context: Dict[str, Any]) -> Dict[str, Any]:
-        """Update group context with new row context.
-        
-        Args:
-            current_context: Current group context
-            row_context: New row context
-            
-        Returns:
-            Updated context
-        """
-        if not current_context:
-            return row_context
-            
-        updated = current_context.copy()
-        for col, data in row_context.items():
-            if col not in updated:
-                updated[col] = data
-            elif data['type'] == 'numeric':
-                try:
-                    current = float(updated[col]['value'])
-                    new = float(data['value'])
-                    updated[col]['value'] = str((current + new) / 2)  # Update with average
-                except ValueError:
-                    updated[col] = data
-            else:
-                updated[col] = data
-                
-        return updated
-
-    def _format_context(self, context: Dict[str, Any]) -> str:
-        """Format context information for inclusion in chunk.
-        
-        Args:
-            context: Context dictionary
-            
-        Returns:
-            Formatted context string
-        """
-        if not context:
-            return ""
-            
-        context_parts = []
-        for col, data in context.items():
-            context_parts.append(f"{col}: {data['value']} ({data['type']})")
-        
-        return "Context: " + "; ".join(context_parts)
 
     def _split_regular_text(self, text: str, chunk_size: int, overlap: int) -> List[str]:
         """Split regular text into meaningful chunks.

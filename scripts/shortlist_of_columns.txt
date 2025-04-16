@@ -1,0 +1,364 @@
+File: electricity Canada.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: electricity China.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: electricity EU.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: electricity general industry.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: electricity India.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: electricity Rest of the World.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: electricity USA.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: agriculture.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: building materials.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: ceramics.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: chem proxi.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: chemicals.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: electronics.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: end-of-life.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: fibres.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: food.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: Food_Global.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. Unit (Various (e.g. kg, kWh))
+  3. Process (Categorical (text))
+  4. Carbon (kg CO2 eq)
+  5. CED (MJ (cumulative energy demand))
+  6. Global warming, (kg CO2 eq)
+  7. Climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: Food_USA.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. Unit (Various (e.g. kg, kWh))
+  3. Process (Categorical (text))
+  4. Carbon (kg CO2 eq)
+  5. CED (MJ (cumulative energy demand))
+  6. Global warming, (kg CO2 eq)
+  7. Climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: fuels.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: glass.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: heat.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: laminates.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: metals, ferro.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: metals, non-ferro.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: paper & packaging.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+
+File: plastics.xlsx
+Sheet: Sheet1
+Columns:
+  1. industry (Categorical (text))
+  2. unit (Various (e.g. kg, kWh))
+  3. process (Categorical (text))
+  4. carbon (kg CO2 eq)
+  5. ced (MJ (cumulative energy demand))
+  6. global warming, (kg CO2 eq)
+  7. climate change (kg CO2 eq)
+  8. region (Categorical (text))
+
+================================================================================
+

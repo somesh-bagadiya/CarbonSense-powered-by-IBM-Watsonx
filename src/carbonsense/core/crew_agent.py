@@ -4,6 +4,7 @@ import yaml
 from typing import Dict, List, Any, Optional, Tuple
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai.project import CrewBase, agent, task, crew, before_kickoff, after_kickoff
+from crewai_tools import SerperDevTool
 from langchain.callbacks.manager import CallbackManager
 from langchain.llms.base import LLM as LangChainLLM
 
@@ -35,11 +36,6 @@ class CarbonSenseCrew:
         os.environ["WATSONX_URL"] = os.getenv("WATSONX_URL", "")
         os.environ["WATSONX_APIKEY"] = os.getenv("WATSONX_APIKEY", "")
         os.environ["WATSONX_PROJECT_ID"] = os.getenv("WATSONX_PROJECT_ID", "")
-        
-        # # Configure LiteLLM to use WatsonX
-        # os.environ["OPENAI_API_BASE"] = os.getenv("WATSONX_URL", "")
-        # os.environ["OPENAI_API_KEY"] = os.getenv("WATSONX_APIKEY", "")
-        # os.environ["OPENAI_API_VERSION"] = os.getenv("WATSONX_VERSION", "2023-05-29")
 
         self.config = config
         self.use_cache = use_cache
@@ -122,6 +118,17 @@ class CarbonSenseCrew:
             raise RuntimeError(f"Failed to load config files: {str(e)}")
     
     @agent
+    def query_processor(self) -> Agent:
+        """Carbon Data Researcher agent."""
+        tools = initialize_tools(self.config)
+        return Agent(
+            config=self.agents_config['query_processor'],
+            verbose=self.debug_mode,  # Only verbose in debug mode
+            llm=self.agent_llms['query_processor'],
+            max_retry_limit=1
+        )
+    
+    @agent
     def milvus_researcher(self) -> Agent:
         """Carbon Data Researcher agent."""
         tools = initialize_tools(self.config)
@@ -144,68 +151,91 @@ class CarbonSenseCrew:
             tools=[tools['web_search']],
             max_retry_limit=1
         )
-    
+        
     @agent
-    def analyst(self) -> Agent:
-        """Carbon Data Analyst agent."""
+    def serper_researcher(self) -> Agent:
+        """Carbon Data Researcher agent."""
+        tools = initialize_tools(self.config)
         return Agent(
-            config=self.agents_config['analyst'],
+            config=self.agents_config['serper_researcher'],
             verbose=self.debug_mode,  # Only verbose in debug mode
-            llm=self.agent_llms['analyst'],
+            llm=self.agent_llms['serper_researcher'],
+            tools=[SerperDevTool(country="us", num_results=5)],
             max_retry_limit=1
         )
-    
+        
     @agent
-    def formatter(self) -> Agent:
-        """Information Formatter agent."""
+    def answer_consolidator(self) -> Agent:
+        """Carbon Data Researcher agent."""
+        tools = initialize_tools(self.config)
         return Agent(
-            config=self.agents_config['formatter'],
+            config=self.agents_config['answer_consolidator'],
             verbose=self.debug_mode,  # Only verbose in debug mode
-            llm=self.agent_llms['formatter'],
+            llm=self.agent_llms['answer_consolidator'],
             max_retry_limit=1
         )
-    
-    # @agent
-    # def compiler(self) -> Agent:
-    #     """Report Compiler agent."""
-    #     tools = initialize_tools(self.config)
-    #     return Agent(
-    #         config=self.agents_config['compiler'],
-    #         verbose=self.debug_mode,  # Only verbose in debug mode
-    #         llm=self.agent_llms['compiler'],
-    #         tools=[tools['web_search']],
-    #         max_retry_limit=1
-    #     )
-    
+        
+    @agent
+    def answer_formatter(self) -> Agent:
+        """Carbon Data Researcher agent."""
+        tools = initialize_tools(self.config)
+        return Agent(
+            config=self.agents_config['answer_formatter'],
+            verbose=self.debug_mode,  # Only verbose in debug mode
+            llm=self.agent_llms['answer_formatter'],
+            max_retry_limit=1
+        )
+        
     @task
-    def research_task(self) -> Task:
+    def query_processing_task(self) -> Task:
         """Define the research task."""
         return Task(
-            config=self.tasks_config['research_task'],
+            config=self.tasks_config['query_processing_task'],
             max_retry_limit=1
         )
     
     @task
-    def analysis_task(self) -> Task:
-        """Define the analysis task."""
+    def milvus_research_task(self) -> Task:
+        """Define the research task."""
         return Task(
-            config=self.tasks_config['analysis_task'],
+            config=self.tasks_config['milvus_research_task'],
+            context=[self.query_processing_task()],
             max_retry_limit=1
         )
     
     @task
-    def formatting_task(self) -> Task:
-        """Define the formatting task."""
-        return Task(
-            config=self.tasks_config['formatting_task'],
-            max_retry_limit=1
-        )
-    
-    @task
-    def compilation_task(self) -> Task:
+    def discovery_research_task(self) -> Task:
         """Define the compilation task."""
         return Task(
-            config=self.tasks_config['compilation_task'],
+            config=self.tasks_config['discovery_research_task'],
+            context=[self.query_processing_task()],
+            max_retry_limit=1
+        )
+    
+    @task
+    def serper_research_task(self) -> Task:
+        """Define the research task."""
+        return Task(
+            config=self.tasks_config['serper_research_task'],
+            context=[self.query_processing_task()],
+            max_retry_limit=1
+        )
+    
+    @task
+    def consolidation_task(self) -> Task:
+        """Define the research task."""
+        return Task(
+            config=self.tasks_config['consolidation_task'],
+            context=[self.milvus_research_task(), self.discovery_research_task(), self.serper_research_task()],
+            max_retry_limit=1
+        )
+    
+    @task
+    def answer_formatting_task(self) -> Task:
+        """Define the research task."""
+        return Task(
+            config=self.tasks_config['answer_formatting_task'],
+            context=[self.consolidation_task()],
             max_retry_limit=1
         )
     

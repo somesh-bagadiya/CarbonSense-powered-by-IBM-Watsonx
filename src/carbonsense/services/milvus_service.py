@@ -23,19 +23,45 @@ logger = setup_logger(__name__)
 class MilvusService:
     """Service for interacting with Milvus vector database."""
     
+    # Class variable to store the singleton instance
+    _instance = None
+    _is_connected = False
+    
+    def __new__(cls, config: ConfigManager):
+        """Implement singleton pattern to ensure only one MilvusService instance exists."""
+        if cls._instance is None:
+            logger.debug("Creating new MilvusService instance")
+            cls._instance = super(MilvusService, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+    
     def __init__(self, config: ConfigManager):
         """Initialize the Milvus service.
         
         Args:
             config: Configuration manager instance
         """
+        # Only initialize once
+        if hasattr(self, '_initialized') and self._initialized:
+            logger.debug("Using existing MilvusService instance")
+            return
+            
         self.config = config
         self.milvus_config = config.get_milvus_config()
-        self._connect_to_milvus()
+        if not MilvusService._is_connected:
+            self._connect_to_milvus()
+        
+        self._initialized = True
         
     def _connect_to_milvus(self) -> None:
         """Establish connection to Milvus database."""
         try:
+            # Check if we already have a connection to avoid creating multiple connections
+            if MilvusService._is_connected:
+                logger.debug("Already connected to Milvus, reusing existing connection")
+                return
+                
+            # Establish a new connection
             connections.connect(
                 alias="default",
                 host=self.milvus_config["host"],
@@ -45,6 +71,9 @@ class MilvusService:
                 secure=True,
                 server_ca=self.milvus_config["cert_path"]
             )
+            
+            # Mark as connected
+            MilvusService._is_connected = True
             logger.info(f"Connected to Milvus at {self.milvus_config['host']}:{self.milvus_config['port']}")
         except Exception as e:
             error_msg = (
@@ -54,6 +83,7 @@ class MilvusService:
                 f"- Traceback:\n{traceback.format_exc()}"
             )
             logger.error(error_msg)
+            MilvusService._is_connected = False
             raise
     
     def collection_exists(self, collection_name: str) -> bool:
@@ -193,8 +223,8 @@ class MilvusService:
                     logger.error(f"Missing required field '{field}' in entity")
                     return False
                 
-                    if not isinstance(entity[field], field_type):
-                        logger.error(f"Field '{field}' must be of type {field_type.__name__}")
+                if not isinstance(entity[field], field_type):
+                    logger.error(f"Field '{field}' must be of type {field_type.__name__}")
                     return False
                 
             # Validate embedding
@@ -490,4 +520,4 @@ class MilvusService:
                         f"- Error Type: {type(e).__name__}\n"
                         f"- Error Message: {str(e)}\n"
                         f"- Traceback:\n{traceback.format_exc()}")
-            return [] 
+            return []

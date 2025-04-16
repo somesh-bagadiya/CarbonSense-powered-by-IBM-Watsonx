@@ -29,7 +29,7 @@ agents:
     goal: "Find accurate carbon footprint data from the database and web"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more factual/precise responses
-    reasoning_effort: "high"  # Higher reasoning for research
+    reasoning_effort: "low"  # Higher reasoning for research
     max_tokens: 512        # Larger context for research
     sources_tracked: true   # This agent tracks Milvus and Watson Discovery sources
   
@@ -38,7 +38,7 @@ agents:
     goal: "Analyze carbon footprint data and calculate environmental impact"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.3        # Moderate temperature for analysis
-    reasoning_effort: "high"  # Higher reasoning for analysis
+    reasoning_effort: "low"  # Higher reasoning for analysis
     max_tokens: 512        # Standard context size
     sources_tracked: false
   
@@ -47,16 +47,16 @@ agents:
     goal: "Create clear and engaging responses about carbon footprint data"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.5        # Higher temperature for more creative output
-    reasoning_effort: "medium"  # Standard reasoning for formatting
+    reasoning_effort: "low"  # Standard reasoning for formatting
     max_tokens: 512        # Standard context size
     sources_tracked: false
   
   compiler:
     role: "Carbon Footprint Information Compiler"
     goal: "Compile and analyze carbon footprint data from multiple sources"
-    model: "watsonx/ibm/granite-13b-instruct-v2"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.3        # Moderate temperature for balanced output
-    reasoning_effort: "high"  # Higher reasoning for compilation
+    reasoning_effort: "low"  # Higher reasoning for compilation
     max_tokens: 512        # Larger context for compilation
     sources_tracked: false
     
@@ -65,7 +65,7 @@ agents:
     goal: "Coordinate tasks between agents for optimal carbon footprint analysis"
     model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more precise task management
-    reasoning_effort: "high"  # Higher reasoning for management
+    reasoning_effort: "low"  # Higher reasoning for management
     max_tokens: 512        # Standard context size
     sources_tracked: false
 

@@ -14,7 +14,9 @@ from ..services.watsonx_service import WatsonxService
 from ..services.litellm_watsonx_service import LiteLLMWatsonxService
 from ..services.discovery_service import DiscoveryService
 from ..utils.logger import setup_logger
-from ..utils.cache_manager import CacheManager
+from ..services.cache_service import CacheService
+from jsonschema import validate
+from ..config.common_schema import carbon_metric
 
 # Import tools
 from .tools import CarbonResearchTool, WebSearchTool, initialize_tools
@@ -27,8 +29,17 @@ class CarbonSenseCrew:
     """Carbon footprint analysis crew using CrewAI's recommended approach."""
     
     def __init__(self, config: ConfigManager, debug_mode: bool = False, 
-                 use_cache: bool = True, use_hierarchical: bool = True):
-        """Initialize the CarbonSense crew."""
+                 use_cache: bool = False, use_hierarchical: bool = True,
+                 store_thoughts: bool = False):
+        """Initialize the CarbonSense crew.
+        
+        Args:
+            config: Configuration manager instance
+            debug_mode: Whether to enable debug mode
+            use_cache: Whether to use caching
+            use_hierarchical: Whether to use hierarchical task execution
+            store_thoughts: Whether to store agent thoughts and reasoning in log files
+        """
         logger.info("Initializing CarbonSenseCrew...")
 
         # Set up LiteLLM configuration for WatsonX
@@ -37,11 +48,20 @@ class CarbonSenseCrew:
         os.environ["WATSONX_APIKEY"] = os.getenv("WATSONX_APIKEY", "")
         os.environ["WATSONX_PROJECT_ID"] = os.getenv("WATSONX_PROJECT_ID", "")
 
+        # Important: All carbon footprint metrics must include the following required fields:
+        # - value: numeric value of the carbon footprint
+        # - emission_unit: unit of emission (kg CO2e or g CO2e)
+        # - product_unit: unit of product (per kg, per item, etc.)
+        # - source: source of the data (milvus, discovery, serper, etc.)
+        # - confidence: confidence score (0-1)
+        # - product_name: name of the product (beef, coffee, etc.)
+
         self.config = config
         self.use_cache = use_cache
         self.use_hierarchical = use_hierarchical
         self.current_query = ""
         self.debug_mode = debug_mode
+        self.store_thoughts = store_thoughts
         
         # Initialize services
         self.milvus = MilvusService(config)
@@ -78,7 +98,7 @@ class CarbonSenseCrew:
             )
         
         # Initialize the cache manager if caching is enabled
-        self.cache_manager = CacheManager() if use_cache else None
+        self.cache_manager = CacheService() if use_cache else None
         
         if not debug_mode:
             logger.setLevel(logging.INFO)
@@ -92,10 +112,7 @@ class CarbonSenseCrew:
             config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "core", "config")
             self.agents_config_path = os.path.join(config_dir, "agents.yaml")
             self.tasks_config_path = os.path.join(config_dir, "tasks.yaml")
-            
-            # AI parameters are in a different location
-            ai_params_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config")
-            self.ai_params_path = os.path.join(ai_params_dir, "ai_parameters.yaml")
+            self.ai_params_path = os.path.join(config_dir, "ai_parameters.yaml")
             
             # Load agents config
             with open(self.agents_config_path, "r") as f:
@@ -116,6 +133,106 @@ class CarbonSenseCrew:
         except Exception as e:
             logger.error(f"Error loading config files: {str(e)}")
             raise RuntimeError(f"Failed to load config files: {str(e)}")
+    
+    def validate_carbon_metric(self, metric: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate a carbon metric against the schema and ensure product_name is present.
+        
+        Args:
+            metric: Dictionary containing carbon footprint metric data
+            
+        Returns:
+            The validated metric
+            
+        Raises:
+            ValueError: If the metric doesn't match the schema or is missing required fields
+        """
+        try:
+            # Verify product_name is present, which is now required
+            if 'product_name' not in metric:
+                # Try to populate from parse_and_normalise_task output if available
+                parse_output = self.get_task_output('parse_and_normalise_task')
+                if parse_output and isinstance(parse_output, dict) and 'product' in parse_output:
+                    metric['product_name'] = parse_output['product']
+                else:
+                    raise ValueError("Carbon metric is missing required 'product_name' field")
+            
+            # Verify category is present, which is now required
+            if 'category' not in metric:
+                # Try to determine category based on product name
+                product = metric['product_name'].lower()
+                
+                # Food-related keywords
+                food_keywords = ['food', 'fruit', 'vegetable', 'meat', 'dairy', 'milk', 'cheese',
+                                'egg', 'bread', 'grain', 'rice', 'pasta', 'bean', 'fish', 'seafood',
+                                'beef', 'pork', 'chicken', 'apple', 'banana', 'coffee', 'tea', 'water',
+                                'beer', 'wine', 'juice', 'soda', 'drink', 'beverage']
+                
+                # Energy-related keywords
+                energy_keywords = ['energy', 'electricity', 'gas', 'fuel', 'power', 'heating', 'cooling',
+                                  'appliance', 'device', 'lamp', 'light', 'bulb', 'ac', 'air conditioning',
+                                  'heater', 'furnace', 'stove', 'oven', 'refrigerator', 'fridge', 'tv',
+                                  'television', 'computer', 'laptop', 'charger', 'battery']
+                
+                # Transport-related keywords
+                transport_keywords = ['car', 'vehicle', 'bike', 'bicycle', 'motorcycle', 'bus', 'train',
+                                     'plane', 'flight', 'ship', 'boat', 'truck', 'transport', 'travel',
+                                     'commute', 'drive', 'ride', 'fly', 'transit', 'trip', 'journey',
+                                     'kilometer', 'mile', 'distance', 'fuel', 'gasoline', 'diesel']
+                
+                # Determine category based on keywords
+                if any(keyword in product for keyword in food_keywords):
+                    metric['category'] = "Food and Beverages"
+                elif any(keyword in product for keyword in energy_keywords):
+                    metric['category'] = "Household Energy Use"
+                elif any(keyword in product for keyword in transport_keywords):
+                    metric['category'] = "Transport Related"
+                else:
+                    # Default to Food if we can't determine (most queries are about food)
+                    metric['category'] = "Food and Beverages"
+                    logger.info(f"Defaulting category to 'Food and Beverages' for product: {product}")
+                
+            # Validate against schema
+            validate(metric, carbon_metric)
+            return metric
+        except Exception as e:
+            logger.error(f"Carbon metric validation error: {str(e)}")
+            raise ValueError(f"Invalid carbon metric: {str(e)}")
+    
+    def get_task_output(self, task_name: str) -> Any:
+        """Get the output of a task by name from task output files.
+        
+        Args:
+            task_name: Name of the task
+            
+        Returns:
+            Task output or None if not found
+        """
+        try:
+            if task_name not in self.tasks_config:
+                return None
+                
+            output_file = self.tasks_config[task_name].get('output_file')
+            if not output_file:
+                return None
+                
+            # Handle relative paths
+            if not os.path.isabs(output_file):
+                output_file = os.path.join(os.getcwd(), output_file)
+                
+            if os.path.exists(output_file):
+                with open(output_file, 'r') as f:
+                    content = f.read()
+                    try:
+                        # Try to parse as JSON first
+                        import json
+                        return json.loads(content)
+                    except json.JSONDecodeError:
+                        # Return as plain text if not JSON
+                        return content
+            return None
+        except Exception as e:
+            logger.warning(f"Error getting task output: {str(e)}")
+            return None
     
     @agent
     def query_processor(self) -> Agent:
@@ -185,13 +302,46 @@ class CarbonSenseCrew:
             llm=self.agent_llms['answer_formatter'],
             max_retry_limit=1
         )
+
+    @agent
+    def unit_normalizer(self) -> Agent:
+        return Agent(config=self.agents_config['unit_normalizer'],
+                     llm=self.agent_llms['unit_normalizer'],
+                     max_retry_limit=1)
+
+    @agent
+    def footprint_cache(self) -> Agent:
+        return Agent(config=self.agents_config['footprint_cache'],
+                     llm=self.agent_llms['footprint_cache'],
+                     max_retry_limit=1)
+
+    @agent
+    def unit_harmoniser(self) -> Agent:
+        return Agent(config=self.agents_config['unit_harmoniser'],
+                     llm=self.agent_llms['unit_harmoniser'],
+                     max_retry_limit=1)
+
+    @agent
+    def metric_ranker(self) -> Agent:
+        return Agent(config=self.agents_config['metric_ranker'],
+                     llm=self.agent_llms['metric_ranker'],
+                     max_retry_limit=1)
+
+    @agent
+    def usage_logger(self) -> Agent:
+        return Agent(config=self.agents_config['usage_logger'],
+                     llm=self.agent_llms['usage_logger'],
+                     max_retry_limit=1)
         
     @task
-    def query_processing_task(self) -> Task:
-        """Define the research task."""
+    def parse_and_normalise_task(self) -> Task:
+        return Task(config=self.tasks_config['parse_and_normalise_task'])
+
+    @task
+    def cache_lookup_task(self) -> Task:
         return Task(
-            config=self.tasks_config['query_processing_task'],
-            max_retry_limit=1
+            config=self.tasks_config['cache_lookup_task'],
+            context=[self.parse_and_normalise_task()]
         )
     
     @task
@@ -199,7 +349,7 @@ class CarbonSenseCrew:
         """Define the research task."""
         return Task(
             config=self.tasks_config['milvus_research_task'],
-            context=[self.query_processing_task()],
+            context=[self.parse_and_normalise_task()],
             max_retry_limit=1
         )
     
@@ -208,7 +358,7 @@ class CarbonSenseCrew:
         """Define the compilation task."""
         return Task(
             config=self.tasks_config['discovery_research_task'],
-            context=[self.query_processing_task()],
+            context=[self.parse_and_normalise_task()],
             max_retry_limit=1
         )
     
@@ -217,25 +367,39 @@ class CarbonSenseCrew:
         """Define the research task."""
         return Task(
             config=self.tasks_config['serper_research_task'],
-            context=[self.query_processing_task()],
+            context=[self.parse_and_normalise_task()],
             max_retry_limit=1
         )
     
     @task
-    def consolidation_task(self) -> Task:
-        """Define the research task."""
+    def harmonise_task(self) -> Task:
         return Task(
-            config=self.tasks_config['consolidation_task'],
-            context=[self.milvus_research_task(), self.discovery_research_task(), self.serper_research_task()],
-            max_retry_limit=1
+            config=self.tasks_config['harmonise_task'],
+            context=[self.milvus_research_task(),
+                     self.discovery_research_task(),
+                     self.serper_research_task()]
         )
+
+    @task
+    def rank_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['rank_task'],
+            context=[self.harmonise_task()]
+        )
+
+    # @task
+    # def usage_logging_task(self) -> Task:
+    #     return Task(
+    #         config=self.tasks_config['usage_logging_task'],
+    #         context=[self.answer_formatting_task()]
+    #     )
     
     @task
     def answer_formatting_task(self) -> Task:
         """Define the research task."""
         return Task(
             config=self.tasks_config['answer_formatting_task'],
-            context=[self.consolidation_task()],
+            context=[self.rank_task(), self.parse_and_normalise_task()],
             max_retry_limit=1
         )
     
@@ -243,6 +407,7 @@ class CarbonSenseCrew:
     def prepare_inputs(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare inputs before the crew starts."""
         logger.info(f"Preparing inputs for query: {inputs.get('query', '')}")
+        inputs["skip_research"] = False
         return inputs
     
     @after_kickoff
@@ -250,6 +415,30 @@ class CarbonSenseCrew:
         """Process output after the crew finishes."""
         logger.info("Processing crew output")
         
+        # Check if the output is a carbon metric JSON that needs validation
+        if isinstance(output, dict) and any(k in output for k in ['value', 'emission_unit', 'product_unit']):
+            try:
+                # Validate and potentially add product_name if missing
+                output = self.validate_carbon_metric(output)
+                logger.info("Validated carbon metric output")
+            except ValueError as e:
+                logger.warning(f"Output validation warning: {str(e)}")
+                
+        # For research task outputs (usually arrays of metrics)
+        elif isinstance(output, list) and len(output) > 0:
+            if all(isinstance(item, dict) for item in output):
+                validated_items = []
+                for item in output:
+                    if any(k in item for k in ['value', 'emission_unit', 'product_unit']):
+                        try:
+                            validated_items.append(self.validate_carbon_metric(item))
+                        except ValueError as e:
+                            logger.warning(f"Item validation warning: {str(e)}")
+                            validated_items.append(item)  # Include original item
+                    else:
+                        validated_items.append(item)
+                output = validated_items
+                
         return output
     
     @crew
@@ -257,6 +446,27 @@ class CarbonSenseCrew:
         """Define the CarbonSense crew."""
         # Choose process type
         process_type = Process.hierarchical if self.use_hierarchical else Process.sequential
+        
+        # runtime pruning: if cache hit skip research tasks
+        if self.cache_manager and self.cache_manager.get(self.current_query):
+            # Skip research tasks if cache hit found
+            logger.info("Cache hit found, skipping research tasks")
+            self.tasks.remove(self.milvus_research_task())
+            self.tasks.remove(self.discovery_research_task())
+            self.tasks.remove(self.serper_research_task())
+            self.tasks.remove(self.harmonise_task())
+            self.tasks.remove(self.rank_task())
+        else:
+            # Check if cache lookup was performed and returned MISS
+            cache_result = self.get_task_output('cache_lookup_task')
+            if cache_result and isinstance(cache_result, dict) and cache_result.get('status') == 'MISS':
+                logger.info("Cache miss detected, proceeding with full research workflow")
+            else:
+                logger.info("No cache lookup results found, proceeding with full research workflow")
+        
+        # Create logs directory if it doesn't exist
+        if self.store_thoughts:
+            os.makedirs("logs/thoughts", exist_ok=True)
         
         return Crew(
             agents=self.agents,  # Automatically created by the @agent decorator
@@ -266,28 +476,42 @@ class CarbonSenseCrew:
             # memory=True,         # Enable crew memory
             # cache=self.use_cache,
             manager_llm=self.agent_llms['manager'],  # Use manager LLM from ai_parameters.yaml
-            output_log_file=self.debug_mode,  # Only output logs in debug mode
+            output_log_file=self.store_thoughts,  # Save output logs if store_thoughts is enabled
+            output_dir="logs/thoughts" if self.store_thoughts else None,  # Save logs in the thoughts subdirectory
+            full_output=self.store_thoughts,  # Include agent thoughts and reasoning in the logs
         )
 
 class CrewAgentManager:
     """Manager for creating and running CrewAI agents for carbon footprint analysis."""
     
     def __init__(self, config: ConfigManager, debug_mode: bool = False, use_cache: bool = True,
-                use_hierarchical: bool = True, use_simple_logger: bool = True):
-        """Initialize the crew agent manager."""
+                use_hierarchical: bool = True, use_simple_logger: bool = True, 
+                store_thoughts: bool = False):
+        """Initialize the crew agent manager.
+        
+        Args:
+            config: Configuration manager instance
+            debug_mode: Whether to enable debug mode
+            use_cache: Whether to use caching
+            use_hierarchical: Whether to use hierarchical task execution
+            use_simple_logger: Whether to use simple logger (legacy parameter)
+            store_thoughts: Whether to store agent thoughts and reasoning in log files
+        """
         logger.info("Initializing CrewAgentManager...")
         self.config = config
         self.debug_mode = debug_mode
         self.use_cache = use_cache
         self.use_hierarchical = use_hierarchical
         self.use_simple_logger = use_simple_logger
+        self.store_thoughts = store_thoughts
         
         # Initialize CarbonSenseCrew with LiteLLM always enabled
         self.carbon_crew = CarbonSenseCrew(
             config=config,
             debug_mode=debug_mode,
             use_cache=use_cache,
-            use_hierarchical=use_hierarchical
+            use_hierarchical=use_hierarchical,
+            store_thoughts=store_thoughts
         )
         
         # Track current session ID
@@ -314,12 +538,23 @@ class CrewAgentManager:
             self.carbon_crew.current_query = query
             
             # Run the crew with the query and task dependencies
-            result = self.carbon_crew.crew().kickoff(
+            crew_result = self.carbon_crew.crew().kickoff(
                 inputs={
                     "query": query,
                     "show_context": show_context
                 }
             )
+            
+            # Extract the string result from CrewOutput object
+            if hasattr(crew_result, 'raw_output'):
+                # New versions of CrewAI return a CrewOutput object with raw_output attribute
+                result = str(crew_result.raw_output)
+            elif hasattr(crew_result, 'output'):
+                # Some versions might have an output attribute
+                result = str(crew_result.output)
+            else:
+                # Fallback to string conversion
+                result = str(crew_result)
             
             # Format the response
             response_data = {
@@ -330,14 +565,31 @@ class CrewAgentManager:
             # Add sources if available and requested
             if show_context:
                 sources = []
-                if isinstance(result, str) and "SOURCES:" in result:
-                    parts = result.split("SOURCES:")
-                    if len(parts) > 1:
-                        sources_text = parts[1].strip()
-                        sources = [s.strip() for s in sources_text.split("\n") if s.strip()]
+                # Look for SOURCES section in formatted output with standard marker
+                if isinstance(result, str):
+                    # Try the standard marker format first
+                    if "SOURCES:" in result:
+                        parts = result.split("SOURCES:")
+                        if len(parts) > 1:
+                            sources_text = parts[1].strip()
+                            # Extract bullet points or numbered items
+                            source_items = []
+                            for line in sources_text.split("\n"):
+                                line = line.strip()
+                                # Match bullet points, numbered items, or other common formats
+                                if line.startswith('-') or line.startswith('•') or (line and line[0].isdigit() and line[1:3] in ['. ', ') ']):
+                                    source_items.append(line.lstrip('- •0123456789.) ').strip())
+                            sources = [s for s in source_items if s]
+                    
+                    # If no sources found with standard marker, try to get from the metric
+                    if not sources:
+                        # Try to get the source from the rank_task output
+                        rank_output = self.carbon_crew.get_task_output('rank_task')
+                        if rank_output and isinstance(rank_output, dict) and 'source' in rank_output:
+                            sources.append(rank_output['source'])
                 
                 response_data["context"] = {
-                    "sources": sources,
+                    "sources": sources if sources else ["No specific sources identified."],
                     "show_context": show_context
                 }
             

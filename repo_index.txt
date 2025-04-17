@@ -1,0 +1,30 @@
+# CarbonSense Project Index
+
+## Core Components
+- **Main Application**: `src/carbonsense/main.py` - Entry point with command-line interface
+- **Core Modules**: `src/carbonsense/core/` - Contains embedding generator, carbon agent, and crew agent
+- **Utilities**: `src/carbonsense/utils/` - Helper functions for logging, caching, and document processing
+- **Services**: `src/carbonsense/services/` - Integration with Milvus, IBM Watson, and other services
+- **Config**: `src/carbonsense/config/` - Configuration management
+
+## Data
+- **Processed Data**: `Data_processed/` - Contains organized data by industry, electricity usage, and region
+- **Raw Data**: `Data_RAW/` - Contains original unprocessed dataset
+- **Backup Dataset**: `backup-dataset/` - Backup copy of original data
+
+## Scripts
+- **Data Processing**: `scripts/preprocess_dataset.py` - Processes Excel files from backup to Data_processed
+- **Environment Setup**: `scripts/setup.ps1` - Windows PowerShell setup script
+- **Jupyter Notebooks**: Various dataset processing notebooks for specific industries
+
+## Dependencies
+- Python ≥3.11
+- Key packages: ibm-watsonx-ai, pymilvus, crewai, pandas, numpy
+- IBM Cloud services: Watson Discovery, Speech-to-Text, Cloud Object Storage
+
+## Features
+- RAG-based query system for carbon footprint data
+- Multi-agent systems with CrewAI
+- Speech-to-text query capability
+- Data processing and embedding generation
+- Vector storage with Milvus

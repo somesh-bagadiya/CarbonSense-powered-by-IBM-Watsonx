@@ -1,119 +1,342 @@
-query_processing_task:
+# --------------------------------
+# 1. PARSE & NORMALISE
+parse_and_normalise_task:
   description: >
-    Process the user’s natural language query to extract structured information needed for downstream processing.
+    Parse the query "{query}" to extract the product name and quantity information.
     
-    Your goal is to identify:
-    1. The product being referenced
-    2. The quantity and unit specified (if any)
-
-    user query: {query}
-
-    Example input query:
-    "What is the carbon footprint of 2 kg of coffee?"
-
-    You should extract and return:
-    - product: coffee
-    - quantity: 2 kg
-
-    Output must follow this format:
-    "product: [product], quantity: [quantity]"
-
-    If the quantity is not explicitly mentioned, output:
-    "product: [product], quantity: not specified"
+    Return a JSON object with the following structure:
+    {
+      "product": "precise product name, normalized and cleaned",
+      "raw_quantity": "the exact quantity text from the query",
+      "standard_quantity": {
+        "value": <float - never zero unless explicitly specified, default to 1.0 for missing quantities>,
+        "unit": "kg|item|km|L|kWh - standardized unit appropriate for the product type"
+      },
+      "quantity_missing": <boolean - true if quantity was not specified in the query>
+    }
     
-    This structured output will be used by other agents to compute total carbon emissions.
-  agent: query_processor
+    Important guidelines:
+    - If quantity is missing, set quantity_missing=true and apply a default value (1 kg for food, 1 item for products)
+    - If quantity is specified as zero, verify if this makes sense; for most queries, assume 1 unit instead
+    - Always check that your output is logically consistent and appropriate for the product type
+    - Normalize product names to their canonical form (e.g., "beef steak" → "beef")
+    - For food items, prefer kg as the standard unit
+    - For transportation, prefer km as the standard unit
+    - For discrete items, use "item" as the unit
   expected_output: >
-    A structured string in the format:
-    "product: [product], quantity: [quantity]"
+    A JSON object containing the normalized product name, raw quantity as entered, 
+    standardized quantity with appropriate defaults (never zero unless explicitly specified), 
+    and a flag indicating if the quantity was missing from the original query.
+  agent: unit_normalizer
+  output_file: logs/1_parse.json
+  async_execution: false
 
-    Example:
-    "product: coffee, quantity: 2 kg"
+
+# 2. CACHE LOOKUP (SKIP RESEARCH WHEN HIT)
+cache_lookup_task:
+  description: >
+    Check the file cache for the product identified in the previous task.
+    Use the normalized product name from the parse_and_normalise_task as the key.
     
-    If quantity is missing:
-    "product: tea, quantity: not specified"
-  output_file: logs/1_query_details.txt
+    Return the cached JSON metric if found, with all required fields:
+    {
+      "value": <number>,
+      "emission_unit": "kg CO2e|g CO2e",
+      "product_unit": "<unit>",
+      "source": "<source name>",
+      "confidence": <number between 0-1>,
+      "product_name": "<product name>"
+    }
+    
+    Or return a JSON object with status "MISS" if no cache entry exists:
+    {"status": "MISS"}
+    
+    Never return plain text responses; always use proper JSON format.
+  expected_output: >
+    Either a complete cached JSON metric that follows the common schema format with all required fields,
+    or a JSON object with {"status": "MISS"} if no cache entry exists.
+  agent: footprint_cache
+  output_file: logs/2_cache.json
+  async_execution: false
 
+
+# 3. EXTERNAL RESEARCH (parallel)
 milvus_research_task:
   description: >
-    Determine the carbon footprint for the specified product: {query}.
-    Emphasize returning a clear, consolidated value.
-  agent: milvus_researcher
+    Query the Milvus vector database to find the carbon footprint metric for the product identified in the parse task.
+    Use semantic search to find the closest matches, even if the product name isn't an exact match.
+    
+    Return a complete JSON object that follows the required schema:
+    {
+      "value": <number - precise carbon footprint value, never zero or negative>,
+      "emission_unit": "kg CO2e" or "g CO2e",
+      "product_unit": "per kg" or appropriate unit,
+      "source": "milvus" plus any specific source document,
+      "confidence": <number between 0-1 indicating data reliability>,
+      "product_name": <exact product name as found in the database>,
+      "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">
+    }
+    
+    Important guidelines:
+    - Include the exact product_name from the database for traceability
+    - Assign a confidence score based on match quality and data source reliability
+    - Never return zero or negative values unless they represent carbon sequestration
+    - Handle special cases like carbon-negative products appropriately
+    - If multiple matches are found, select the most relevant and accurate one
+    - Categorize products correctly based on their nature (food items, energy sources, or transportation)
   expected_output: >
-    A single, clear carbon footprint metric for the product, formatted as:
-    "[value] [emission unit] per [product unit], confidence: [score]"
-    Example: "2.5 kg CO₂e per kg, confidence: 0.85"
-  output_file: logs/2_researcher.txt
+    A JSON object with carbon footprint data following the common schema,
+    including value, emission_unit, product_unit, source, confidence, product_name, and category.
+    The data should be high quality, accurate, and logically consistent.
+  agent: milvus_researcher
+  output_file: logs/3_milvus.json
+  async_execution: true
+
 
 discovery_research_task:
   description: >
-    Given a product-related query: {query}, find the carbon footprint using Watson Discovery.
-    Return:
-    - Carbon footprint value
-    - Emission unit (e.g., kg CO₂e)
-    - Product unit (e.g., per item, per 100g)
-    - Confidence score (between 0 and 1)
-  agent: discovery_researcher
+    Search Watson Discovery for carbon footprint information about the product identified in the parse task.
+    Extract structured data from documents, reports, and databases in the Discovery collection.
+    
+    Return a complete JSON object that follows the required schema:
+    {
+      "value": <number - precise carbon footprint value, never zero or negative unless appropriate>,
+      "emission_unit": "kg CO2e" or "g CO2e",
+      "product_unit": "per kg" or appropriate unit,
+      "source": specific source document or database from Discovery,
+      "confidence": <number between 0-1 indicating data reliability>,
+      "product_name": <product name as identified in the documents>,
+      "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">
+    }
+    
+    Important guidelines:
+    - Extract data from the most authoritative sources available (academic > government > industry)
+    - Prefer recent data (published within last 3 years) over older information
+    - Calculate confidence score based on source credibility, methodology, and data recency
+    - Identify the specific document or database the data came from
+    - Verify units are clearly specified and convert to standard units when necessary
+    - Ensure all required fields are included and properly formatted
+    - Categorize the product into one of the three standard categories
   expected_output: >
-    "[value] [emission unit] per [product unit], confidence: [score]"
-    Example: "1.8 kg CO₂e per 100g, confidence: 0.87"
-  output_file: logs/3_discovery_result.txt
+    A JSON object with carbon footprint data following the common schema,
+    including value, emission_unit, product_unit, source, confidence, product_name, and category.
+    The data should be traced to specific documents and include appropriate confidence scoring.
+  agent: discovery_researcher
+  output_file: logs/4_discovery.json
+  async_execution: true
 
-  # Serper Research Task
+
 serper_research_task:
   description: >
-    Given a product-related query: {query}, use Serper Web Search to find carbon footprint data.
-    Return:
-    - Carbon footprint value
-    - Emission unit (e.g., kg CO₂e)
-    - Product unit (e.g., per item, per 100g)
-    - Confidence score (between 0 and 1)
+    Search the web using Serper for carbon footprint data about the product identified in the parse task.
+    Analyze search results to extract the most accurate and reliable carbon footprint information available online.
+    
+    Return a complete JSON object that follows the required schema:
+    {
+      "value": <number - precise carbon footprint value, never zero or negative unless appropriate>,
+      "emission_unit": "kg CO2e" or "g CO2e",
+      "product_unit": "per kg" or appropriate unit,
+      "source": specific website, organization, or publication name,
+      "confidence": <number between 0-1 indicating data reliability>,
+      "product_name": <product name as researched>,
+      "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">
+    }
+    
+    Important guidelines:
+    - Prioritize data from reputable sources (academic journals, government agencies, respected environmental organizations)
+    - Verify the methodology used to calculate the carbon footprint when possible
+    - Assign confidence scores based on source credibility, methodology transparency, and data recency
+    - Extract the specific website, organization, or publication name for the source field
+    - Make sure to include all required fields in your response
+    - Handle special cases, regional variations, and different production methods
+    - Categorize the product according to the standardized categories
+  expected_output: >
+    A JSON object with carbon footprint data following the common schema,
+    including value, emission_unit, product_unit, source, confidence, product_name, and category.
+    The data should come from reputable online sources with clear attribution.
   agent: serper_researcher
-  expected_output: >
-    "[value] [emission unit] per [product unit], confidence: [score]"
-    Example: "2.2 kg CO₂e per item, confidence: 0.82"
-  output_file: logs/4_serper_result.txt
+  output_file: logs/5_serper.json
+  async_execution: true
 
-consolidation_task:
+
+# 4. HARMONISE & RANK
+harmonise_task:
   description: >
-    Review the carbon footprint outputs from Milvus, Watson Discovery, and Serper.
-
-    Select the best metric based on:
-    - Highest confidence score
-    - Relevance and completeness
-    - Consistency of units
-
-    Normalize units if necessary (e.g., standardize to "kg CO₂e per kg" format where possible).
-
-    Output a single carbon footprint metric to be used for final formatting.
-
-    Final format:
-    "value: [X], emission_unit: [unit], product_unit: [unit], source: [agent_name], confidence: [score]"
-
-    Example:
-    "value: 2.5, emission_unit: kg CO₂e, product_unit: per kg, source: milvus_researcher, confidence: 0.85"
-  agent: answer_consolidator
+    Harmonize all carbon footprint metrics from the research tasks to ensure consistent units and formats.
+    Convert all metrics to a standardized format (kg CO2e per kg) for fair comparison.
+    
+    For each metric in the array of research results:
+    
+    1. Convert all emission units to kg CO2e (e.g., g CO2e ÷ 1000)
+    2. Standardize product units to "per kg" whenever possible
+    3. For non-weight items, establish reasonable weight equivalents (e.g., 1 apple ≈ 0.15 kg)
+    4. Ensure consistent precision and significant figures
+    5. Verify all metrics contain complete information including product_name and category
+    6. Validate category assignment and correct if necessary
+    
+    Return an array of normalized JSON objects, each following the schema:
+    [
+      {
+        "value": <number - normalized to standard units>,
+        "emission_unit": "kg CO2e",
+        "product_unit": "kg",
+        "source": <original source>,
+        "confidence": <original confidence score>,
+        "product_name": <product name>,
+        "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">
+      },
+      {...}
+    ]
+    
+    Important guidelines:
+    - Handle edge cases like very small or very large values appropriately
+    - Never lose precision by inappropriate rounding (especially for small values)
+    - Document any conversion factors or assumptions used
+    - Preserve the original source and confidence information
+    - Ensure all harmonized metrics are logically consistent
+    - Validate and standardize category assignments across all metrics
   expected_output: >
-    A structured string with:
-    - value
-    - emission_unit
-    - product_unit
-    - source (agent name)
-    - confidence score
-
-    Example:
-    "value: 2.5, emission_unit: kg CO₂e, product_unit: per kg, source: milvus_researcher, confidence: 0.85"
-  output_file: logs/5_consolidated_metric.txt
+    An array of JSON objects containing harmonized carbon footprint metrics,
+    all with consistent units (kg CO2e per kg) and formatting including product_name and category.
+    The array should maintain all relevant information from the original metrics
+    while ensuring they can be fairly compared.
+  agent: unit_harmoniser
+  output_file: logs/6_harmonised.json
+  async_execution: false
 
 
+rank_task:
+  description: >
+    Evaluate and rank all harmonized metrics to select the most reliable and accurate one.
+    Apply a weighted scoring system based on multiple factors:
+    
+    1. Source credibility: academic (1.0) > government (0.9) > industry (0.8) > general web (0.7)
+    2. Methodological completeness: full LCA (1.0) > partial assessment (0.8) > estimation (0.6)
+    3. Data recency: current year (1.0) with exponential decay for older data
+    4. Original confidence scores provided by research agents
+    5. Statistical robustness and precision of the data
+    
+    Calculate a 95% confidence interval when sufficient data is available.
+    
+    Return a single JSON object representing the best metric:
+    {
+      "value": <number - the best carbon footprint value>,
+      "emission_unit": "kg CO2e",
+      "product_unit": "kg",
+      "source": <source of the selected metric>,
+      "confidence": <final calculated confidence score>,
+      "product_name": <product name>,
+      "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">,
+      "confidence_interval": "<lower bound> - <upper bound>",
+      "recency": "<year of data or 'latest'>"
+    }
+    
+    Important guidelines:
+    - When metrics disagree significantly, investigate why and exclude obvious outliers
+    - Consider the consensus of multiple sources when available
+    - Never select metrics with logical inconsistencies or impossible values
+    - Calculate a composite confidence score that reflects overall data quality
+    - Always include the product_name field matched to the original query
+    - Verify the category assignment is correct based on the product type
+    - Provide a confidence interval when possible to communicate uncertainty
+  expected_output: >
+    A single JSON object representing the best carbon footprint metric,
+    selected based on a rigorous evaluation of confidence, reliability, recency, and source quality.
+    The object should include the standard fields (value, emission_unit, product_unit, source, confidence, 
+    product_name, category) plus confidence_interval and recency when available.
+  agent: metric_ranker
+  output_file: logs/7_ranked.json
+  async_execution: false
+
+
+# 5. ANSWER & LOG
 answer_formatting_task:
   description: >
-    Using the base carbon footprint metric (e.g., "2.5 kg CO₂e per kg") 
-    and the quantity extracted from the query (e.g., "2 kg"), 
-    provide a final statement with the correct total carbon footprint.
-    Include the final confidence score if applicable.
-  agent: answer_formatter
+    Format the final answer using the best carbon footprint metric and the original query quantity.
+    
+    Follow these precise steps:
+    1. Extract the best metric from the rank_task output
+    2. Extract the normalized quantity from the parse_and_normalise_task output
+    3. Check if quantity is missing or zero:
+       - If missing (quantity_missing=true), use a default of 1 unit appropriate for the product
+       - If zero and not explicitly requested, use a default of 1 unit
+       - If explicitly requested as zero, include a note about typical usage
+    4. Calculate the total carbon footprint: metric_value × quantity
+    5. Format to appropriate precision (2 significant figures) and units
+    6. Include confidence score and uncertainty range (±)
+    7. Add a methodology explanation describing how the footprint was calculated:
+       - Explain the data sources and their reliability
+       - Mention the calculation methodology (e.g., life-cycle assessment)
+       - Note any assumptions made in the calculation
+       - Build trust by emphasizing scientific rigor and data quality
+    8. Categorize the product into one of these three categories:
+       - Food and Beverages: All edible items, drinks, agricultural products
+       - Household Energy Use: Electricity, gas, appliances, home heating/cooling
+       - Transport Related: Vehicles, flights, public transit, shipping
+    9. Include source information in a separate section clearly marked with "SOURCES:"
+    
+    Return a formatted multi-line response with the following structure:
+
+    Carbon Footprint: For [quantity] [product] the footprint is [value] [unit] (±[uncertainty]), confidence [score]
+    
+    Methodology: [Brief explanation of how the footprint was calculated and why the data is reliable]
+    
+    Category: [Food and Beverages | Household Energy Use | Transport Related]
+    
+    SOURCES:
+    - [source name/document/website from the metric used]
+    - (If applicable) Additional references used in research
+    
+    Important guidelines:
+    - Never return a calculation with zero quantity unless explicitly requested
+    - Use appropriate defaults for missing information
+    - Format numbers with appropriate precision and units
+    - Include confidence information and uncertainty ranges
+    - Provide a clear explanation of the calculation methodology to build trust
+    - Ensure the response is logically sound and contextually appropriate
+    - Always provide the correct category based on product type
+    - Always include the SOURCES section, even if there's only one source
   expected_output: >
-    Example final output:
-    "For 2 kg of coffee, the total carbon footprint is 5.0 kg CO₂e, confidence: 0.85"
+    A formatted multi-line response that presents the carbon footprint result, calculation methodology, 
+    product category, and sources. The output should account for the quantity properly, handle edge cases 
+    like missing or zero quantities, include confidence information, explain how the footprint was calculated, 
+    categorize the product appropriately, and list sources.
+    
+    Format:
+    Carbon Footprint: For [quantity] [product] the footprint is [value] [unit] (±[uncertainty]), confidence [score]
+    
+    Methodology: [Brief explanation of how the footprint was calculated and why the data is reliable]
+    
+    Category: [Food and Beverages | Household Energy Use | Transport Related]
+    
+    SOURCES:
+    - [primary source]
+    - [additional sources if available]
+  agent: answer_formatter
   output_file: 0_final_answer.txt
+  async_execution: false
+
+
+# 6. USAGE LOGGING
+usage_logging_task:
+  description: >
+    Log detailed information about this query and its processing for analytics and improvement purposes.
+    
+    Capture the following data points:
+    1. Original query text: "{query}"
+    2. Normalized product and quantity from parse_and_normalise_task
+    3. Cache status (hit/miss) from cache_lookup_task
+    4. Data sources used and their contributions to the final result
+    5. Processing time and task completion timestamps
+    6. Final confidence score and uncertainty range
+    7. Any unusual patterns, edge cases, or error conditions encountered
+    
+    Format the log data as a complete JSON object with consistent field names and types.
+    
+    Return a simple confirmation string: "OK" after logging is complete.
+  expected_output: >
+    The string "OK" indicating successful logging of the request details
+    to the analytics system for future analysis and system improvement.
+  agent: answer_formatter
+  output_file: logs/8_usage.txt
+  async_execution: false

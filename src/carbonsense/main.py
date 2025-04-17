@@ -1,6 +1,8 @@
 import argparse
 import logging
 import os
+import ssl
+import socket
 import sys
 import time
 import tempfile
@@ -252,6 +254,7 @@ def main():
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
     parser.add_argument("--no_cache", action="store_true", help="Disable caching")
     parser.add_argument("--sequential", action="store_true", help="Use sequential process instead of hierarchical")
+    parser.add_argument("--store_thoughts", action="store_true", help="Store agent thoughts and reasoning in log files")
     args = parser.parse_args()
 
     try:
@@ -307,8 +310,9 @@ def main():
                 crew_manager = CrewAgentManager(
                     config=config,
                     debug_mode=args.debug,
-                    use_cache=not args.no_cache,
-                    use_hierarchical=not args.sequential
+                    use_cache=args.no_cache,
+                    use_hierarchical=not args.sequential,
+                    store_thoughts=args.store_thoughts
                 )
                 
                 print(f"\nProcessing query with CrewAI using hierarchical as {not args.sequential}...")

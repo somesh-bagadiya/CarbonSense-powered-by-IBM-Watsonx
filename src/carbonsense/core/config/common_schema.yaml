@@ -1,0 +1,11 @@
+carbon_metric:
+  type: object
+  required: [value, emission_unit, product_unit, source, confidence, product_name, category]
+  properties:
+    value:         {type: number}
+    emission_unit: {type: string, enum: ["kg CO2e", "g CO2e"]}
+    product_unit:  {type: string}
+    source:        {type: string}
+    confidence:    {type: number, minimum: 0, maximum: 1}
+    product_name:  {type: string}
+    category:      {type: string, enum: ["Food and Beverages", "Household Energy Use", "Transport Related"]} 

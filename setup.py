@@ -20,12 +20,14 @@ setup(
         "numpy>=1.24.0",
         "tqdm>=4.65.0",
         "python-magic>=0.4.27",
-        "python-magic-bin>=0.4.14; sys_platform == 'win32'"
+        "litellm>=1.30.0",  # Added for WatsonX integration with CrewAI
+        "python-magic-bin>=0.4.14; sys_platform == 'win32'",
+        "crewai>=0.28.0"  # CrewAI for multi-agent workflows
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.11",
     author="IBM CarbonSense Team",
     description="A RAG-based system for carbon footprint analysis using IBM Watsonx",
-    keywords="rag, watsonx, carbon-footprint, milvus, watson-discovery",
+    keywords="rag, watsonx, carbon-footprint, milvus, watson-discovery, crewai",
 ) 
 
 # pip install -e .

@@ -21,11 +21,11 @@ wheels/
 *.egg
 
 # Virtual Environment
-venv/
+carbon_env/
 env/
 ENV/
 myenv/
-
+venv/
 
 # IDE
 .idea/
@@ -40,6 +40,8 @@ myenv/
 # Environment variables
 .env
 *.env
+.github
+
 
 # Certificates
 *.crt

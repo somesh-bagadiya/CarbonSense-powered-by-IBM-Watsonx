@@ -1,0 +1,119 @@
+query_processing_task:
+  description: >
+    Process the user’s natural language query to extract structured information needed for downstream processing.
+    
+    Your goal is to identify:
+    1. The product being referenced
+    2. The quantity and unit specified (if any)
+
+    user query: {query}
+
+    Example input query:
+    "What is the carbon footprint of 2 kg of coffee?"
+
+    You should extract and return:
+    - product: coffee
+    - quantity: 2 kg
+
+    Output must follow this format:
+    "product: [product], quantity: [quantity]"
+
+    If the quantity is not explicitly mentioned, output:
+    "product: [product], quantity: not specified"
+    
+    This structured output will be used by other agents to compute total carbon emissions.
+  agent: query_processor
+  expected_output: >
+    A structured string in the format:
+    "product: [product], quantity: [quantity]"
+
+    Example:
+    "product: coffee, quantity: 2 kg"
+    
+    If quantity is missing:
+    "product: tea, quantity: not specified"
+  output_file: logs/1_query_details.txt
+
+milvus_research_task:
+  description: >
+    Determine the carbon footprint for the specified product: {query}.
+    Emphasize returning a clear, consolidated value.
+  agent: milvus_researcher
+  expected_output: >
+    A single, clear carbon footprint metric for the product, formatted as:
+    "[value] [emission unit] per [product unit], confidence: [score]"
+    Example: "2.5 kg CO₂e per kg, confidence: 0.85"
+  output_file: logs/2_researcher.txt
+
+discovery_research_task:
+  description: >
+    Given a product-related query: {query}, find the carbon footprint using Watson Discovery.
+    Return:
+    - Carbon footprint value
+    - Emission unit (e.g., kg CO₂e)
+    - Product unit (e.g., per item, per 100g)
+    - Confidence score (between 0 and 1)
+  agent: discovery_researcher
+  expected_output: >
+    "[value] [emission unit] per [product unit], confidence: [score]"
+    Example: "1.8 kg CO₂e per 100g, confidence: 0.87"
+  output_file: logs/3_discovery_result.txt
+
+  # Serper Research Task
+serper_research_task:
+  description: >
+    Given a product-related query: {query}, use Serper Web Search to find carbon footprint data.
+    Return:
+    - Carbon footprint value
+    - Emission unit (e.g., kg CO₂e)
+    - Product unit (e.g., per item, per 100g)
+    - Confidence score (between 0 and 1)
+  agent: serper_researcher
+  expected_output: >
+    "[value] [emission unit] per [product unit], confidence: [score]"
+    Example: "2.2 kg CO₂e per item, confidence: 0.82"
+  output_file: logs/4_serper_result.txt
+
+consolidation_task:
+  description: >
+    Review the carbon footprint outputs from Milvus, Watson Discovery, and Serper.
+
+    Select the best metric based on:
+    - Highest confidence score
+    - Relevance and completeness
+    - Consistency of units
+
+    Normalize units if necessary (e.g., standardize to "kg CO₂e per kg" format where possible).
+
+    Output a single carbon footprint metric to be used for final formatting.
+
+    Final format:
+    "value: [X], emission_unit: [unit], product_unit: [unit], source: [agent_name], confidence: [score]"
+
+    Example:
+    "value: 2.5, emission_unit: kg CO₂e, product_unit: per kg, source: milvus_researcher, confidence: 0.85"
+  agent: answer_consolidator
+  expected_output: >
+    A structured string with:
+    - value
+    - emission_unit
+    - product_unit
+    - source (agent name)
+    - confidence score
+
+    Example:
+    "value: 2.5, emission_unit: kg CO₂e, product_unit: per kg, source: milvus_researcher, confidence: 0.85"
+  output_file: logs/5_consolidated_metric.txt
+
+
+answer_formatting_task:
+  description: >
+    Using the base carbon footprint metric (e.g., "2.5 kg CO₂e per kg") 
+    and the quantity extracted from the query (e.g., "2 kg"), 
+    provide a final statement with the correct total carbon footprint.
+    Include the final confidence score if applicable.
+  agent: answer_formatter
+  expected_output: >
+    Example final output:
+    "For 2 kg of coffee, the total carbon footprint is 5.0 kg CO₂e, confidence: 0.85"
+  output_file: 0_final_answer.txt

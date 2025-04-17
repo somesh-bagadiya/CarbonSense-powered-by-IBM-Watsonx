@@ -5,8 +5,10 @@ from pymilvus import connections, Collection, utility
 import ibm_boto3
 from ibm_botocore.client import Config
 from ..config.config_manager import ConfigManager
+from ..utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+# Use the same logger setup as main
+logger = setup_logger(__name__)
 
 class CleanupService:
     """Service for cleaning up stored files and embeddings."""
@@ -47,7 +49,7 @@ class CleanupService:
     def cleanup_cos_bucket(self) -> None:
         """Delete all files from the COS bucket."""
         try:
-            bucket_name = self.config.get_cos_config()["bucket_name"]
+            bucket_name = self.config.get_cos_config()["bucket"]
             
             # List all objects in the bucket
             objects = self.cos_client.list_objects_v2(Bucket=bucket_name)
@@ -95,16 +97,26 @@ class CleanupService:
         """Delete all locally stored embeddings."""
         try:
             embeddings_dir = "Embeddings"
+            logger.info(f"Starting cleanup of local embeddings in: {embeddings_dir}")
+            
             if os.path.exists(embeddings_dir):
-                # Delete all files in the Embeddings directory
-                deleted_count = 0
-                for file_name in os.listdir(embeddings_dir):
-                    file_path = os.path.join(embeddings_dir, file_name)
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
-                        deleted_count += 1
+                total_deleted = 0
+                # Walk through all subdirectories
+                for root, dirs, files in os.walk(embeddings_dir):
+                    for file_name in files:
+                        file_path = os.path.join(root, file_name)
+                        if os.path.isfile(file_path):
+                            try:
+                                os.remove(file_path)
+                                total_deleted += 1
+                                logger.info(f"Deleted: {file_path}")
+                            except OSError as e:
+                                logger.error(f"Error deleting file {file_path}: {str(e)}")
                 
-                logger.info(f"Deleted {deleted_count} local embedding files")
+                if total_deleted > 0:
+                    logger.info(f"Successfully deleted {total_deleted} embedding files")
+                else:
+                    logger.info("No embedding files found to delete")
             else:
                 logger.info("Embeddings directory not found")
                 

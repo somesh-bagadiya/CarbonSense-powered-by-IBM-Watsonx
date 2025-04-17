@@ -1,7 +1,7 @@
 import logging
 import time
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from ibm_watsonx_ai import Credentials
 from ibm_watsonx_ai.foundation_models import Embeddings, ModelInference
 from ibm_watsonx_ai.foundation_models.utils.enums import ModelTypes
@@ -287,6 +287,47 @@ class WatsonxService:
         except Exception as e:
             raise RuntimeError(f"Error generating text: {str(e)}")
     
+    def generate_text_for_crew(self, prompt: str, **kwargs) -> str:
+        """Generate text using the LLM model specifically for CrewAI integration.
+        
+        Args:
+            prompt: Input prompt for text generation
+            **kwargs: Additional parameters for text generation (ignored)
+            
+        Returns:
+            Generated text
+        """
+        try:
+            # Check if the prompt is valid
+            if not isinstance(prompt, str):
+                prompt = str(prompt)
+                
+            # Define generation parameters with proper stop sequences and token limits
+            params = {
+                "max_new_tokens": 1000,
+                "min_new_tokens": 0,
+                "decoding_method": "greedy",
+                "repetition_penalty": 1.0,
+            }
+            
+            logging.info("Calling WatsonX API for text generation")
+            
+            # Call the generate method with prompt as expected by the API
+            # ModelInference.generate accepts 'prompt' as parameter name
+            response = self.llm_model.generate(prompt=prompt, params=params)
+            
+            # Extract the generated text from response
+            if response and 'results' in response and len(response['results']) > 0:
+                generated_text = response['results'][0]['generated_text']
+                # Clean up any formatting or special tokens that might appear in the output
+                generated_text = generated_text.replace("</s><s>", "")
+                return generated_text
+            else:
+                return "No response generated from the model."
+        except Exception as e:
+            logging.error(f"Error in text generation for CrewAI: {str(e)}")
+            return f"Error generating response: {str(e)}"
+    
     def construct_rag_prompt(self, query: str, context: str) -> str:
         """Construct a prompt for RAG-based question answering.
         
@@ -340,4 +381,4 @@ Answer:"""
             
         except Exception as e:
             logging.error(f"Error generating embedding: {str(e)}")
-            return None 
+            return None

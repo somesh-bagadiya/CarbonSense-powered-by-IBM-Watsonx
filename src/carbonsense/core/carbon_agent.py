@@ -88,40 +88,26 @@ class CarbonAgent:
             }
     
     def _extract_product_and_quantity(self, query: str) -> Tuple[Optional[str], Optional[int]]:
-        """Extract product and quantity from a query.
+        """Extract product name and quantity from the query.
         
         Args:
             query: User's query string
             
         Returns:
-            Tuple of (product, quantity) or (None, None) if extraction fails
+            Tuple of (product name, quantity)
         """
-        logger.info("📝 Starting product and quantity extraction...")
         try:
-            # Use Watsonx to extract product and quantity
-            prompt = f"""
-            Extract the product and quantity from this query about carbon footprint.
-            The query is: {query}
-            
-            Strictly return ONLY the product name and quantity in this format:
-            Product, Quantity
-            Example:
-            Banana, 6
-            
-            If no specific quantity is mentioned, use 1 as default.
-            """
+            # Prepare prompt for extraction
+            prompt = """Extract the product name and quantity from the following query. 
+            Format your response as 'product: [product name], quantity: [number]'
+            If no quantity is specified, assume 1.
+            Query: {query}"""
             
             params = {
-                "MAX_NEW_TOKENS": 50,  # Maximum length of generated text
+                "query": query
             }
             
-            response = self.watsonx.generate_text(
-                prompt=prompt,
-                params=params,
-                # guardrails=True  # Enable content moderation
-            )
-
-            response = self.watsonx.generate_text(prompt)
+            response = self.watsonx.generate_text(prompt.format(**params))
             logger.info(f"📝 Extraction response: {response}")
             
             # Clean and normalize the response
@@ -131,7 +117,16 @@ class CarbonAgent:
             product = None
             quantity = 1  # Default quantity
             
-            # Pattern 1: Look for common quantity indicators
+            # Pattern 1: Look for structured response
+            structured_pattern = r'product:\s*([^,]+),\s*quantity:\s*(\d+)'
+            match = re.search(structured_pattern, response)
+            if match:
+                product = match.group(1).strip()
+                quantity = int(match.group(2))
+                logger.info(f"✅ Extracted using structured pattern - Product: {product}, Quantity: {quantity}")
+                return product, quantity
+                
+            # Pattern 2: Look for quantity indicators
             quantity_patterns = [
                 r'(\d+)\s*(kg|kgs|kilogram|kilograms|g|grams|ton|tons|unit|units|piece|pieces)',
                 r'(\d+)\s*(of|for)',
@@ -147,7 +142,7 @@ class CarbonAgent:
                     except (ValueError, IndexError):
                         continue
             
-            # Pattern 2: Look for product mentions
+            # Pattern 3: Look for product mentions
             # Remove quantity-related words to isolate the product
             quantity_words = ['kg', 'kgs', 'kilogram', 'kilograms', 'g', 'grams', 
                             'ton', 'tons', 'unit', 'units', 'piece', 'pieces', 
@@ -208,7 +203,7 @@ class CarbonAgent:
             )
             logger.info(f"✅ Found {len(results)} results in Milvus")
             
-            # Print Milvus search results
+# Print Milvus search results
             print("\n📋 Milvus Search Results:")
             print("=" * 80)
             for i, result in enumerate(results, 1):
@@ -261,14 +256,6 @@ class CarbonAgent:
             search_query = f"carbon footprint of {product}"
             results = self.discovery.search_web(search_query, max_results=5)
             logger.info(f"✅ Found {len(results)} web search results")
-            
-            # # Print Watson Discovery results
-            # print("\n📋 Watson Discovery Results:")
-            # print("=" * 80)
-            # for i, result in enumerate(results, 1):
-            #     print(f"\nResult {i}:")
-            #     print(f"Title: {result.get('title', 'Unknown')}")
-            #     print(f"Text: {result.get('text', '')}")
             
             if not results:
                 logger.warning("⚠️ No web search results found")
@@ -352,24 +339,15 @@ class CarbonAgent:
                 "TEMPERATURE": 0.7,     # Controls randomness (0.0 to 1.0)
                 "TOP_P": 0.9,          # Nucleus sampling parameter
                 "TOP_K": 50,           # Number of highest probability tokens to consider
-                # "REPETITION_PENALTY": 1.2,  # Penalty for repeated tokens
-                # "LENGTH_PENALTY": {    # Controls length of generated text
-                #     "start_index": 50,
-                #     "decay_factor": 1.2
-                # },
-                # "STOP_SEQUENCES": ["\n\n", "Sources:", "References:"],  # Stop generation at these sequences
                 "DECODING_METHOD": "greedy"  # Use greedy decoding for more focused responses
             }
             
-
-            # print("\n\n",prompt, "\n\n")
             response = self.watsonx.generate_text(
                 prompt=prompt,
-                params=params,
-                # guardrails=True  # Enable content moderation
+                params=params
             )
             return response
             
         except Exception as e:
             logger.error(f"❌ Error generating response: {str(e)}", exc_info=True)
-            return "I apologize, but I encountered an error while generating the response. Please try again later." 
+            return "I apologize, but I encountered an error while generating the response. Please try again later."

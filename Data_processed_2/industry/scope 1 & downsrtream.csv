@@ -1,0 +1,52 @@
+industry,unit,process,metals,carbon,ced,non-renewable,renewable,global warming,global warming.1,ozone formation,climate change,photochemical ozone formation,resource use,carbon.1
+scope 1 & downsrtream,kg ,"Carbon Dioxide (CO2), fossil, direct emissions (scope1 and downstream)",0,1.0,0,0,0,0.0,0,0.15,2.7882653e-05,0.0,0.0,0.15
+scope 1 & downsrtream,kg ,"Carbon Dioxide (CO2), biogenic, direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Methane (CH4), fossil, direct emissions (scope1 and downstream)",0,29.8,0,0,0,0.0009240486,0,4.47,0.00083090307,1.1815699e-05,0.061812,4.47
+scope 1 & downsrtream,kg ,"Methane (CH4), biogenic, direct emissions (scope1 and downstream)",0,27.0,0,0,0,0.0009240486,0,4.05,0.00075283164,1.1815699e-05,0.061812,4.05
+scope 1 & downsrtream,kg ,"Carbon Monoxide (CO), fossil, direct emissions (scope1 and downstream)",0,0.0,0,0,0,6.598737e-05,0,0.0,0.0,5.3346128e-05,0.279072,0.0
+scope 1 & downsrtream,kg ,"Carbon monoxide (CO), biogenic, direct emissions (scope1 and downstream)",0,0.0,0,0,0,6.598737e-05,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Nitrous oxide (N2O), direct emissions (scope1 and downstream)",0,273.0000000000001,0,0,0,0.0,0,40.95,0.0076119644,0.0,0.0,40.95
+scope 1 & downsrtream,kg ,"Butane (C4H10), direct emissions (scope1 and downstream)",0,0.006,0,0,0,4.521116e-06,0,0.0009,1.6729592e-07,0.00069607338,3.6414,0.0009
+scope 1 & downsrtream,kg ,"Ethane (C2H6), direct emissions (scope1 and downstream)",0,0.437,0,0,0,4.061895e-05,0,0.06555,1.218472e-05,0.00024333322,1.27296,0.06555
+scope 1 & downsrtream,kg ,"Pentane (C5H12), direct emissions (scope1 and downstream)",0,0.0,0,0,0,1.2286835e-06,0,0.0,0.0,0.00078030411,4.08204,0.0
+scope 1 & downsrtream,kg ,"Propane (C3H8), direct emissions (scope1 and downstream)",0,0.02,0,0,0,9.443075e-06,0,0.003,5.5765307e-07,0.00034745176,1.81764,0.003
+scope 1 & downsrtream,kg ,"Sulfur hexafluoride (SF6), direct emissions (scope1 and downstream)",0,25200.0,0,0,0,0.00023807531,0,3780.0,0.70264287,0.0,0.0,3780.0
+scope 1 & downsrtream,kg ,"Tetrafluoroethane, HFC-134a ( direct emissions (scope1 and downstream)",0,1530.0,0,0,0,0.0014228915,0,229.5,0.04266046,0.0,0.0,229.5
+scope 1 & downsrtream,kg ,"Trifluoroethane, HFC-143a ( direct emissions (scope1 and downstream)",0,5810.0,0,0,0,0.0,0,871.5,0.16199822,0.0,0.0,871.5
+scope 1 & downsrtream,kg ,"Difluoromethane, HFC32 ( direct emissions (scope1 and downstream)",0,771.0000000000001,0,0,0,0.00010304295,0,115.65,0.021497526,0.0,0.0,115.65
+scope 1 & downsrtream,kg ,"Tetrafluoropropene, HFO-1234yf ( direct emissions (scope1 and downstream)",0,0.501,0,0,0,7.737686e-07,0,0.07515,1.3969209e-05,0.0,0.0,0.07515
+scope 1 & downsrtream,kg ,"Sulfur Dioxide (SO2), direct emissions (scope1 and downstream)",0,0.0,0,0,0,10.0215,0,0.0,0.0,9.4876557e-05,0.0,0.0
+scope 1 & downsrtream,kg ,"Ammonia (NH3), direct emissions (scope1 and downstream)",0,0.0,0,0,0,23.02023,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Nitrate (NO3), direct emissions (scope1 and downstream)",0,0.0,0,0,0,5.4015509,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Nitrogen Oxides (NOx), direct emissions (scope1 and downstream)",0,0.0,0,0,0,7.28034,0,0.0,0.0,0.0011698712,6.12,0.0
+scope 1 & downsrtream,kg ,"Non-methane volatile organic compounds (NMVOC), direct emissions (scope1 and downstre",0,0.0,0,0,0,0.0,0,0.0,0.0,0.0011698712,6.12,0.0
+scope 1 & downsrtream,kg ,"Phosphate (PO4), direct emissions (scope1 and downstream)",0,0.0,0,0,0,5.380684,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Phosphorous (P), direct emissions (scope1 and downstream)",0,0.0,0,0,0,16.30521863787,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Phosphoric acid (H3O4P), direct emissions (scope1 and downstream)",0,0.0,0,0,0,5.225122119,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Acetone (CH3COCH3), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0006916926,0,0.0,0.0,0.00018600953,0.97308,0.0
+scope 1 & downsrtream,kg ,"Benzene (C6H6), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0023959256,0,0.0,0.0,0.00043051261,2.25216,0.0
+scope 1 & downsrtream,kg ,"Benzyl Chloride (C7H7Cl ), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.03412512,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"1-Butanol (C4H10O), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.007656188,0,0.0,0.0,0.0012283648,6.426,0.0
+scope 1 & downsrtream,kg ,"Butadiene (C4H6), direct emissions (scope1 and downstream)",0,0.0,0,0,0,3.250094e-06,0,0.0,0.0,0.0016846146,8.8128,0.0
+scope 1 & downsrtream,kg ,"Butyl acetate (C6H12O2), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.003841677,0,0.0,0.0,0.00053112154,2.77848,0.0
+scope 1 & downsrtream,kg ,"Chloroform (CHCl3), direct emissions (scope1 and downstream)",0,20.6,0,0,0,0.013355268,0,3.09,0.00057438266,4.5507991e-05,0.238068,3.09
+scope 1 & downsrtream,kg ,"Dichloro-ethane (C2H4Cl2), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0007081367,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Dimethyl ether (C2H6O), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.00019816152,0,0.0,0.0,0.00037318892,1.95228,0.0
+scope 1 & downsrtream,kg ,"Ethanol (C2H5OH), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.003254429,0,0.0,0.0,0.00078849321,4.12488,0.0
+scope 1 & downsrtream,kg ,"Ethyl acetate  (C4H8O2), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.005154315,0,0.0,0.0,0.00041296454,2.16036,0.0
+scope 1 & downsrtream,kg ,"Ethylene (C2H4), direct emissions (scope1 and downstream)",0,0.0,0,0,0,2.7367722e-06,0,0.0,0.0,0.0019770824,10.3428,0.0
+scope 1 & downsrtream,kg ,"Formaldehyde (CH2O), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.5197954,0,0.0,0.0,0.0010259771,5.36724,0.0
+scope 1 & downsrtream,kg ,"Hexane (C6H14), direct emissions (scope1 and downstream)",0,0.0,0,0,0,2.5877927e-06,0,0.0,0.0,0.00095227518,4.98168,0.0
+scope 1 & downsrtream,kg ,"Isoprene (C5H8), direct emissions (scope1 and downstream)",0,0.0,0,0,0,8.678381e-06,0,0.0,0.0,0.0021525631,11.2608,0.0
+scope 1 & downsrtream,kg ,"Methanol (CH3OH), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0009966165,0,0.0,0.0,0.00027608961,1.44432,0.0
+scope 1 & downsrtream,kg ,"1-Propanol (C3H8O), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0012576702,0,0.0,0.0,0.0011090379,5.80176,0.0
+scope 1 & downsrtream,kg ,"Naphthalene (C10H8), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.010836055,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Propylene (C3H6), direct emissions (scope1 and downstream)",0,0.0,0,0,0,1.8744829e-06,0,0.0,0.0,0.0022227553,11.628,0.0
+scope 1 & downsrtream,kg ,"Styrene (C8H8), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0006562034,0,0.0,0.0,0.0002807691,1.4688,0.0
+scope 1 & downsrtream,kg ,"Tetrachloroethylene (C2Cl4), direct emissions (scope1 and downstream)",0,6.34,0,0,0,0.003339973,0,0.951,0.00017677602,5.732369e-05,0.29988,0.951
+scope 1 & downsrtream,kg ,"Toluene (C6H5CH3), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0007871493,0,0.0,0.0,0.0012634609,6.6096,0.0
+scope 1 & downsrtream,kg ,"Trichloroethylene (C2HCl3), direct emissions (scope1 and downstream)",0,0.044,0,0,0,0.00019218211,0,0.0066,1.2268368e-06,0.00064225931,3.35988,0.0066
+scope 1 & downsrtream,kg ,"Turpentine, direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0021294387,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"White spirit, direct emissions (scope1 and downstream)",0,0.0,0,0,0,1.3055575e-05,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Xylene (C6H4(CH3)2), direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.00021492352,0,0.0,0.0,0.0,0.0,0.0
+scope 1 & downsrtream,kg ,"Particulates PM2.5, direct emissions (scope1 and downstream)",0,0.0,0,0,0,0.0,0,0.0,0.0,0.0,0.0,0.0

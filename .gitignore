@@ -24,6 +24,7 @@ wheels/
 carbon_env/
 env/
 ENV/
+myenv/
 venv/
 
 # IDE

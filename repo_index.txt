@@ -2,29 +2,51 @@
 
 ## Core Components
 - **Main Application**: `src/carbonsense/main.py` - Entry point with command-line interface
-- **Core Modules**: `src/carbonsense/core/` - Contains embedding generator, carbon agent, and crew agent
+- **Core Modules**: `src/carbonsense/core/` - Contains embedding generator, carbon agent, crew agent, and YAML manager
 - **Utilities**: `src/carbonsense/utils/` - Helper functions for logging, caching, and document processing
 - **Services**: `src/carbonsense/services/` - Integration with Milvus, IBM Watson, and other services
-- **Config**: `src/carbonsense/config/` - Configuration management
+- **Config**: `src/carbonsense/config/` - Configuration management including YAML-based agent definitions
+- **Web Interface**: `src/carbonsense/web/` - FastAPI-based web dashboard and API
 
 ## Data
 - **Processed Data**: `Data_processed/` - Contains organized data by industry, electricity usage, and region
 - **Raw Data**: `Data_RAW/` - Contains original unprocessed dataset
 - **Backup Dataset**: `backup-dataset/` - Backup copy of original data
 
+## Logs and Caches
+- **Agent Thoughts**: `logs/` - Contains thought processes and intermediate results from agents
+- **File Cache**: `file_cache/` - Local file caching for faster data access
+- **Embeddings**: `Embeddings/` - Storage for locally generated embeddings
+
 ## Scripts
 - **Data Processing**: `scripts/preprocess_dataset.py` - Processes Excel files from backup to Data_processed
 - **Environment Setup**: `scripts/setup.ps1` - Windows PowerShell setup script
 - **Jupyter Notebooks**: Various dataset processing notebooks for specific industries
 
+## Web Components
+- **Templates**: `src/carbonsense/web/templates/` - Jinja2 templates for web interface
+- **Static Files**: `src/carbonsense/web/static/` - CSS, JavaScript, and images for the web interface
+- **Web Server**: `src/carbonsense/web/run_server.py` - Standalone script to run the web server
+
+## Agent System
+- **CrewAI Integration**: `src/carbonsense/core/crew_agent.py` - Multi-agent orchestration
+- **YAML Definitions**: `src/carbonsense/core/config/` - YAML-based configuration files for agents and tasks
+- **Agent Tools**: `src/carbonsense/core/tools/` - Specialized tools for different agent roles
+
+## Voice Input
+- **Audio Recording**: `src/carbonsense/main.py` - Functions for microphone input
+- **Speech-to-Text**: Integration with IBM Watson STT service
+
 ## Dependencies
 - Python ≥3.11
-- Key packages: ibm-watsonx-ai, pymilvus, crewai, pandas, numpy
+- Key packages: ibm-watsonx-ai, pymilvus, crewai, fastapi, pandas, numpy
 - IBM Cloud services: Watson Discovery, Speech-to-Text, Cloud Object Storage
+- Infrastructure: Milvus (for vector storage)
 
 ## Features
 - RAG-based query system for carbon footprint data
 - Multi-agent systems with CrewAI
 - Speech-to-text query capability
+- Web dashboard for visualization
 - Data processing and embedding generation
 - Vector storage with Milvus

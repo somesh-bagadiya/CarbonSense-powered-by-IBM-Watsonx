@@ -2,7 +2,7 @@
 
 ## System Overview
 
-CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system designed for carbon footprint analysis. It combines multiple AI models, vector databases, and web search capabilities to deliver accurate and context-aware responses to carbon-related queries.
+CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system designed for carbon footprint analysis. It combines multiple AI models, vector databases, and web search capabilities to deliver accurate and context-aware responses to carbon-related queries. The system now includes multi-agent workflows, voice input capabilities, and a web dashboard interface.
 
 ## Core Components
 
@@ -107,7 +107,7 @@ CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system desig
 - Metadata tracking
 - Automatic backup and recovery
 
-### 4. Query System
+### 4. Query Systems
 
 #### CarbonAgent Implementation
 - **Query Processing**:
@@ -122,6 +122,28 @@ CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system desig
   - Environmental considerations
   - Source attribution
   - Confidence scoring
+
+#### CrewAgent Multi-Agent System
+- **Agent Roles and Specialization**:
+  - Parser Agent: Extracts and normalizes product/quantity information
+  - Research Agent: Collects data from various sources
+  - Harmonization Agent: Standardizes metrics across sources
+  - Ranking Agent: Prioritizes most reliable information
+  - Writing Agent: Creates final user-friendly responses
+
+- **Workflow Orchestration**:
+  - Hierarchical task structure
+  - Sequential and parallel execution options
+  - Error handling and recovery
+  - Thought process logging
+  - Conditional task execution
+
+- **YAML-Based Configuration**:
+  - Task definitions
+  - Agent properties
+  - System prompts
+  - Tool integration
+  - Workflow control
 
 #### Web Search Integration
 - **Watson Discovery Service**:
@@ -141,6 +163,52 @@ CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system desig
   - Research institutions
   - Industry reports
   - Environmental organizations
+
+### 5. Voice Input Processing
+
+- **Audio Recording**:
+  - Configurable recording duration
+  - Multiple audio device support
+  - Interactive device selection
+  - Format standardization (WAV)
+
+- **Watson Speech-to-Text Integration**:
+  - High-accuracy transcription
+  - Background noise handling
+  - Multiple language support
+  - Confidence scoring
+
+- **Stream Processing**:
+  - Real-time audio handling
+  - Error resilience
+  - Resource cleanup
+  - Temporary file management
+
+### 6. Web Interface
+
+- **Dashboard Implementation**:
+  - Carbon footprint visualization
+  - Goal tracking
+  - Achievement badges
+  - Weekly trends analysis
+
+- **Interactive Query Interface**:
+  - Real-time streaming responses
+  - Agent thought visualization
+  - Query history tracking
+  - Source attribution display
+
+- **FastAPI Backend**:
+  - Asynchronous request handling
+  - Server-sent events for streaming
+  - Background task processing
+  - Error handling and recovery
+
+- **Responsive Frontend**:
+  - Mobile-friendly design
+  - Interactive visualizations
+  - Real-time updates
+  - Progressive web app capabilities
 
 ## System Flow
 
@@ -165,11 +233,26 @@ CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system desig
    - Backup procedures
 
 4. **Query Processing**:
-   - Query analysis
+   - Query analysis and normalization
    - Multi-source search
-   - Result aggregation
+   - Result aggregation and harmonization
    - Response generation
    - Confidence evaluation
+
+5. **Voice Input Handling**:
+   - Audio device selection
+   - Recording management
+   - Transcription processing
+   - Text query conversion
+   - Temporary file cleanup
+
+6. **Web Interface Flow**:
+   - User authentication
+   - Dashboard initialization
+   - Query submission
+   - Streaming response handling
+   - Visualization updates
+   - Session management
 
 ## Best Practices
 
@@ -194,9 +277,17 @@ CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system desig
 - Verify results
 - Check confidence scores
 
-### 4. Maintenance
+### 4. Web Interface
+- Optimize for mobile and desktop
+- Implement progressive loading
+- Handle network disruptions
+- Provide clear user feedback
+- Monitor server performance
+
+### 5. Maintenance
 - Regular system verification
 - Monitor API quotas
 - Update dependencies
 - Backup data regularly
-- Check log files 
+- Check log files
+- Run periodic cleanup 

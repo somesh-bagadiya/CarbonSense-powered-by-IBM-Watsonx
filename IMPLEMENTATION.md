@@ -159,10 +159,90 @@ class CarbonAgent:
   
     def process_query(self, query):
         # 1. Extract product and quantity - Identify key information
-        # 2. Search Milvus - Find relevant data in database
-        # 3. Evaluate confidence - Check result quality
-        # 4. Web search fallback if needed - Search web if local data insufficient
-        # 5. Generate response - Create final answer
+        # 2. Normalize query - Standardize product names and quantities
+        # 3. Search Milvus - Find relevant data in database
+        # 4. Evaluate confidence - Check result quality
+        # 5. Web search fallback if needed - Search web if local data insufficient
+        # 6. Generate response - Create final answer
+```
+
+#### CrewAI Multi-Agent System
+
+```python
+# Agent definition using YAML
+agent_config = """
+agents:
+  - id: parser
+    name: Query Parser
+    goal: Extract and normalize product and quantity from user queries
+    backstory: You are a specialist in understanding user questions and normalizing them
+    verbose: false
+    tools: [normalize_product, extract_quantity]
+
+  - id: researcher
+    name: Data Researcher
+    goal: Find the most accurate carbon footprint information from multiple sources
+    backstory: You are an environmental researcher specializing in data collection
+    verbose: false
+    tools: [search_milvus, search_discovery, search_web]
+
+  - id: harmonizer
+    name: Data Harmonizer
+    goal: Standardize different metrics to create consistent carbon footprint values
+    backstory: You are an expert in standardizing environmental impact measurements
+    verbose: false
+    tools: [convert_units, standardize_metrics]
+
+  - id: writer
+    name: Response Writer
+    goal: Create clear, accurate and helpful responses based on harmonized data
+    backstory: You are a science communicator specializing in environmental topics
+    verbose: false
+    tools: [format_carbon_footprint]
+"""
+
+# Task workflow definition
+task_workflow = """
+tasks:
+  - id: parse_query
+    agent: parser
+    input: "{{ query }}"
+    description: Extract product and quantity from user query
+    output: normalized_query
+    
+  - id: research_data
+    agent: researcher
+    description: Search for carbon footprint data from multiple sources
+    input: "{{ normalized_query }}"
+    output: research_results
+    
+  - id: harmonize_data
+    agent: harmonizer
+    description: Standardize metrics across different data sources
+    input: "{{ research_results }}"
+    output: harmonized_metrics
+    
+  - id: generate_response
+    agent: writer
+    description: Create a response based on the harmonized data
+    input: "{{ harmonized_metrics }}"
+    input_context: "{{ normalized_query }}"
+    output: final_response
+"""
+
+# YAML-based configuration manager
+class YAMLManager:
+    def __init__(self, config_dir):
+        self.config_dir = config_dir
+        self.agents_config = self._load_yaml('agents.yaml')
+        self.tasks_config = self._load_yaml('tasks.yaml')
+        self.prompts_config = self._load_yaml('prompts.yaml')
+        
+    def _load_yaml(self, filename):
+        # Load YAML file
+        # Parse configuration
+        # Validate against schema
+        # Return parsed configuration
 ```
 
 #### Web Search Integration
@@ -175,6 +255,92 @@ discovery_config = {
     'project_id': 'WATSON_DISCOVERY_PROJECT_ID', # Project identifier
     'confidence_threshold': 0.7                  # Minimum confidence for web results
 }
+```
+
+### 5. Voice Input System
+
+```python
+# Audio recording configuration
+audio_config = {
+    'sample_rate': 44100,       # Sample rate in Hz
+    'channels': 1,              # Mono recording
+    'default_duration': 10,     # Default recording duration in seconds
+    'dtype': 'int16'            # Audio data type
+}
+
+# Speech-to-Text configuration
+stt_config = {
+    'api_key': 'IBM_STT_API_KEY',
+    'url': 'IBM_STT_URL',
+    'model': 'en-US_BroadbandModel',
+    'content_type': 'audio/wav'
+}
+
+# Recording function
+def record_audio(duration, sample_rate, channels, device_index=None):
+    """Records audio from the microphone and saves it to a temporary file."""
+    # Initialize recording settings
+    # Calculate number of frames based on duration
+    # Record audio using sounddevice
+    # Save as WAV file
+    # Return temporary file path
+    
+# Transcription function
+def transcribe_audio(config, audio_file_path):
+    """Transcribes audio using IBM Watson Speech-to-Text."""
+    # Initialize STT client
+    # Open audio file
+    # Send to Watson STT API
+    # Process response
+    # Clean up temporary file
+    # Return transcript
+```
+
+### 6. Web Interface Implementation
+
+```python
+# FastAPI app configuration
+app = FastAPI(
+    title="CarbonSense Dashboard",
+    description="A dashboard for tracking and analyzing carbon footprint data",
+    version="1.0.0"
+)
+
+# Template and static file configuration
+templates_path = Path(__file__).parent / "templates"
+static_path = Path(__file__).parent / "static"
+
+templates = Jinja2Templates(directory=str(templates_path))
+app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+# Dashboard route
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    """Render the main dashboard page."""
+    data = get_sample_data()
+    return templates.TemplateResponse(
+        "index.html", 
+        {"request": request, "data": data}
+    )
+
+# API endpoint for streaming agent thoughts
+@app.get("/api/stream-thoughts")
+async def stream_thoughts(request: Request, query: str):
+    """Stream agent thoughts as Server-Sent Events."""
+    # Generate unique request ID
+    # Create dedicated thought queue
+    # Start background processing
+    # Set up event generator
+    # Stream results with proper SSE formatting
+    
+# Query endpoint
+@app.post("/api/query")
+async def query_carbon(request: Request, background_tasks: BackgroundTasks):
+    """Process a carbon footprint query."""
+    # Parse JSON request body
+    # Validate query
+    # Process with CrewAgentManager
+    # Return JSON response with results
 ```
 
 ## Error Handling
@@ -213,6 +379,17 @@ def handle_storage_error(error):
     # Recovery procedures - System restoration steps
 ```
 
+### 4. Audio Processing Errors
+
+```python
+# Audio recording error handling
+def handle_audio_error(error):
+    # Device access - Microphone permission issues
+    # Recording timeout - Handle duration limits
+    # Format conversion - Audio format problems
+    # File I/O - Temporary file access issues
+```
+
 ## Performance Optimization
 
 ### 1. Batch Processing
@@ -245,6 +422,30 @@ parallel_config = {
     'max_workers': 4,    # Maximum concurrent processes
     'chunk_size': 100,   # Items per parallel batch
     'timeout': 300       # Maximum execution time (seconds)
+}
+```
+
+### 4. Web Interface Optimization
+
+```python
+# FastAPI optimization
+fastapi_config = {
+    'workers': 4,                # Number of uvicorn workers
+    'log_level': "info",         # Logging level
+    'timeout_keep_alive': 5,     # Keep-alive timeout
+    'limit_concurrency': 100,    # Maximum concurrent connections
+    'backlog': 128              # Connection queue size
+}
+
+# Frontend optimization
+frontend_optimization = {
+    'compression': True,         # Enable gzip compression
+    'caching': {                 # Browser caching settings
+        'static_files': 86400,   # Static files cache (1 day)
+        'api_responses': 300     # API responses cache (5 minutes)
+    },
+    'lazy_loading': True,        # Enable lazy loading for images
+    'minify': True               # Minify HTML/CSS/JS files
 }
 ```
 
@@ -287,4 +488,26 @@ alert_config = {
     },
     'notifications': ['email', 'slack']  # Alert delivery methods
 }
+```
+
+### 4. Agent Thought Logging
+
+```python
+# Agent thought logging configuration
+thought_logging_config = {
+    'enabled': True,            # Enable thought logging
+    'log_dir': 'logs',          # Directory for thought logs
+    'format': 'json',           # Log format (json or text)
+    'include_timestamps': True, # Include timestamps
+    'retention_days': 7,        # Keep logs for 7 days
+    'log_level': 'INFO'         # Logging level
+}
+
+# Thought tracking function
+def log_agent_thought(agent_id, thought_type, content):
+    """Log an agent's thought or action."""
+    # Create log entry with agent ID, timestamp, type, and content
+    # Write to appropriate log file
+    # Manage log rotation
+    # Apply retention policy
 ```

@@ -4,7 +4,7 @@
 
 default:
   # Core model parameters
-  model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"  # Default model for all agents
+  model: "watsonx/meta-llama/llama-3-3-70b-instruct"  # Default model for all agents
   temperature: 0.7                         # Controls randomness (0-1)
   top_p: 1.0                              # Nucleus sampling parameter
   # n: 1                                    # Number of completions
@@ -26,84 +26,84 @@ default:
 # Agent-specific parameters - only override what differs from defaults
 agents:
   query_processor:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: false
 
   milvus_researcher:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more factual/precise responses
     reasoning_effort: "low"  # Higher reasoning for research
     max_tokens: 256        # Larger context for research
     sources_tracked: true   # This agent tracks Milvus
 
   discovery_researcher:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: true
 
   serper_researcher:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: true
 
   answer_consolidator:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"  # Slightly higher for comparative evaluation
     max_tokens: 256
     sources_tracked: true
 
   answer_formatter:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: false
     
   manager:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.2        # Lower temperature for more precise task management
     reasoning_effort: "low"  # Higher reasoning for management
     max_tokens: 256        # Standard context size
     sources_tracked: false
 
   unit_normalizer:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: false
 
   footprint_cache:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: false
 
   unit_harmoniser:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: false
 
   metric_ranker:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
     max_tokens: 256
     sources_tracked: false
 
   usage_logger:
-    model: "watsonx/meta-llama/llama-4-scout-17b-16e-instruct"
+    model: "watsonx/meta-llama/llama-3-3-70b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
     max_tokens: 256

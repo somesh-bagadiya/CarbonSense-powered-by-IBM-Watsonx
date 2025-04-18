@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CarbonSense</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CarbonSense</h1>
+        </header>
+        
+        <div class="dashboard">
+            <div class="metrics-grid">
+                <!-- Total Carbon Footprint -->
+                <div class="metric-card">
+                    <h2>Total Carbon Footprint</h2>
+                    <div class="circular-progress" data-value="{{ data.total_carbon / 10 * 100 }}">
+                        <div class="inner">
+                            <div class="value">{{ data.total_carbon }}</div>
+                            <div class="unit">kg</div>
+                        </div>
+                    </div>
+                    <div class="label">Today</div>
+                </div>
+                
+                <!-- Food & Beverages -->
+                <div class="metric-card">
+                    <h2>Food & Beverages</h2>
+                    <div class="circular-progress green" data-value="{{ data.food_carbon / 5 * 100 }}">
+                        <div class="inner">
+                            <div class="value">{{ data.food_carbon }}</div>
+                            <div class="unit">kg</div>
+                        </div>
+                    </div>
+                    <div class="label">Today's intake</div>
+                </div>
+                
+                <!-- Household Energy Use -->
+                <div class="metric-card">
+                    <h2>Household Energy Use</h2>
+                    <div class="circular-progress blue" data-value="{{ data.household_carbon / 5 * 100 }}">
+                        <div class="inner">
+                            <div class="value">{{ data.household_carbon }}</div>
+                            <div class="unit">kg</div>
+                        </div>
+                    </div>
+                    <div class="label">Elec, Gas</div>
+                </div>
+                
+                <!-- Transportation -->
+                <div class="metric-card">
+                    <h2>Transportation</h2>
+                    <div class="circular-progress purple" data-value="{{ data.transportation_carbon / 5 * 100 }}">
+                        <div class="inner">
+                            <div class="value">{{ data.transportation_carbon }}</div>
+                            <div class="unit">kg</div>
+                        </div>
+                    </div>
+                    <div class="label">Today</div>
+                </div>
+            </div>
+            
+            <div class="content-sidebar">
+                <div class="content">
+                    <div class="query-container">
+                        <h2>Ask me anything about carbon footprints or enter your daily activities.</h2>
+                        <div class="examples">
+                            Example: "I drove 10 miles today" or "How much CO<sub>2</sub> does beef produce?"
+                        </div>
+                        
+                        <div id="conversation-container">
+                            <!-- Conversation history will be added here dynamically -->
+                        </div>
+                        
+                        <div class="input-container">
+                            <input type="text" id="query-input" placeholder="Ask me anything or enter your daily activity...">
+                            <button id="send-button">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="sidebar">
+                    <!-- Goal Section -->
+                    <div class="sidebar-card">
+                        <h2>Your Goal</h2>
+                        <div class="goal-text">Reduce CO<sub>2</sub> by 20% in 1 month</div>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {{ data.goal_percentage }}%"></div>
+                        </div>
+                        <div class="progress-labels">
+                            <span>0%</span>
+                            <span>{{ data.goal_percentage }}% complete</span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Badges Section -->
+                    <div class="sidebar-card">
+                        <h2>Badges & Achievements</h2>
+                        <div class="badges-container">
+                            <div class="badge active">
+                                <i class="fas fa-seedling"></i>
+                                <span>Eco Starter</span>
+                            </div>
+                            <div class="badge">
+                                <i class="fas fa-award"></i>
+                                <span>Committed</span>
+                            </div>
+                            <div class="badge">
+                                <i class="fas fa-bolt"></i>
+                                <span>Carbon Pro</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Weekly Trends -->
+                    <div class="sidebar-card">
+                        <h2>Weekly Trends</h2>
+                        <div class="chart-container">
+                            <canvas id="weeklyChart"></canvas>
+                        </div>
+                        <div class="days-labels">
+                            <span>Mon</span>
+                            <span>Tue</span>
+                            <span>Wed</span>
+                            <span>Thu</span>
+                            <span>Fri</span>
+                            <span>Sat</span>
+                            <span>Sun</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Chart.js for the weekly trends chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
+    <script>
+        // Initialize weekly data from backend
+        const weeklyData = {{ data.weekly_trend | tojson }};
+    </script>
+</body>
+</html> 

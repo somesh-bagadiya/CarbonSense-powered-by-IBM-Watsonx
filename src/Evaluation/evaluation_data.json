@@ -1,0 +1,207 @@
+{
+    "numerical_data" : [
+        
+        {
+            "prompt": "How much CO₂ is produced by running an air conditioner all day?",
+            "expected_co2_kg": 5.7  
+        },
+        {
+            "prompt": "How much carbon does a space heater emit in a day?",
+            "expected_co2_kg": 8.1 
+        },
+        {
+            "prompt": "What is the carbon footprint of charging a phone?",
+            "expected_co2_kg": 0.17  
+        },
+        {
+            "prompt": "How much carbon does heating water for a shower produce?",
+            "expected_co2_kg": 5.67 
+        },
+        {
+            "prompt": "What’s the carbon footprint of running a washing machine or dryer?",
+            "expected_co2_kg": 2.4  
+        },
+        {
+            "prompt": "Which energy source has the least carbon footprint — solar, gas, or hydro?",
+            "expected_co2_kg": {
+                "solar": 0.02,    
+                "hydro": 0.04,    
+                "gas": 0.475       
+            }
+        },
+        {
+            "prompt": "How much CO₂ does an average home emit per year from energy use?",
+            "expected_co2_kg": 3966.6  
+        },
+        {
+            "prompt": "How much CO₂ does a gasoline car emit per mile/km?",
+            "expected_co2_kg": {
+                "mile": 0.411,
+                "km": 0.255
+            }
+        },
+        {
+            "prompt": "What’s the carbon footprint of a flight from LA to NYC?",
+            "expected_co2_kg": {
+                "round_trip_economy": 1100,
+                "round_trip_first_class": 4300
+            }
+        },
+        {
+            "prompt": "How much CO₂ is emitted from shipping goods overseas?",
+            "expected_co2_kg": 858000000  
+        },
+        {
+            "prompt": "How much carbon does a space heater emit in a day?",
+            "expected_co2_kg": 8.1
+        },
+        {
+            "prompt": "What is the carbon footprint of eating 1 kg of beef?",
+            "expected_co2_kg": 27  
+        },
+        {
+            "prompt": "What is the footprint of daily coffee consumption?",
+            "expected_co2_kg": 0.05  
+        }
+    
+    ],
+    
+    "keywords_data" : [
+        {
+            "prompt": "Does switching off lights really reduce my carbon footprint?",
+            "expected_keywords": ["lighting", "electricity use", "residential emissions", "carbon reduction"]
+        },
+        {
+            "prompt": "Is leaving lights on overnight bad for the environment?",
+            "expected_keywords": ["light pollution", "wildlife disruption", "CO2 increase", "sleep disruption"]
+        },
+        {
+            "prompt": "Does turning down the thermostat help the environment?",
+            "expected_keywords": ["thermostat", "heating", "energy reduction", "fossil fuels", "emissions"]
+        },
+        {
+            "prompt": "What’s the carbon impact of using electric vs. gas heating?",
+            "expected_keywords": ["electric", "gas", "emissions", "fossil fuels", "renewables"]
+        },
+        {
+            "prompt": "Do appliances use energy and emit CO₂ when turned off but plugged in?",
+            "expected_keywords": ["standby power", "phantom load", "plugged in", "energy use", "emissions"]
+        },
+        {
+            "prompt": "Is using a microwave more carbon-efficient than an oven?",
+            "expected_keywords": ["microwave", "energy efficient", "oven", "cooking"]
+        },
+        {
+            "prompt": "Is using cold water for laundry better for the environment?",
+            "expected_keywords": ["cold water", "laundry", "hot water", "energy saving", "emissions"]
+        },
+        {
+            "prompt": "Does reducing shower time really lower carbon emissions?",
+            "expected_keywords": ["shower", "hot water", "energy", "carbon footprint", "shorter duration"]
+        },
+        {
+            "prompt": "Is electricity in my province clean or carbon-heavy?",
+            "expected_keywords": ["renewable energy", "natural gas", "carbon-free", "clean energy mix", "California electricity"]
+        },
+        {
+            "prompt": "What’s the carbon footprint of my home electricity bill?",
+            "expected_keywords": ["carbon footprint", "electricity usage", "generation source", "calculator", "emissions estimate"]
+        },
+        {
+            "prompt": "Is unplugging appliances worth if in terms of carbon savings?",
+            "expected_keywords": ["standby power", "phantom load", "carbon reduction", "unplug", "energy waste"]
+        },
+        {
+            "prompt": "What is the most carbon-efficient time of day to use electricity?",
+            "expected_keywords": ["clean grid", "off-peak", "time-of-use", "fossil fuel reduction", "4 p.m.", "9 p.m."]
+        },
+        {
+            "prompt": "Is public transport better than driving?",
+            "expected_keywords": ["cost-effective", "safer", "lower emissions", "urban", "efficient"]
+        },
+        {
+            "prompt": "Does carpooling help reduce emissions?",
+            "expected_keywords": ["carpooling", "GHG reduction", "shared rides", "commute", "carbon savings"]
+        },
+        {
+            "prompt": "Are EVs better than gas cars for the environment?",
+            "expected_keywords": ["electric cars", "emissions", "transport", "greener electricity", "fossil fuels"]
+        },
+        {
+            "prompt": "What's the footprint of using ride-sharing apps daily?",
+            "expected_keywords": ["ride-hailing", "pollution", "deadheading", "public transport displacement", "emissions"]
+        },
+        {
+            "prompt": "What food products have the highest emissions?",
+            "expected_keywords": ["animal-based", "beef", "dairy", "shrimp", "land use"]
+        },
+        {
+            "prompt": "Does drinking bottled water increase your footprint?",
+            "expected_keywords": ["plastic", "production", "transportation", "recycling", "emissions"]
+        },
+        {
+            "prompt": "How does locally-grown food impact emissions?",
+            "expected_keywords": ["food miles", "transport", "local", "emissions", "minimal impact"]
+        }
+    
+    ],
+    
+    "semantic_explanation_data" : [
+        {
+            "prompt": "How much carbon can I save if I use solar panels at home?",
+            "reference_answer": "Installing solar panels at home can significantly reduce carbon emissions by offsetting electricity that would otherwise be generated by fossil fuels. Over 20 years, an average residential solar system can offset around 80,000 pounds (36,287 kg) of CO₂ emissions."
+        },
+        {
+            "prompt": "Does turning down the thermostat help the environment?",
+            "reference_answer": "Yes, turning down the thermostat reduces energy usage for heating, which lowers fossil fuel consumption and carbon emissions. Even a 1°C reduction can save up to 10% on heating energy and significantly help the environment."
+        },
+        {
+            "prompt": "What’s the carbon impact of using electric vs. gas heating?",
+            "reference_answer": "The carbon footprint depends on the electricity source. Gas heating emits CO₂ directly. Electric heating can be cleaner if powered by renewables, but more carbon-intensive if the electricity comes from coal or gas."
+        },
+        {
+            "prompt": "Do appliances use energy and emit CO₂ when turned off but plugged in?",
+            "reference_answer": "Yes, many appliances draw standby power even when turned off, which contributes to CO₂ emissions indirectly by using electricity continuously."
+        },
+        {
+            "prompt": "Is using a microwave more carbon-efficient than an oven?",
+            "reference_answer": "Yes, microwaves heat food faster and use less energy compared to ovens, making them a more carbon-efficient cooking option, especially for small portions."
+        },
+        {
+            "prompt": "How much carbon does heating water for a shower produce?",
+            "reference_answer": "Heating water for a single 15-minute hot shower can emit about 5.67 lbs (2.57 kg) of CO₂. Taking shorter showers can help reduce this significantly over time."
+        },
+        {
+            "prompt": "Is using cold water for laundry better for the environment?",
+            "reference_answer": "Yes, cold water washing uses up to 90% less energy than hot water washing, making it significantly better for reducing carbon emissions."
+        },
+        {
+            "prompt": "Does reducing shower time really lower carbon emissions?",
+            "reference_answer": "Yes, shorter showers mean less hot water used, which reduces the energy needed to heat that water and lowers overall carbon emissions."
+        },
+        {
+            "prompt": "What changes at home can reduce my carbon footprint the most?",
+            "reference_answer": "To reduce your carbon footprint at home, focus on improving energy efficiency. Weatherize your home, upgrade to LED lighting and Energy Star appliances, and reduce waste. Installing solar panels and minimizing water usage can also have a large impact."
+        },
+        {
+            "prompt": "Is public transport better than driving?",
+            "reference_answer": "Public transport is generally more environmentally friendly than driving, especially in urban areas. It emits less CO₂ per passenger and helps reduce traffic congestion and fuel consumption."
+        },
+        {
+            "prompt": "Does carpooling help reduce emissions?",
+            "reference_answer": "Yes, carpooling significantly reduces your personal carbon footprint by lowering the number of vehicles on the road. Sharing rides with just one person can reduce annual emissions by over 2,000 pounds."
+        },
+        {
+            "prompt": "Are EVs better than gas cars for the environment?",
+            "reference_answer": "Yes, electric vehicles generally produce fewer emissions over their lifetime compared to gasoline cars, especially as the electricity grid becomes greener. They are crucial in reducing transportation sector emissions."
+        },
+        {
+            "prompt": "What changes at home can reduce my carbon footprint the most?",
+            "reference_answer": "Key actions include improving energy efficiency, upgrading appliances, using LED lighting, reducing water and food waste, and switching to renewable energy like solar panels."
+        },
+        {
+            "prompt": "Is using cold water for laundry better for the environment?",
+            "reference_answer": "Yes, using cold water can save 75–90% of the energy used per wash, significantly reducing CO₂ emissions from household laundry."
+        }
+    ]
+    }

@@ -22,7 +22,7 @@ setup(
         "python-magic>=0.4.27",
         "litellm>=1.30.0",  # Added for WatsonX integration with CrewAI
         "python-magic-bin>=0.4.14; sys_platform == 'win32'",
-        "crewai>=0.28.0",  # CrewAI for multi-agent workflows
+        # "crewai>=0.104.0",  # CrewAI for multi-agent workflows
         "fastapi>=0.104.0",  # FastAPI framework for building APIs
         "uvicorn>=0.23.0",  # ASGI server for FastAPI
         "jinja2>=3.1.2",  # Templating engine for FastAPI

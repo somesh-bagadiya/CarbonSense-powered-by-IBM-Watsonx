@@ -1,0 +1,492 @@
+[
+  {
+    "prompt": "How much CO\u2082 is produced by running an air conditioner all day?",
+    "category": "numerical_data",
+    "expected": 5.7,
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 Air Conditioner, the footprint is approximately 1,500 kg CO2e (\u00b1375), confidence 0.85\nMethodology: This calculation is based on life-cycle assessment data that includes emissions from manufacturing, operation, and end-of-life disposal. The data comes from reputable environmental research institutions and industry reports.\nCategory: Household Energy Use\nSOURCES: - EPA Emissions Factors Database - International Energy Agency (IEA) - Air Conditioner industry reports and studies"
+    }
+  },
+  {
+    "prompt": "How much carbon does a space heater emit in a day?",
+    "category": "numerical_data",
+    "expected": 8.1,
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "What is the carbon footprint of charging a phone?",
+    "category": "numerical_data",
+    "expected": 0.17,
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kWh of electricity, the footprint is 0.37 kg CO2e (\u00b10.039), confidence 0.93\nMethodology: This calculation is based on the emissions factor for electricity from the U.S. Energy Information Administration (EIA), which includes emissions from generation, transmission, and distribution. The data comes from a reputable source, ensuring reliability.\nCategory: Household Energy Use\nSOURCES: - U.S. Energy Information Administration (EIA) \n\nNote: Since the quantity was missing, a default of 1 kWh was used, which is the standard unit for electricity. The confidence interval of 0.329 - 0.406 kg CO2e indicates the range of uncertainty in the emissions factor. The high confidence score of 0.93 reflects the reliability of the data source."
+    }
+  },
+  {
+    "prompt": "How much carbon does heating water for a shower produce?",
+    "category": "numerical_data",
+    "expected": 5.67,
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kg water the footprint is 0.00600 kg CO2e (\u00b1N/A), confidence 0.8\nMethodology: This calculation is based on the default unit for water, which in this context is 1 kg, as the quantity was missing. The data comes from the International Energy Agency (IEA), a reputable source for environmental research.\nCategory: Household Energy Use - Water Heating\nSOURCES: - International Energy Agency (IEA) \n\nNote: Since the confidence interval was \"N/A\" in the provided context, the uncertainty range is also \"N/A\". Normally, this would be a numerical value representing the range of uncertainty in the calculation. \n\nIn this case, because the product is water and the quantity was missing, a default unit of 1 kg was used for the calculation, as per the guidelines for handling missing quantities. This ensures that the carbon footprint can still be estimated and provided to the user, even when specific quantity information is not available."
+    }
+  },
+  {
+    "prompt": "What\u2019s the carbon footprint of running a washing machine or dryer?",
+    "category": "numerical_data",
+    "expected": 2.4,
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 washing machine, the footprint is 2.67 kg CO2e (\u00b10.31), confidence 0.89\nMethodology: This calculation is based on life-cycle assessment data that includes emissions from manufacturing, transportation, and average usage. The data comes from reputable environmental research institutions, specifically the United States Environmental Protection Agency. Since the quantity was missing, a default of 1 item was used for the calculation.\nCategory: Household Energy Use\nSOURCES: - United States Environmental Protection Agency \n\nNote: The uncertainty range (\u00b10.31) is calculated based on the confidence score and is provided to give an estimate of the potential variation in the carbon footprint value. This range indicates that the actual carbon footprint could be between 2.36 kg CO2e and 2.98 kg CO2e, with a confidence level of 0.89."
+    }
+  },
+  {
+    "prompt": "Which energy source has the least carbon footprint \u2014 solar, gas, or hydro?",
+    "category": "numerical_data",
+    "expected": {
+      "solar": 0.02,
+      "hydro": 0.04,
+      "gas": 0.475
+    },
+    "actual_response": {
+      "response_text": "Carbon Footprint: \n- For 1 kWh solar energy, the footprint is 0.05 kg CO2e (\u00b10.01), confidence 0.8\n- For 1 kWh gas energy, the footprint is 0.49 kg CO2e (\u00b10.1), confidence 0.7\n- For 1 kWh hydro energy, the footprint is 0.015 kg CO2e (\u00b10.003), confidence 0.9\n\nMethodology: \nThis calculation is based on life-cycle assessment data that includes emissions from production, operation, and maintenance. The data comes from reputable environmental research institutions. The confidence scores and uncertainty ranges are based on the variability of the data sources and the recency of the data.\n\nCategory: \nAll three energy sources fall under the category of Household Energy Use, as they are commonly used for electricity generation and heating/cooling in residential and commercial settings.\n\nSOURCES: \n- National Renewable Energy Laboratory (NREL)\n- United States Environmental Protection Agency (EPA)\n- International Energy Agency (IEA)\n\nNote: The actual carbon footprint may vary depending on the specific location, technology, and implementation of each energy source. These calculations are based on average values and should be used as a general guideline."
+    }
+  },
+  {
+    "prompt": "How much CO\u2082 does an average home emit per year from energy use?",
+    "category": "numerical_data",
+    "expected": 3966.6,
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "How much CO\u2082 does a gasoline car emit per mile/km?",
+    "category": "numerical_data",
+    "expected": {
+      "mile": 0.411,
+      "km": 0.255
+    },
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "What\u2019s the carbon footprint of a flight from LA to NYC?",
+    "category": "numerical_data",
+    "expected": {
+      "round_trip_economy": 1100,
+      "round_trip_first_class": 4300
+    },
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "How much CO\u2082 is emitted from shipping goods overseas?",
+    "category": "numerical_data",
+    "expected": 858000000,
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kg of goods the footprint is 4.5 kg CO2e (\u00b10.9), confidence 0.9\nMethodology: This calculation is based on the given metric value of 4.5 kg CO2e per kg of goods. The total carbon footprint was calculated by multiplying the metric value by the quantity, and the result was formatted to 2 significant figures. The confidence score and uncertainty range are also included to provide a sense of the reliability and accuracy of the calculation. The data source is the Congressional Budget Office (CBO) and the calculation methodology is based on life-cycle assessment.\nCategory: Household Energy Use\nSOURCES: - Emissions of Greenhouse Gases in the Manufacturing Sector, Congressional Budget Office (CBO)"
+    }
+  },
+  {
+    "prompt": "How much carbon does a space heater emit in a day?",
+    "category": "numerical_data",
+    "expected": 8.1,
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 space heater the footprint is 1.0 kg CO2e, confidence 0.8\nMethodology: This calculation is based on life-cycle assessment data that includes emissions from manufacturing, operation, and disposal. The data comes from reputable environmental research institutions, considering the average usage and efficiency of space heaters.\nCategory: Household Energy Use\nSOURCES: - University of Utah's sustainability website - EPA's estimate"
+    }
+  },
+  {
+    "prompt": "What is the carbon footprint of eating 1 kg of beef?",
+    "category": "numerical_data",
+    "expected": 27,
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kg beef the footprint is 27 kg CO2e (\u00b12.36), confidence 0.9\nMethodology: This calculation is based on life-cycle assessment data that includes emissions from farming, processing, and transportation. The data comes from reputable environmental research institutions, such as Our World in Data.\nCategory: Food and Beverages\nSOURCES: - Our World in Data"
+    }
+  },
+  {
+    "prompt": "What is the footprint of daily coffee consumption?",
+    "category": "numerical_data",
+    "expected": 0.05,
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1.03 kg of coffee, the footprint is 0.19 kg CO2e (\u00b10.01), confidence 0.9\nMethodology: This calculation is based on the metric value of 0.18 kg CO2e per kg of coffee, multiplied by the default quantity of 1.03 kg. The data comes from reputable environmental research institutions, using life-cycle assessment that includes emissions from farming, processing, and transportation.\nCategory: Food and Beverages\nSOURCES: - EPA Emissions Factors Database - UK Department for Environment, Food and Rural Affairs (DEFRA) \n\nNote: The confidence score of 0.9 indicates a high level of reliability in the calculation, with an uncertainty range of \u00b10.01 kg CO2e. This suggests that the actual carbon footprint could be between 0.18 and 0.20 kg CO2e, but 0.19 kg CO2e is the most likely value."
+    }
+  },
+  {
+    "prompt": "Does switching off lights really reduce my carbon footprint?",
+    "category": "keywords_data",
+    "expected": [
+      "lighting",
+      "electricity use",
+      "residential emissions",
+      "carbon reduction"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Is leaving lights on overnight bad for the environment?",
+    "category": "keywords_data",
+    "expected": [
+      "light pollution",
+      "wildlife disruption",
+      "CO2 increase",
+      "sleep disruption"
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 LED light bulb 8 watt, the footprint is 39.06 kg CO2e (\u00b1Not available), confidence 0.63419\nMethodology: The carbon footprint was calculated by multiplying the metric value of 39.06118133 kg CO2e per kg by the default quantity of 1 item, as the product is an object and not a consumable. The data source for this calculation is milvus, electronics.xlsx, which is considered reliable. The calculation methodology is based on life-cycle assessment, and assumptions were made regarding the average usage of an LED light bulb. The confidence score of 0.63419 reflects the reliability of the data source and the methodology used.\nCategory: Household Energy Use\nSOURCES: - milvus, electronics.xlsx - Energy Star Database - United States Environmental Protection Agency (EPA) Guidance on Energy Efficiency."
+    }
+  },
+  {
+    "prompt": "Does turning down the thermostat help the environment?",
+    "category": "keywords_data",
+    "expected": [
+      "thermostat",
+      "heating",
+      "energy reduction",
+      "fossil fuels",
+      "emissions"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "What\u2019s the carbon impact of using electric vs. gas heating?",
+    "category": "keywords_data",
+    "expected": [
+      "electric",
+      "gas",
+      "emissions",
+      "fossil fuels",
+      "renewables"
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 unit of heating the footprint is 1.02 kg CO2e (\u00b10.2), confidence 0.85\nMethodology: This calculation is based on the default unit for heating, as the actual quantity was missing. The default unit used is 1 unit, which for heating is considered as 1 kilowatt-hour (kWh) of energy consumed, and the base carbon footprint metric is 1.021 kg CO2e per unit. The data comes from reputable environmental research institutions, such as the International Energy Agency (IEA).\nCategory: Household Energy Use\nSOURCES: - International Energy Agency (IEA) \n\nNote: Since the quantity was missing, a default of 1 unit was used for the calculation, assuming 1 unit of heating is equivalent to 1 kWh of energy consumed. The actual carbon footprint may vary depending on the specific type of heating, location, and other factors."
+    }
+  },
+  {
+    "prompt": "Do appliances use energy and emit CO\u2082 when turned off but plugged in?",
+    "category": "keywords_data",
+    "expected": [
+      "standby power",
+      "phantom load",
+      "plugged in",
+      "energy use",
+      "emissions"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Is using a microwave more carbon-efficient than an oven?",
+    "category": "keywords_data",
+    "expected": [
+      "microwave",
+      "energy efficient",
+      "oven",
+      "cooking"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Is using cold water for laundry better for the environment?",
+    "category": "keywords_data",
+    "expected": [
+      "cold water",
+      "laundry",
+      "hot water",
+      "energy saving",
+      "emissions"
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 L water the footprint is 0.18 kg CO2e (\u00b10.02), confidence 0.86\nMethodology: This calculation is based on life-cycle assessment data that includes emissions from treatment, processing, and transportation. The data comes from reputable environmental research institutions, specifically Our World in Data. Since the quantity was missing, a default unit of 1 L was used, which is appropriate for water as it is a common unit of measurement for liquids.\nCategory: Household Energy Use\nSOURCES: - Our World in Data - EPA Emissions Factors Database - UK Department for Environment, Food and Rural Affairs (DEFRA)"
+    }
+  },
+  {
+    "prompt": "Does reducing shower time really lower carbon emissions?",
+    "category": "keywords_data",
+    "expected": [
+      "shower",
+      "hot water",
+      "energy",
+      "carbon footprint",
+      "shorter duration"
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kg Mineral water - average the footprint is 0.0024 kg CO2e (\u00b10.0006), confidence 0.88\nMethodology: The carbon footprint was calculated using the metric value of 0.0024 kg CO2e per kg of Mineral water - average, which is based on data from the University of Florida. The calculation methodology involves multiplying the metric value by the quantity of the product. In this case, since the quantity was missing, a default of 1 kg was used. The data sources used are reliable and based on recent studies from 2024. The calculation assumes that the density of water is approximately 1 kilogram per liter.\nCategory: Food and Beverages\nSOURCES: - University of Florida"
+    }
+  },
+  {
+    "prompt": "Is electricity in my province clean or carbon-heavy?",
+    "category": "keywords_data",
+    "expected": [
+      "renewable energy",
+      "natural gas",
+      "carbon-free",
+      "clean energy mix",
+      "California electricity"
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kWh of electricity, the footprint is 0.32 kg CO2e (\u00b10.14), confidence 0.9\nMethodology: This calculation is based on the emission factor provided by Defra's GHG emissions factors, which includes emissions from generation, transmission, and distribution. The data comes from reputable environmental research institutions and is considered the latest available.\nCategory: Household Energy Use\nSOURCES: - Defra's GHG emissions factors"
+    }
+  },
+  {
+    "prompt": "What\u2019s the carbon footprint of my home electricity bill?",
+    "category": "keywords_data",
+    "expected": [
+      "carbon footprint",
+      "electricity usage",
+      "generation source",
+      "calculator",
+      "emissions estimate"
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kWh of electricity, the footprint is 0.38 kg CO2e (\u00b10.024), confidence 0.9\nMethodology: This calculation is based on data from the U.S. Energy Information Administration (EIA) and the Environmental Protection Agency (EPA), which provides a reliable estimate of the emissions associated with electricity generation. \nCategory: Household Energy Use\nSOURCES: - U.S. Energy Information Administration (EIA) - Environmental Protection Agency (EPA)"
+    }
+  },
+  {
+    "prompt": "Is unplugging appliances worth if in terms of carbon savings?",
+    "category": "keywords_data",
+    "expected": [
+      "standby power",
+      "phantom load",
+      "carbon reduction",
+      "unplug",
+      "energy waste"
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 appliance the footprint is approximately 10 kg CO2e (\u00b10.256), confidence 0.8\nMethodology: This calculation is based on life-cycle assessment data that includes emissions from manufacturing, transportation, and usage. The data comes from reputable environmental research institutions, specifically the International Energy Agency (IEA) and Circular Ecology.\nCategory: Household Energy Use\nSOURCES: - International Energy Agency (IEA) - Circular Ecology"
+    }
+  },
+  {
+    "prompt": "What is the most carbon-efficient time of day to use electricity?",
+    "category": "keywords_data",
+    "expected": [
+      "clean grid",
+      "off-peak",
+      "time-of-use",
+      "fossil fuel reduction",
+      "4 p.m.",
+      "9 p.m."
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kWh of electricity, the footprint is 0.58 kg CO2e (\u00b10.0378), confidence 0.9\nMethodology: This calculation is based on the provided emission factor, adjusted for the context of electricity, which typically involves direct measurement in kWh. The conversion from the given unit (kg) to the desired unit (kWh) involves understanding that the emission factor provided needs to be directly applicable or adjusted for the energy unit (kWh) without a traditional mass to energy conversion due to the nature of electricity.\nCategory: Household Energy Use\nSOURCES: - U.S. Energy Information Administration (EIA) \n\nNote: The calculation provided assumes an adjustment or interpretation of the given emission factor to be applicable to the energy unit (kWh) directly, given the context and goal of expressing the carbon footprint in terms of kWh. The actual conversion or adjustment methodology might vary based on more specific details about the emission factor's original context and how it applies to electricity in kWh."
+    }
+  },
+  {
+    "prompt": "Is public transport better than driving?",
+    "category": "keywords_data",
+    "expected": [
+      "cost-effective",
+      "safer",
+      "lower emissions",
+      "urban",
+      "efficient"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Does carpooling help reduce emissions?",
+    "category": "keywords_data",
+    "expected": [
+      "carpooling",
+      "GHG reduction",
+      "shared rides",
+      "commute",
+      "carbon savings"
+    ],
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 km of carpooling the footprint is 0.00075 kg CO2e, confidence 0.8\nMethodology: This calculation is based on the given metric of 0.00075 kg CO2e per kg, but since the quantity was missing or zero, a default of 1 unit (1 km) was used for the calculation. The data comes from Our World in Data, which is a reputable source for environmental research.\nCategory: Transport Related\nSOURCES: - Our World in Data \n\nNote: Due to the lack of information on the confidence interval, the uncertainty range is not provided. However, the confidence score of 0.8 indicates a relatively high level of confidence in the calculated carbon footprint. \n\nIn this case, since the original quantity was missing, a default of 1 unit (1 km) was applied to provide a meaningful calculation. The result is a carbon footprint of 0.00075 kg CO2e for 1 km of carpooling. This categorization as Transport Related reflects the nature of carpooling as a mode of transportation. \n\nPlease note that the confidence interval is not provided due to insufficient data for statistical analysis, and the recency of the data is also not provided. Despite these limitations, the calculation aims to provide a clear and accurate representation of the carbon footprint associated with carpooling, based on the available information."
+    }
+  },
+  {
+    "prompt": "Are EVs better than gas cars for the environment?",
+    "category": "keywords_data",
+    "expected": [
+      "electric cars",
+      "emissions",
+      "transport",
+      "greener electricity",
+      "fossil fuels"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "What's the footprint of using ride-sharing apps daily?",
+    "category": "keywords_data",
+    "expected": [
+      "ride-hailing",
+      "pollution",
+      "deadheading",
+      "public transport displacement",
+      "emissions"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "What food products have the highest emissions?",
+    "category": "keywords_data",
+    "expected": [
+      "animal-based",
+      "beef",
+      "dairy",
+      "shrimp",
+      "land use"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Does drinking bottled water increase your footprint?",
+    "category": "keywords_data",
+    "expected": [
+      "plastic",
+      "production",
+      "transportation",
+      "recycling",
+      "emissions"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "How does locally-grown food impact emissions?",
+    "category": "keywords_data",
+    "expected": [
+      "food miles",
+      "transport",
+      "local",
+      "emissions",
+      "minimal impact"
+    ],
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "How much carbon can I save if I use solar panels at home?",
+    "category": "semantic_explanation_data",
+    "expected": "Installing solar panels at home can significantly reduce carbon emissions by offsetting electricity that would otherwise be generated by fossil fuels. Over 20 years, an average residential solar system can offset around 80,000 pounds (36,287 kg) of CO\u2082 emissions.",
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Does turning down the thermostat help the environment?",
+    "category": "semantic_explanation_data",
+    "expected": "Yes, turning down the thermostat reduces energy usage for heating, which lowers fossil fuel consumption and carbon emissions. Even a 1\u00b0C reduction can save up to 10% on heating energy and significantly help the environment.",
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "What\u2019s the carbon impact of using electric vs. gas heating?",
+    "category": "semantic_explanation_data",
+    "expected": "The carbon footprint depends on the electricity source. Gas heating emits CO\u2082 directly. Electric heating can be cleaner if powered by renewables, but more carbon-intensive if the electricity comes from coal or gas.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 15,000 kWh of natural gas, the footprint is 2,745 kg CO2e (\u00b1273.9), confidence 0.85\nMethodology: This calculation is based on the emissions factor for natural gas, which includes emissions from production, processing, and combustion. The data comes from reputable environmental research institutions, ensuring a reliable estimate of the carbon footprint.\nCategory: Household Energy Use\nSOURCES: - EPA Emissions Factors Database - UK Department for Environment, Food and Rural Affairs (DEFRA) \n\nNote: The calculation was performed by multiplying the actual quantity of 15,000 kWh by the emissions factor of 0.183 kg CO2e/kWh, resulting in a total carbon footprint of 2,745 kg CO2e. The uncertainty range (\u00b1273.9) and confidence score (0.85) reflect the reliability of the emissions factor and the accuracy of the calculation."
+    }
+  },
+  {
+    "prompt": "Do appliances use energy and emit CO\u2082 when turned off but plugged in?",
+    "category": "semantic_explanation_data",
+    "expected": "Yes, many appliances draw standby power even when turned off, which contributes to CO\u2082 emissions indirectly by using electricity continuously.",
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Is using a microwave more carbon-efficient than an oven?",
+    "category": "semantic_explanation_data",
+    "expected": "Yes, microwaves heat food faster and use less energy compared to ovens, making them a more carbon-efficient cooking option, especially for small portions.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kWh of electricity, the footprint is 0.37 kg CO2e (\u00b10.036), confidence 0.8\nMethodology: This calculation is based on the best metric for calculating the carbon footprint of electricity, which includes emissions from power plants, transmission, and distribution. The data comes from reputable environmental research institutions, with the most recent and reliable information available, specifically from the U.S. Energy Information Administration (EIA) and International Energy Agency (IEA).\nCategory: Household Energy Use\nSOURCES: - U.S. Energy Information Administration (EIA) - International Energy Agency (IEA)"
+    }
+  },
+  {
+    "prompt": "How much carbon does heating water for a shower produce?",
+    "category": "semantic_explanation_data",
+    "expected": "Heating water for a single 15-minute hot shower can emit about 5.67 lbs (2.57 kg) of CO\u2082. Taking shorter showers can help reduce this significantly over time.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 L hot water, the footprint is 0.209 kg CO2e (confidence 0.743), as the provided hot water details lack specific emission data, we apply the average mineral water metric.\nMethodology: This calculation is based on the life-cycle assessment data for average mineral water, including emissions from production, packaging, and transportation, as the hot water specifics are not provided. The data comes from reputable environmental research institutions like milvus.\nCategory: Food and Beverages\nSOURCES: - milvus \n\nNote: Since specific emission data for \"hot water\" is not provided, we use the \"Mineral water - average\" metric as a proxy for calculation purposes, assuming the primary difference would be in the production process (heating), which is not detailed here. For precise hot water footprint calculation, additional data on heating methods and efficiencies would be necessary."
+    }
+  },
+  {
+    "prompt": "Is using cold water for laundry better for the environment?",
+    "category": "semantic_explanation_data",
+    "expected": "Yes, cold water washing uses up to 90% less energy than hot water washing, making it significantly better for reducing carbon emissions.",
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Does reducing shower time really lower carbon emissions?",
+    "category": "semantic_explanation_data",
+    "expected": "Yes, shorter showers mean less hot water used, which reduces the energy needed to heat that water and lowers overall carbon emissions.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kWh of shower energy, the footprint is approximately 0.35 kg CO2e (\u00b10.07), confidence 0.86\nMethodology: This calculation is based on the emission factor of 0.35 kg CO2e per kWh, as provided by the IEA. The data comes from reputable environmental research institutions and energy sector reports, ensuring a high level of accuracy and reliability. The calculation methodology involves multiplying the emission factor by the quantity of energy consumed, in this case, 1 kWh.\nCategory: Household Energy Use\nSOURCES: - IEA"
+    }
+  },
+  {
+    "prompt": "What changes at home can reduce my carbon footprint the most?",
+    "category": "semantic_explanation_data",
+    "expected": "To reduce your carbon footprint at home, focus on improving energy efficiency. Weatherize your home, upgrade to LED lighting and Energy Star appliances, and reduce waste. Installing solar panels and minimizing water usage can also have a large impact.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 item of \"Actions to reduce carbon footprint\" the footprint is 0.01 kg CO2e (\u00b10.005), confidence 0.82\nMethodology: This calculation is based on the provided metric of 0.01 kg CO2e per item, as the quantity was not specified, a default of 1 item was used. The data comes from Circular Ecology, a reputable source in the field of environmental research.\nCategory: Household Energy Use\nSOURCES: - Circular Ecology (2020) \n\nNote: Since the quantity was missing, a default of 1 item was applied as per the standard quantity provided. The confidence interval of 0.005 - 0.015 indicates the range of uncertainty in the emission metric, with a confidence score of 0.82, suggesting a relatively reliable estimate. The recency of the data is 2020, which is relatively recent, adding to the reliability of the information."
+    }
+  },
+  {
+    "prompt": "Is public transport better than driving?",
+    "category": "semantic_explanation_data",
+    "expected": "Public transport is generally more environmentally friendly than driving, especially in urban areas. It emits less CO\u2082 per passenger and helps reduce traffic congestion and fuel consumption.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 km of public transport, the footprint is 0.10 kg CO2e (\u00b10.02), confidence 0.9\nMethodology: This calculation is based on the provided emission metric of 0.103 kg CO2e per kg of public transport, which is then rounded to two significant figures for clarity. The data comes from Our World in Data, a reputable source for environmental research.\nCategory: Transport Related\nSOURCES: - Our World in Data (2022)"
+    }
+  },
+  {
+    "prompt": "Does carpooling help reduce emissions?",
+    "category": "semantic_explanation_data",
+    "expected": "Yes, carpooling significantly reduces your personal carbon footprint by lowering the number of vehicles on the road. Sharing rides with just one person can reduce annual emissions by over 2,000 pounds.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 km of carpooling, the footprint is 0.0032 kg CO2e (\u00b10.0004), confidence 0.89\nMethodology: This calculation is based on the given metric value of 0.0032 kg CO2e per km. The total carbon footprint is calculated by multiplying the metric value by the actual quantity, which in this case is 1 km. The data comes from the EPA, a reliable source of environmental data.\nCategory: Transport Related\nSOURCES: - EPA - The given metric value, assumed to be from a reliable database of carbon footprint metrics for various transportation modes. \n\nNote: Since the quantity is missing, the default quantity of 1 km is used in this calculation. The uncertainty range is based on the given confidence interval of 0.0028 - 0.0036 kg CO2e per km. The confidence score is set to 0.89, indicating a high level of confidence in the accuracy of the calculation."
+    }
+  },
+  {
+    "prompt": "Are EVs better than gas cars for the environment?",
+    "category": "semantic_explanation_data",
+    "expected": "Yes, electric vehicles generally produce fewer emissions over their lifetime compared to gasoline cars, especially as the electricity grid becomes greener. They are crucial in reducing transportation sector emissions.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 item of Electric Vehicles (EVs) and Gas Cars the footprint is 0.15 kg CO2e (\u00b10.0196) and 0.25 kg CO2e (\u00b10.05) respectively, confidence 0.93 and 0.90\nMethodology: This calculation is based on life-cycle assessment data that includes emissions from production, operation, and recycling. The data comes from the United States Environmental Protection Agency (EPA), which is a reputable source for environmental research.\nCategory: Transport Related\nSOURCES: - United States Environmental Protection Agency (EPA)"
+    }
+  },
+  {
+    "prompt": "What changes at home can reduce my carbon footprint the most?",
+    "category": "semantic_explanation_data",
+    "expected": "Key actions include improving energy efficiency, upgrading appliances, using LED lighting, reducing water and food waste, and switching to renewable energy like solar panels.",
+    "actual_response": {
+      "error": "Script crashed"
+    }
+  },
+  {
+    "prompt": "Is using cold water for laundry better for the environment?",
+    "category": "semantic_explanation_data",
+    "expected": "Yes, using cold water can save 75\u201390% of the energy used per wash, significantly reducing CO\u2082 emissions from household laundry.",
+    "actual_response": {
+      "response_text": "Carbon Footprint: For 1 kg water the footprint is 0.48 kg CO2e (\u00b10.096), confidence 0.8\nMethodology: This calculation is based on life-cycle assessment data that includes emissions from treatment, processing, and transportation. The data comes from reputable environmental research institutions, specifically the UK Water Services Regulation Authority. Since the quantity was missing, a default unit of 1 kg was used, which is appropriate for water as it is a common unit of measurement for liquids.\nCategory: Food and Beverages\nSOURCES: - UK Water Services Regulation Authority"
+    }
+  }
+]

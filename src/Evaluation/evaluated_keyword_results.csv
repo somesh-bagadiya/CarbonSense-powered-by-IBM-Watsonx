@@ -1,0 +1,57 @@
+Prompt,Matched Keywords,Total Keywords,Coverage (%),Pass/Fail,Raw Response
+Does switching off lights really reduce my carbon footprint?,[],4,0.0,Fail,
+Is leaving lights on overnight bad for the environment?,[],4,0.0,Fail,"Carbon Footprint: For 1 LED light bulb 8 watt, the footprint is 39.06 kg CO2e (±Not available), confidence 0.63419
+Methodology: The carbon footprint was calculated by multiplying the metric value of 39.06118133 kg CO2e per kg by the default quantity of 1 item, as the product is an object and not a consumable. The data source for this calculation is milvus, electronics.xlsx, which is considered reliable. The calculation methodology is based on life-cycle assessment, and assumptions were made regarding the average usage of an LED light bulb. The confidence score of 0.63419 reflects the reliability of the data source and the methodology used.
+Category: Household Energy Use
+SOURCES: - milvus, electronics.xlsx - Energy Star Database - United States Environmental Protection Agency (EPA) Guidance on Energy Efficiency."
+Does turning down the thermostat help the environment?,[],5,0.0,Fail,
+What’s the carbon impact of using electric vs. gas heating?,[],5,0.0,Fail,"Carbon Footprint: For 1 unit of heating the footprint is 1.02 kg CO2e (±0.2), confidence 0.85
+Methodology: This calculation is based on the default unit for heating, as the actual quantity was missing. The default unit used is 1 unit, which for heating is considered as 1 kilowatt-hour (kWh) of energy consumed, and the base carbon footprint metric is 1.021 kg CO2e per unit. The data comes from reputable environmental research institutions, such as the International Energy Agency (IEA).
+Category: Household Energy Use
+SOURCES: - International Energy Agency (IEA) 
+
+Note: Since the quantity was missing, a default of 1 unit was used for the calculation, assuming 1 unit of heating is equivalent to 1 kWh of energy consumed. The actual carbon footprint may vary depending on the specific type of heating, location, and other factors."
+Do appliances use energy and emit CO₂ when turned off but plugged in?,[],5,0.0,Fail,
+Is using a microwave more carbon-efficient than an oven?,[],4,0.0,Fail,
+Is using cold water for laundry better for the environment?,['emissions'],5,20.0,Fail,"Carbon Footprint: For 1 L water the footprint is 0.18 kg CO2e (±0.02), confidence 0.86
+Methodology: This calculation is based on life-cycle assessment data that includes emissions from treatment, processing, and transportation. The data comes from reputable environmental research institutions, specifically Our World in Data. Since the quantity was missing, a default unit of 1 L was used, which is appropriate for water as it is a common unit of measurement for liquids.
+Category: Household Energy Use
+SOURCES: - Our World in Data - EPA Emissions Factors Database - UK Department for Environment, Food and Rural Affairs (DEFRA)"
+Does reducing shower time really lower carbon emissions?,['carbon footprint'],5,20.0,Fail,"Carbon Footprint: For 1 kg Mineral water - average the footprint is 0.0024 kg CO2e (±0.0006), confidence 0.88
+Methodology: The carbon footprint was calculated using the metric value of 0.0024 kg CO2e per kg of Mineral water - average, which is based on data from the University of Florida. The calculation methodology involves multiplying the metric value by the quantity of the product. In this case, since the quantity was missing, a default of 1 kg was used. The data sources used are reliable and based on recent studies from 2024. The calculation assumes that the density of water is approximately 1 kilogram per liter.
+Category: Food and Beverages
+SOURCES: - University of Florida"
+Is electricity in my province clean or carbon-heavy?,[],5,0.0,Fail,"Carbon Footprint: For 1 kWh of electricity, the footprint is 0.32 kg CO2e (±0.14), confidence 0.9
+Methodology: This calculation is based on the emission factor provided by Defra's GHG emissions factors, which includes emissions from generation, transmission, and distribution. The data comes from reputable environmental research institutions and is considered the latest available.
+Category: Household Energy Use
+SOURCES: - Defra's GHG emissions factors"
+What’s the carbon footprint of my home electricity bill?,['carbon footprint'],5,20.0,Fail,"Carbon Footprint: For 1 kWh of electricity, the footprint is 0.38 kg CO2e (±0.024), confidence 0.9
+Methodology: This calculation is based on data from the U.S. Energy Information Administration (EIA) and the Environmental Protection Agency (EPA), which provides a reliable estimate of the emissions associated with electricity generation. 
+Category: Household Energy Use
+SOURCES: - U.S. Energy Information Administration (EIA) - Environmental Protection Agency (EPA)"
+Is unplugging appliances worth if in terms of carbon savings?,[],5,0.0,Fail,"Carbon Footprint: For 1 appliance the footprint is approximately 10 kg CO2e (±0.256), confidence 0.8
+Methodology: This calculation is based on life-cycle assessment data that includes emissions from manufacturing, transportation, and usage. The data comes from reputable environmental research institutions, specifically the International Energy Agency (IEA) and Circular Ecology.
+Category: Household Energy Use
+SOURCES: - International Energy Agency (IEA) - Circular Ecology"
+What is the most carbon-efficient time of day to use electricity?,[],6,0.0,Fail,"Carbon Footprint: For 1 kWh of electricity, the footprint is 0.58 kg CO2e (±0.0378), confidence 0.9
+Methodology: This calculation is based on the provided emission factor, adjusted for the context of electricity, which typically involves direct measurement in kWh. The conversion from the given unit (kg) to the desired unit (kWh) involves understanding that the emission factor provided needs to be directly applicable or adjusted for the energy unit (kWh) without a traditional mass to energy conversion due to the nature of electricity.
+Category: Household Energy Use
+SOURCES: - U.S. Energy Information Administration (EIA) 
+
+Note: The calculation provided assumes an adjustment or interpretation of the given emission factor to be applicable to the energy unit (kWh) directly, given the context and goal of expressing the carbon footprint in terms of kWh. The actual conversion or adjustment methodology might vary based on more specific details about the emission factor's original context and how it applies to electricity in kWh."
+Is public transport better than driving?,[],5,0.0,Fail,
+Does carpooling help reduce emissions?,['carpooling'],5,20.0,Fail,"Carbon Footprint: For 1 km of carpooling the footprint is 0.00075 kg CO2e, confidence 0.8
+Methodology: This calculation is based on the given metric of 0.00075 kg CO2e per kg, but since the quantity was missing or zero, a default of 1 unit (1 km) was used for the calculation. The data comes from Our World in Data, which is a reputable source for environmental research.
+Category: Transport Related
+SOURCES: - Our World in Data 
+
+Note: Due to the lack of information on the confidence interval, the uncertainty range is not provided. However, the confidence score of 0.8 indicates a relatively high level of confidence in the calculated carbon footprint. 
+
+In this case, since the original quantity was missing, a default of 1 unit (1 km) was applied to provide a meaningful calculation. The result is a carbon footprint of 0.00075 kg CO2e for 1 km of carpooling. This categorization as Transport Related reflects the nature of carpooling as a mode of transportation. 
+
+Please note that the confidence interval is not provided due to insufficient data for statistical analysis, and the recency of the data is also not provided. Despite these limitations, the calculation aims to provide a clear and accurate representation of the carbon footprint associated with carpooling, based on the available information."
+Are EVs better than gas cars for the environment?,[],5,0.0,Fail,
+What's the footprint of using ride-sharing apps daily?,[],5,0.0,Fail,
+What food products have the highest emissions?,[],5,0.0,Fail,
+Does drinking bottled water increase your footprint?,[],5,0.0,Fail,
+How does locally-grown food impact emissions?,[],5,0.0,Fail,

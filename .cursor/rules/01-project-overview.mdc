@@ -1,0 +1,24 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# CarbonSense Project Overview
+
+CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system designed for carbon footprint analysis. It combines multiple AI models, vector databases, and web search capabilities to deliver accurate and context-aware responses to carbon-related queries.
+
+## Project Structure
+
+The main components of the project are organized as follows:
+
+- Main entry point: [src/carbonsense/main.py](mdc:src/carbonsense/main.py)
+- Core components: [src/carbonsense/core/](mdc:src/carbonsense/core)
+- Web interface: [src/carbonsense/web/app.py](mdc:src/carbonsense/web/app.py)
+- Services: [src/carbonsense/services/](mdc:src/carbonsense/services)
+- Utilities: [src/carbonsense/utils/](mdc:src/carbonsense/utils)
+- Configuration: [src/carbonsense/config/](mdc:src/carbonsense/config)
+
+For detailed architecture information, see:
+- [ARCHITECTURE.md](mdc:ARCHITECTURE.md)
+- [IMPLEMENTATION.md](mdc:IMPLEMENTATION.md)
+

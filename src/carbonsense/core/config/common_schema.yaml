@@ -8,4 +8,4 @@ carbon_metric:
     source:        {type: string}
     confidence:    {type: number, minimum: 0, maximum: 1}
     product_name:  {type: string}
-    category:      {type: string, enum: ["Food and Beverages", "Household Energy Use", "Transport Related"]} 
+    category:      {type: string, enum: ["Food & Diet", "Energy Use", "Mobility", "Purchases", "Miscellaneous"]} 

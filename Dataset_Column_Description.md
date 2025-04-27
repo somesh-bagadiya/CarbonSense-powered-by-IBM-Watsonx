@@ -1,38 +1,63 @@
 # 📊 Dataset Schema: Cleaned Environmental & Energy Data
 
-This schema applies to all converted files in the dataset folder. Below is a description of each column.
+This schema applies to all Excel files in the Data_processed folder. Each file contains standardized environmental impact and energy consumption data processed from the original datasets.
 
-| Column Name                     | Description                                                                 |
-|--------------------------------|-----------------------------------------------------------------------------|
-| `industry`                     | Industry or sector related to the data entry                               |
-| `unit`                         | Measurement unit for the values (e.g., MJ, kg CO₂-eq)                      |
-| `process`                      | Description of the process involved (e.g., production, consumption)        |
-| `metals`                       | Metal-related impact or resource usage                                     |
-| `carbon`                       | Carbon-related emission data                                               |
-| `ced`                          | Cumulative Energy Demand (total energy input)                              |
-| `non-renewable`                | Portion of energy or resources from non-renewable sources                  |
-| `renewable`                    | Portion of energy or resources from renewable sources                      |
-| `global warming`               | Greenhouse gas emissions contributing to global warming                    |
-| `global warming.1`             | Possibly regional or lifecycle phase specific GHG emissions                |
-| `ozone formation`              | Potential to contribute to ozone layer formation                          |
-| `climate change`               | Broader climate change impact beyond GHGs                                 |
-| `photochemical ozone formation`| Impact on smog and low-level ozone formation                              |
-| `resource use`                 | General use of material or natural resources                               |
-| `carbon.1`                     | Additional or corrected carbon emission data                               |
-| `source`                       | Origin of the data (research paper, government database, industry report)  |
-| `confidence`                   | Reliability score between 0.0 and 1.0                                      |
-| `region`                       | Geographic region associated with the data                                 |
-| `timestamp`                    | When the data was recorded or last updated                                 |
-| `data_version`                 | Version of the dataset                                                     |
+## Column Descriptions
+
+| Column Name                | Description                                                                 | Data Type              |
+|----------------------------|-----------------------------------------------------------------------------|------------------------|
+| `industry`                 | Industry or sector (e.g., electricity Canada, food, chemicals)              | Categorical (text)     |
+| `unit`                     | Measurement unit for the values (e.g., MJ, kg, kWh)                         | Various (e.g. kg, kWh) |
+| `process`                  | Specific process (e.g., Electricity Alberta production)                     | Categorical (text)     |
+| `carbon (kg CO2 eq)`       | Carbon footprint measured in kilograms of CO₂ equivalent                    | Carbon footprint       |
+| `ced (MJ)`                 | Cumulative Energy Demand measured in Megajoules                             | Cumulative energy demand |
+| `global warming (kg CO2 eq)` | Global warming potential measured in kg CO₂ equivalent                     | Global warming potential |
+| `climate change (kg CO2 eq)` | Climate change impact measured in kg CO₂ equivalent                        | Climate change impact  |
+| `region`                   | Geographic region associated with the data (e.g., Global, EU, USA)          | Categorical (text)     |
+
+## Dataset Organization
+
+The processed data is organized into four main directories:
+
+### 1. Regional Data (`/regional`)
+Contains region-specific consolidated datasets:
+- `asia_consolidated.xlsx` - Data for Asian countries
+- `europe_consolidated.xlsx` - Data for European countries
+- `north_america_consolidated.xlsx` - Data for North American countries
+- `rest_of_world_consolidated.xlsx` - Data for all other regions
+
+### 2. Industry-Specific Data (`/industry`)
+Contains 25 industry-specific datasets including:
+- Manufacturing sectors (metals, electronics, textiles, etc.)
+- Food and agriculture
+- Building materials
+- Chemicals
+- Energy and fuels
+- End-of-life processing
+- Transportation
+
+### 3. Electricity Data (`/electricity`)
+Contains electricity production and consumption data by region:
+- `electricity Canada.xlsx` - Electricity production data across Canadian provinces
+- `electricity China.xlsx` - Electricity data for China
+- `electricity EU.xlsx` - Electricity data for European Union countries
+- `electricity India.xlsx` - Electricity data for India
+- `electricity USA.xlsx` - Electricity data for the United States
+- `electricity Rest of the World.xlsx` - Electricity data for other regions
+- `electricity general industry.xlsx` - General electricity consumption data
+
+### 4. Metadata (`/metadata`)
+Contains supporting information:
+- `.heading.xlsx` - Header and attribute definitions
 
 ## Data Processing
 
-The dataset undergoes several processing steps before being used in the system:
+The dataset undergoes several processing steps performed by the `preprocess_dataset.py` script:
 
 1. **Data Cleaning**
-   - Standardization of unit formats
-   - Handling of missing values
-   - Removal of duplicate entries
+   - Standardization of column names and units (e.g., carbon → carbon (kg CO2 eq))
+   - Filtering to keep only the most relevant columns
+   - Adding data type annotations as Excel comments
    - Normalization of text fields
 
 2. **Semantic Enhancement**

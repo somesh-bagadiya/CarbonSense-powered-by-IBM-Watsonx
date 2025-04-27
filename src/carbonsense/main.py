@@ -8,6 +8,7 @@ import time
 import tempfile
 from pathlib import Path
 import shutil
+import json
 
 # Audio related imports
 import sounddevice as sd
@@ -16,13 +17,13 @@ import numpy as np
 from ibm_watson import SpeechToTextV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 
-# Local imports
-from .core.embedding_generator import EmbeddingGenerator
-from .config.config_manager import ConfigManager
-from .utils.logger import setup_logger
-from .services.milvus_service import MilvusService
-from .core.carbon_agent import CarbonAgent
-from .core.crew_agent import CrewAgentManager
+# Local imports - change from relative to absolute imports
+from src.carbonsense.core.embedding_generator import EmbeddingGenerator
+from src.carbonsense.config.config_manager import ConfigManager
+from src.carbonsense.utils.logger import setup_logger
+from src.carbonsense.services.milvus_service import MilvusService
+from src.carbonsense.core.carbon_agent import CarbonAgent
+from src.carbonsense.core.crew_agent import CrewAgentManager
 
 # Set up logger
 logger = setup_logger(__name__)
@@ -241,13 +242,68 @@ def process_stt_query(config: ConfigManager, audio_file_path: str, show_context:
             "response": "Sorry, I encountered an error while processing your speech query."
         }
 
+def process_stt_crew_query(config: ConfigManager, audio_file_path: str, show_context: bool = False, 
+                          debug_mode: bool = False, use_hierarchical: bool = True, 
+                          store_thoughts: bool = False) -> dict:
+    """Process a speech query using transcription and CrewAgentManager with full CrewAI features.
+    
+    Args:
+        config: Configuration manager instance
+        audio_file_path: Path to the audio file
+        show_context: Whether to show context in results
+        debug_mode: Enable detailed agent interaction logs
+        use_hierarchical: Use hierarchical processing instead of sequential
+        store_thoughts: Store agent thoughts in log files
+        
+    Returns:
+        Dictionary containing the response and metadata
+    """
+    try:
+        # Transcribe the audio
+        transcript = transcribe_audio(config, audio_file_path)
+        if not transcript:
+            return {
+                "error": "Could not transcribe audio or transcription is empty.",
+                "response": "Failed to transcribe audio. Please try again.",
+                "transcription": ""
+            }
+            
+        print(f"\nTranscribed Query: {transcript}")
+        
+        # Process query using CrewAgentManager with full feature set
+        crew_manager = CrewAgentManager(
+            config=config,
+            debug_mode=debug_mode,
+            use_hierarchical=use_hierarchical,
+            store_thoughts=store_thoughts
+        )
+        
+        print(f"\nProcessing query with CrewAI using hierarchical as {use_hierarchical}...")
+        print("=" * 80)
+        
+        # Process the query and return results
+        result = crew_manager.process_query(transcript, show_context)
+        
+        # Add the transcript to the result
+        result["transcription"] = transcript
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error processing STT CrewAI query: {str(e)}", exc_info=True)
+        return {
+            "error": f"Failed to process speech query: {str(e)}",
+            "response": "Sorry, I encountered an error while processing your speech query.",
+            "transcription": ""
+        }
+
 def main():
     """Main entry point for the application."""
     parser = argparse.ArgumentParser(description="CarbonSense - Carbon Footprint Analysis")
-    parser.add_argument("--mode", choices=["generate", "rag_agent", "crew_agent", "verify", "cleanup", "fetch_certs", "stt_query"], required=True, help="Operation mode")
+    parser.add_argument("--mode", choices=["generate", "rag_agent", "crew_agent", "verify", "cleanup", "fetch_certs", "stt_query", "stt_crew_agent"], required=True, help="Operation mode")
     parser.add_argument("--model", choices=["125m", "granite", "30m"], help="Model to use for embeddings (used in generate/verify)")
     parser.add_argument("--query", help="Query string for rag_agent and crew_agent modes")
-    parser.add_argument("--record_duration", type=int, default=10, help="Duration of audio recording in seconds for stt_query mode (default: 10)")
+    parser.add_argument("--record_duration", type=int, default=10, help="Duration of audio recording in seconds for stt_query and stt_crew_agent modes (default: 10)")
     parser.add_argument("--input_device", type=int, default=None, help="Index of the input audio device (optional). If not provided, you will be prompted to select.")
     parser.add_argument("--show_context", action="store_true", help="Show context in query results")
     parser.add_argument("--files", nargs="+", help="Specific files to process (used in generate mode)")
@@ -255,6 +311,7 @@ def main():
     parser.add_argument("--no_cache", action="store_true", help="Disable caching")
     parser.add_argument("--sequential", action="store_true", help="Use sequential process instead of hierarchical")
     parser.add_argument("--store_thoughts", action="store_true", help="Store agent thoughts and reasoning in log files")
+    parser.add_argument("--output_file", help="Path to a file where the results should be saved (in JSON format)")
     args = parser.parse_args()
 
     try:
@@ -376,6 +433,94 @@ def main():
             except Exception as e:
                 print(f"Error processing STT query: {str(e)}")
 
+        elif args.mode == "stt_crew_agent":
+            selected_device_index = args.input_device
+            if selected_device_index is None:
+                selected_device_index = select_input_device_interactively()
+                if selected_device_index is None:
+                    print("Device selection failed or was cancelled. Exiting.")
+                    return
+
+            try:
+                # Record audio
+                print(f"\nRecording audio for {args.record_duration} seconds...")
+                temp_audio_path = record_audio(args.record_duration, SAMPLE_RATE, CHANNELS, 
+                                               device_index=selected_device_index)
+                
+                # Process the query using CrewAgentManager with full feature set
+                print("\nTranscribing and processing with CrewAI agents...")
+                result = process_stt_crew_query(
+                    config, 
+                    temp_audio_path, 
+                    show_context=args.show_context,
+                    debug_mode=args.debug,
+                    use_hierarchical=not args.sequential,
+                    store_thoughts=args.store_thoughts
+                )
+                
+                if "error" in result:
+                    print(f"Error: {result['error']}")
+                    
+                    # If output file is specified, save error result to the file
+                    if args.output_file:
+                        try:
+                            with open(args.output_file, 'w') as f:
+                                json.dump(result, f)
+                            print(f"Error results saved to {args.output_file}")
+                        except Exception as save_err:
+                            print(f"Error saving results to file: {str(save_err)}")
+                            # Ensure there's at least an empty valid JSON
+                            with open(args.output_file, 'w') as f:
+                                json.dump({"error": "Failed to save results", "transcription": "", "response": "", "confidence": 0.0}, f)
+                    
+                    return
+                    
+                print("\nResponse:")
+                print("=" * 80)
+                print(result["response"])
+                
+                if args.show_context and result.get("context"):
+                    print("\nSources:")
+                    print("-" * 40)
+                    if result["context"].get("sources"):
+                        for source in result["context"]["sources"]:
+                            print(f"- {source}")
+                    else:
+                        print("No specific sources identified.")
+                
+                # If output file is specified, save the result to the file
+                if args.output_file:
+                    try:
+                        with open(args.output_file, 'w') as f:
+                            json.dump(result, f)
+                        print(f"Results saved to {args.output_file}")
+                    except Exception as save_err:
+                        print(f"Error saving results to file: {str(save_err)}")
+                
+            except Exception as e:
+                print(f"Error processing speech query with CrewAI: {str(e)}")
+                logger.error(f"Error in stt_crew_agent mode: {str(e)}", exc_info=True)
+                
+                # If output file is specified, save error to the file
+                if args.output_file:
+                    try:
+                        error_result = {
+                            "error": f"Failed to process speech query: {str(e)}",
+                            "response": "Sorry, I encountered an error while processing your speech query.",
+                            "transcription": ""
+                        }
+                        with open(args.output_file, 'w') as f:
+                            json.dump(error_result, f)
+                        print(f"Error saved to {args.output_file}")
+                    except Exception as save_err:
+                        print(f"Error saving error to file: {str(save_err)}")
+                        # Last resort - ensure there's at least an empty valid JSON
+                        try:
+                            with open(args.output_file, 'w') as f:
+                                json.dump({"error": "System error", "transcription": "", "response": "", "confidence": 0.0}, f)
+                        except:
+                            pass  # Nothing more we can do
+
         elif args.mode == "verify":
             milvus = MilvusService(config)
             
@@ -414,7 +559,7 @@ def main():
                     
         elif args.mode == "cleanup":
             try:
-                from .services.cleanup_service import CleanupService
+                from src.carbonsense.services.cleanup_service import CleanupService
                 cleanup_service = CleanupService(config)
                 
                 print("\nStarting cleanup process...")

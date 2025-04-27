@@ -1,0 +1,29 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Core Components
+
+The core functionality of CarbonSense is implemented through these key components:
+
+## Multi-Agent System
+
+The [crew_agent.py](mdc:src/carbonsense/core/crew_agent.py) file contains the multi-agent system implementation powered by CrewAI, which orchestrates specialized agents for different tasks in the carbon footprint analysis pipeline.
+
+## Carbon Agent
+
+The [carbon_agent.py](mdc:src/carbonsense/core/carbon_agent.py) file implements the main agent responsible for processing carbon footprint queries, including product extraction, database searching, and response generation.
+
+## Embedding Generation
+
+The [embedding_generator.py](mdc:src/carbonsense/core/embedding_generator.py) file handles the creation of vector embeddings for document chunks, supporting multiple IBM Watsonx embedding models.
+
+## RAG Generation
+
+The [rag_generator.py](mdc:src/carbonsense/core/rag_generator.py) file implements the Retrieval-Augmented Generation functionality, combining retrieved context with language model generation.
+
+## YAML Configuration Management
+
+The [yaml_manager.py](mdc:src/carbonsense/core/yaml_manager.py) file provides utilities for loading and managing YAML-based configuration for agents, tasks, and prompts.
+

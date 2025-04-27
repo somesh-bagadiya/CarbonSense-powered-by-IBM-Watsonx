@@ -168,81 +168,255 @@ class CarbonAgent:
 
 #### CrewAI Multi-Agent System
 
+##### Core Implementation
+
 ```python
-# Agent definition using YAML
-agent_config = """
+# CrewAgent manager implementation
+class CrewAgentManager:
+    def __init__(self, config, debug_mode=False, use_hierarchical=True, store_thoughts=False):
+        self.config = config
+        self.debug_mode = debug_mode
+        self.use_hierarchical = use_hierarchical
+        self.store_thoughts = store_thoughts
+        self.yaml_manager = YAMLManager(self._get_config_dir())
+        self.tools = self._initialize_tools()
+        
+    def process_query(self, query, show_context=False):
+        # 1. Load agent definitions from YAML
+        # 2. Create agents with specialized tools
+        # 3. Build task workflow from YAML configuration
+        # 4. Execute task workflow (hierarchical or sequential)
+        # 5. Collect and process agent outputs
+        # 6. Return consolidated response with context if requested
+```
+
+##### YAML Configuration Examples
+
+**Agent Definitions (agents.yaml)**
+
+```yaml
 agents:
   - id: parser
     name: Query Parser
     goal: Extract and normalize product and quantity from user queries
-    backstory: You are a specialist in understanding user questions and normalizing them
+    backstory: |
+      You are a specialist in understanding carbon footprint queries and extracting 
+      key information. You have extensive knowledge of product names, quantity units, 
+      and can normalize varied user inputs into standardized formats.
     verbose: false
+    allow_delegation: false
     tools: [normalize_product, extract_quantity]
-
+    
   - id: researcher
-    name: Data Researcher
-    goal: Find the most accurate carbon footprint information from multiple sources
-    backstory: You are an environmental researcher specializing in data collection
+    name: Carbon Researcher
+    goal: Find accurate carbon footprint information from multiple trusted sources
+    backstory: |
+      You are an environmental researcher specializing in carbon footprint data collection.
+      You have access to a vector database of carbon metrics and can search the web for
+      the latest information when needed.
     verbose: false
+    allow_delegation: false
     tools: [search_milvus, search_discovery, search_web]
-
+    
   - id: harmonizer
     name: Data Harmonizer
-    goal: Standardize different metrics to create consistent carbon footprint values
-    backstory: You are an expert in standardizing environmental impact measurements
+    goal: Standardize carbon metrics from different sources into consistent values
+    backstory: |
+      You are an expert in environmental data standardization. You can convert between
+      different units, resolve conflicts between data sources, and provide confidence
+      scores for the information.
     verbose: false
+    allow_delegation: false
     tools: [convert_units, standardize_metrics]
-
+    
   - id: writer
-    name: Response Writer
-    goal: Create clear, accurate and helpful responses based on harmonized data
-    backstory: You are a science communicator specializing in environmental topics
+    name: Carbon Response Writer
+    goal: Create clear, accurate and helpful responses about carbon footprint data
+    backstory: |
+      You are a science communicator specializing in environmental topics. You can
+      explain complex carbon footprint concepts in simple terms, provide context,
+      and format responses in a user-friendly way.
     verbose: false
+    allow_delegation: false
     tools: [format_carbon_footprint]
-"""
+```
 
-# Task workflow definition
-task_workflow = """
+**Task Workflow (tasks.yaml)**
+
+```yaml
 tasks:
   - id: parse_query
     agent: parser
     input: "{{ query }}"
     description: Extract product and quantity from user query
+    async: false
     output: normalized_query
     
   - id: research_data
     agent: researcher
     description: Search for carbon footprint data from multiple sources
-    input: "{{ normalized_query }}"
+    depends_on: [parse_query]
+    input: "{{ parse_query.output }}"
+    async: false
     output: research_results
     
   - id: harmonize_data
     agent: harmonizer
     description: Standardize metrics across different data sources
-    input: "{{ research_results }}"
+    depends_on: [research_data]
+    input: "{{ research_data.output }}"
+    async: false
     output: harmonized_metrics
     
   - id: generate_response
     agent: writer
     description: Create a response based on the harmonized data
-    input: "{{ harmonized_metrics }}"
-    input_context: "{{ normalized_query }}"
+    depends_on: [harmonize_data, parse_query]
+    input: "{{ harmonize_data.output }}"
+    input_context: "{{ parse_query.output }}"
+    async: false
     output: final_response
-"""
+```
 
-# YAML-based configuration manager
+**Prompt Template (prompts.yaml)**
+
+```yaml
+prompts:
+  parser:
+    system: |
+      You are a Carbon Query Parser specializing in extracting product and quantity information.
+      Follow these guidelines:
+      1. Identify the main product being queried (e.g., "beef", "driving", "electricity")
+      2. Extract quantity information and units (e.g., "2 kg", "10 miles", "5 hours")
+      3. Normalize product names to standard forms
+      4. Identify query intent (e.g., comparison, single product, activity)
+      
+      Output format:
+      ```json
+      {
+        "product": "normalized_product_name",
+        "quantity": number,
+        "unit": "standardized_unit",
+        "query_type": "comparison|single|activity"
+      }
+      ```
+      
+  researcher:
+    system: |
+      You are a Carbon Footprint Researcher with access to multiple data sources.
+      Your task is to find accurate carbon footprint information for the requested product.
+      
+      Follow these steps:
+      1. Search the Milvus vector database for relevant carbon data
+      2. If database results are insufficient, search Watson Discovery
+      3. For each result, note the source and confidence level
+      4. Prioritize recent, peer-reviewed, and official sources
+      
+      Output format:
+      ```json
+      {
+        "results": [
+          {
+            "product": "product_name",
+            "carbon_value": number,
+            "unit": "kg_co2e_per_unit",
+            "source": "source_name",
+            "confidence": 0.0-1.0,
+            "year": publication_year
+          }
+        ]
+      }
+      ```
+```
+
+##### YAML Manager Implementation
+
+```python
+# YAML configuration manager
 class YAMLManager:
     def __init__(self, config_dir):
         self.config_dir = config_dir
+        self._load_configuration()
+        
+    def _load_configuration(self):
+        """Load all configuration files."""
         self.agents_config = self._load_yaml('agents.yaml')
         self.tasks_config = self._load_yaml('tasks.yaml')
         self.prompts_config = self._load_yaml('prompts.yaml')
+        self.schemas_config = self._load_yaml('common_schema.yaml')
         
     def _load_yaml(self, filename):
-        # Load YAML file
-        # Parse configuration
-        # Validate against schema
-        # Return parsed configuration
+        """Load and parse a YAML file."""
+        file_path = os.path.join(self.config_dir, filename)
+        with open(file_path, 'r') as file:
+            return yaml.safe_load(file)
+            
+    def get_agent_config(self, agent_id):
+        """Get configuration for a specific agent."""
+        for agent in self.agents_config.get('agents', []):
+            if agent.get('id') == agent_id:
+                return agent
+        return None
+        
+    def get_task_workflow(self):
+        """Get the full task workflow configuration."""
+        return self.tasks_config.get('tasks', [])
+        
+    def get_prompt_template(self, agent_id):
+        """Get prompt template for a specific agent."""
+        return self.prompts_config.get('prompts', {}).get(agent_id, '')
+```
+
+##### Tool Integration
+
+```python
+# Tool initialization
+def initialize_tools(config):
+    """Initialize all tools required by agents."""
+    tools = {}
+    
+    # Parser tools
+    tools['normalize_product'] = NormalizeProductTool()
+    tools['extract_quantity'] = ExtractQuantityTool()
+    
+    # Researcher tools
+    tools['search_milvus'] = MilvusSearchTool(config)
+    tools['search_discovery'] = DiscoverySearchTool(config)
+    tools['search_web'] = WebSearchTool(config)
+    
+    # Harmonizer tools
+    tools['convert_units'] = UnitConversionTool()
+    tools['standardize_metrics'] = MetricStandardizationTool()
+    
+    # Writer tools
+    tools['format_carbon_footprint'] = FormatCarbonFootprintTool()
+    
+    return tools
+
+# Example tool implementation
+class MilvusSearchTool:
+    def __init__(self, config):
+        self.config = config
+        self.milvus = MilvusService(config)
+    
+    def run(self, product, top_k=5):
+        """Search Milvus for product carbon footprint data."""
+        query = f"carbon footprint of {product}"
+        results = self.milvus.semantic_search(query, top_k)
+        
+        processed_results = []
+        for result in results:
+            # Extract and process information from search results
+            # Calculate confidence score based on relevance
+            processed_results.append({
+                "product": product,
+                "carbon_value": extracted_value,
+                "unit": extracted_unit,
+                "source": result.get("source_file"),
+                "confidence": result.get("score") / 100.0,
+            })
+            
+        return processed_results
 ```
 
 #### Web Search Integration
@@ -280,20 +454,43 @@ stt_config = {
 def record_audio(duration, sample_rate, channels, device_index=None):
     """Records audio from the microphone and saves it to a temporary file."""
     # Initialize recording settings
-    # Calculate number of frames based on duration
-    # Record audio using sounddevice
+    device_info = f" using device index {device_index}" if device_index is not None else " using default device"
+    num_frames = int(duration * sample_rate)
+    
+    # Start recording
+    recording = sd.rec(num_frames, samplerate=sample_rate, channels=channels, dtype='int16', device=device_index)
+    sd.wait()  # Wait until recording is finished
+    
     # Save as WAV file
-    # Return temporary file path
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+    temp_file_path = temp_file.name
+    temp_file.close()
+    
+    wav.write(temp_file_path, sample_rate, recording)
+    return temp_file_path
     
 # Transcription function
 def transcribe_audio(config, audio_file_path):
     """Transcribes audio using IBM Watson Speech-to-Text."""
     # Initialize STT client
-    # Open audio file
-    # Send to Watson STT API
-    # Process response
-    # Clean up temporary file
-    # Return transcript
+    authenticator = IAMAuthenticator(config.get_stt_config().get("api_key"))
+    speech_to_text = SpeechToTextV1(authenticator=authenticator)
+    speech_to_text.set_service_url(config.get_stt_config().get("url"))
+    
+    # Transcribe the audio
+    with open(audio_file_path, 'rb') as audio_file:
+        response = speech_to_text.recognize(
+            audio=audio_file,
+            content_type='audio/wav',
+            model='en-US_BroadbandModel'
+        ).get_result()
+    
+    # Process transcription result
+    if response['results']:
+        transcript = response['results'][0]['alternatives'][0]['transcript']
+        return transcript
+    else:
+        return ""
 ```
 
 ### 6. Web Interface Implementation
@@ -328,19 +525,78 @@ async def index(request: Request):
 async def stream_thoughts(request: Request, query: str):
     """Stream agent thoughts as Server-Sent Events."""
     # Generate unique request ID
+    request_id = f"request_{int(time.time() * 1000)}"
+    
     # Create dedicated thought queue
+    thought_queues[request_id] = queue.Queue()
+    
     # Start background processing
-    # Set up event generator
-    # Stream results with proper SSE formatting
+    thread = threading.Thread(
+        target=simulate_agent_thoughts,
+        args=(request_id, query),
+        daemon=True
+    )
+    thread.start()
+    
+    # Define the SSE generator
+    async def event_generator():
+        # Setup SSE connection
+        yield "retry: 1000\n\n"
+        yield f"id: {request_id}\n"
+        yield f"data: {json.dumps({'type': 'info', 'content': 'Connection established'})}\n\n"
+        
+        # Process thoughts from queue
+        while True:
+            try:
+                thought_data = thought_queues[request_id].get(timeout=0.5)
+                
+                if thought_data == "DONE":
+                    yield f"id: {int(time.time() * 1000)}\n"
+                    yield f"data: {json.dumps({'type': 'complete', 'content': 'Processing completed'})}\n\n"
+                    break
+                
+                # Send the thought data as a server-sent event
+                event_id = int(time.time() * 1000)
+                yield f"id: {event_id}\n"
+                yield f"data: {json.dumps(thought_data)}\n\n"
+                
+            except queue.Empty:
+                # Send keep-alive ping
+                yield ": keep-alive\n\n"
+                await asyncio.sleep(0.5)
+    
+    # Return streaming response
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream",
+            "Access-Control-Allow-Origin": "*",
+            "X-Accel-Buffering": "no"
+        }
+    )
     
 # Query endpoint
 @app.post("/api/query")
 async def query_carbon(request: Request, background_tasks: BackgroundTasks):
     """Process a carbon footprint query."""
-    # Parse JSON request body
-    # Validate query
+    data = await request.json()
+    query = data.get("query", "")
+    
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
     # Process with CrewAgentManager
-    # Return JSON response with results
+    crew_manager = CrewAgentManager(config=ConfigManager())
+    result = crew_manager.process_query(query, show_context=True)
+    
+    return {
+        "answer": result["response"],
+        "confidence": result.get("confidence", 0.8),
+        "sources": result.get("context", {}).get("sources", []) if "context" in result else []
+    }
 ```
 
 ## Error Handling
@@ -506,8 +762,21 @@ thought_logging_config = {
 # Thought tracking function
 def log_agent_thought(agent_id, thought_type, content):
     """Log an agent's thought or action."""
-    # Create log entry with agent ID, timestamp, type, and content
-    # Write to appropriate log file
-    # Manage log rotation
-    # Apply retention policy
+    # Create timestamp
+    timestamp = datetime.now().isoformat()
+    
+    # Create log entry
+    log_entry = {
+        "agent_id": agent_id,
+        "timestamp": timestamp,
+        "type": thought_type,
+        "content": content
+    }
+    
+    # Determine log file path
+    log_file = f"logs/agent_{agent_id}_{datetime.now().strftime('%Y%m%d')}.json"
+    
+    # Write log entry
+    with open(log_file, 'a') as f:
+        f.write(json.dumps(log_entry) + "\n")
 ```

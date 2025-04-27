@@ -1,0 +1,32 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Setup and Usage
+
+This section provides information on setting up and using the CarbonSense system.
+
+## Installation
+
+The [setup.py](mdc:setup.py) file contains installation instructions and dependencies for the CarbonSense package.
+
+## Documentation
+
+- [README.md](mdc:README.md): Main project documentation with overview and basic usage information.
+- [ARCHITECTURE.md](mdc:ARCHITECTURE.md): Detailed system architecture documentation.
+- [IMPLEMENTATION.md](mdc:IMPLEMENTATION.md): Implementation details and code examples.
+- [Dataset_Column_Description.md](mdc:Dataset_Column_Description.md): Description of the dataset columns used in the project.
+
+## Data
+
+Data processing directories:
+- [Data_processed/](mdc:Data_processed): Contains processed carbon footprint data.
+- [Data_processed_2/](mdc:Data_processed_2): Contains additional processed data.
+- [backup-dataset/](mdc:backup-dataset): Contains backup copies of the original datasets.
+- [Embeddings/](mdc:Embeddings): Contains generated vector embeddings for the data.
+
+## Running the Application
+
+To run the web interface, use the [src/carbonsense/web/run_server.py](mdc:src/carbonsense/web/run_server.py) script, or the main entry point at [src/carbonsense/main.py](mdc:src/carbonsense/main.py).
+

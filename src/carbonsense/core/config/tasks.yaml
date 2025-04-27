@@ -1,148 +1,243 @@
 # --------------------------------
-# 1. PARSE & NORMALISE
-parse_and_normalise_task:
+# 1. QUERY UNDERSTANDING LAYER
+query_classification_task:
   description: >
-    Parse the query "{query}" to extract the product name and quantity information.
+    Analyze the query "{query}" to determine both intent type and category.
     
     Return a JSON object with the following structure:
     {
-      "product": "precise product name, normalized and cleaned",
-      "raw_quantity": "the exact quantity text from the query",
-      "standard_quantity": {
-        "value": <float - never zero unless explicitly specified, default to 1.0 for missing quantities>,
-        "unit": "kg|item|km|L|kWh - standardized unit appropriate for the product type"
-      },
-      "quantity_missing": <boolean - true if quantity was not specified in the query>
+      "query_intent": "estimate|compare|suggest|lifecycle|myth_bust",
+      "category": "Food & Diet|Energy Use|Mobility|Purchases|Miscellaneous",
+      "confidence": <float between 0-1 indicating classification confidence>
+    }
+    
+    Intent types are defined as:
+    - estimate: User wants to know the carbon footprint of a specific product/activity
+    - compare: User wants to compare carbon footprints of two or more products/activities
+    - suggest: User wants recommendations for reducing their carbon footprint
+    - lifecycle: User wants to understand the full lifecycle emissions of a product
+    - myth_bust: User wants to verify a claim or common belief about carbon footprints
+    
+    Categories are defined as:
+    - Food & Diet: All food items, beverages, ingredients, agricultural products
+    - Energy Use: Electricity, heating, cooling, appliances, home energy consumption
+    - Mobility: Transportation, vehicles, flights, public transit, commuting
+    - Purchases: Consumer goods, electronics, clothing, services, streaming
+    - Miscellaneous: Mixed activities, lifestyle changes, or items that don't fit other categories
+    
+    Important guidelines:
+    - Analyze both explicit and implicit intent in the query
+    - For ambiguous queries, select the most likely intent based on context
+    - If multiple intents are present, choose the dominant one
+    - Assign a confidence score that reflects your certainty in the classification
+    - For mixed category queries, choose the most prominent category
+  expected_output: >
+    A JSON object containing the query intent, category classification, and confidence score.
+  agent: query_classifier
+  output_file: logs/1_classification.json
+  async_execution: false
+
+entity_extraction_task:
+  description: >
+    Extract key entities from the query "{query}" based on the identified intent and category.
+    
+    Return a JSON object with the following structure for a standard query:
+    {
+      "products": [{"name": "product name", "quantity": number, "unit": "kg|km|kWh|item"}],
+      "location": "location name or null if none specified",
+      "timeframe": "timeframe or null if none specified",
+      "additional_context": "any other relevant context extracted"
+    }
+    
+    For comparison queries, include multiple products in the products array.
+    
+    Important guidelines:
+    - Extract all products/activities mentioned in the query
+    - Include quantities and units when specified
+    - If no quantity is specified, don't include a quantity field
+    - Extract location information when present (country, region, city)
+    - Identify timeframes or durations when mentioned
+    - Capture any additional context that might be relevant for calculation
+    - Format the response as a proper JSON object
+  expected_output: >
+    A JSON object containing extracted entities including products, quantities, locations, and other context.
+  agent: entity_extractor
+  output_file: logs/2_entities.json
+  async_execution: false
+  context: [query_classification_task]
+
+unit_normalization_task:
+  description: >
+    Normalize all extracted entities with their quantities into standard units based on the entity type.
+    Use the entity extraction results and apply consistent unit conversion and standardization.
+    
+    Return a JSON object with the following structure:
+    {
+      "normalized_products": [
+        {
+          "name": "standardized product name",
+          "raw_quantity": "original quantity text or null",
+          "standard_quantity": {
+            "value": <float - never zero unless explicitly specified, default to 1.0 for missing quantities>,
+            "unit": "kg|km|kWh|item - standardized unit appropriate for the product type"
+          },
+          "quantity_missing": <boolean - true if quantity was not specified in the query>
+        }
+      ],
+      "location": "standardized location name or null",
+      "timeframe": {
+        "value": <float - duration value or null>,
+        "unit": "hours|days|years or null",
+        "standardized": <boolean - whether the timeframe was standardized>
+      }
     }
     
     Important guidelines:
-    - If quantity is missing, set quantity_missing=true and apply a default value (1 kg for food, 1 item for products)
-    - If quantity is specified as zero, verify if this makes sense; for most queries, assume 1 unit instead
-    - Always check that your output is logically consistent and appropriate for the product type
-    - Normalize product names to their canonical form (e.g., "beef steak" → "beef")
-    - For food items, prefer kg as the standard unit
-    - For transportation, prefer km as the standard unit
-    - For discrete items, use "item" as the unit
+    - Convert all units to standard units based on entity type:
+      * Food: kg (convert pounds, ounces, grams, etc.)
+      * Transportation: km (convert miles, feet, meters, etc.)
+      * Energy: kWh (convert joules, BTU, etc.)
+      * Items: each/item (count of individual objects)
+    - Apply logical defaults for missing quantities:
+      * Food items: 1 kg (or typical serving size if known)
+      * Discrete objects: 1 item
+      * Transportation: 1 km
+      * Energy sources: 1 kWh
+    - Never return zero quantities unless explicitly specified
+    - Normalize product names to their canonical form where appropriate
+    - Standardize location names to consistent formats
+    - Convert timeframes to standard units (hours, days, years)
   expected_output: >
-    A JSON object containing the normalized product name, raw quantity as entered, 
-    standardized quantity with appropriate defaults (never zero unless explicitly specified), 
-    and a flag indicating if the quantity was missing from the original query.
+    A JSON object containing normalized entities with standardized units and appropriate defaults.
   agent: unit_normalizer
-  output_file: logs/1_parse.json
+  output_file: logs/3_normalized.json
   async_execution: false
-
+  context: [entity_extraction_task, query_classification_task]
 
 # 2. CACHE LOOKUP (SKIP RESEARCH WHEN HIT)
 cache_lookup_task:
   description: >
-    Check the file cache for the product identified in the previous task.
-    Use the normalized product name from the parse_and_normalise_task as the key.
+    Check the file cache for the products identified in the entity extraction.
+    Use the normalized product names from the unit_normalization_task as keys.
     
-    Return the cached JSON metric if found, with all required fields:
-    {
-      "value": <number>,
-      "emission_unit": "kg CO2e|g CO2e",
-      "product_unit": "<unit>",
-      "source": "<source name>",
-      "confidence": <number between 0-1>,
-      "product_name": "<product name>"
-    }
+    For each product, return either the cached metric or a MISS status.
+    Return an array of results with the following structure:
+    [
+      {
+        "product_name": "normalized product name",
+        "status": "HIT|MISS",
+        "data": {<full carbon metric object>} or null if MISS
+      }
+    ]
     
-    Or return a JSON object with status "MISS" if no cache entry exists:
-    {"status": "MISS"}
-    
-    Never return plain text responses; always use proper JSON format.
+    Important guidelines:
+    - Check each product separately for cache hits
+    - For cache hits, include the complete carbon metric with all required fields
+    - For cache misses, set status to "MISS" and data to null
+    - For comparison queries, return an array with results for all products
+    - Ensure all returned data follows the required schema
+    - Never return plain text responses; always use proper JSON format
   expected_output: >
-    Either a complete cached JSON metric that follows the common schema format with all required fields,
-    or a JSON object with {"status": "MISS"} if no cache entry exists.
+    An array of JSON objects, each containing either a complete cached carbon metric
+    or a MISS status for each product in the query.
   agent: footprint_cache
-  output_file: logs/2_cache.json
+  output_file: logs/4_cache.json
   async_execution: false
-
+  context: [unit_normalization_task]
 
 # 3. EXTERNAL RESEARCH (parallel)
 milvus_research_task:
   description: >
-    Query the Milvus vector database to find the carbon footprint metric for the product identified in the parse task.
-    Use semantic search to find the closest matches, even if the product name isn't an exact match.
+    Query the Milvus vector database to find carbon footprint metrics for the products identified in the normalization task.
+    For products with cache hits, skip the research.
     
-    Return a complete JSON object that follows the required schema:
-    {
-      "value": <number - precise carbon footprint value, never zero or negative>,
-      "emission_unit": "kg CO2e" or "g CO2e",
-      "product_unit": "per kg" or appropriate unit,
-      "source": "milvus" plus any specific source document,
-      "confidence": <number between 0-1 indicating data reliability>,
-      "product_name": <exact product name as found in the database>,
-      "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">
-    }
+    Return an array of complete JSON objects that follow the required schema:
+    [
+      {
+        "product_name": "exact product name as extracted",
+        "value": <number - precise carbon footprint value, never zero or negative>,
+        "emission_unit": "kg CO2e" or "g CO2e",
+        "product_unit": "per kg" or appropriate unit,
+        "source": "milvus" plus any specific source document,
+        "confidence": <number between 0-1 indicating data reliability>,
+        "category": <one of: "Food & Diet", "Energy Use", "Mobility", "Purchases", "Miscellaneous">
+      }
+    ]
     
     Important guidelines:
-    - Include the exact product_name from the database for traceability
-    - Assign a confidence score based on match quality and data source reliability
+    - Research each product that had a cache MISS
+    - Use semantic search to find close matches even when product names aren't exact
+    - Include the exact product_name for traceability
+    - Assign confidence scores based on match quality and data source reliability
     - Never return zero or negative values unless they represent carbon sequestration
+    - Categorize products according to the five standard categories
     - Handle special cases like carbon-negative products appropriately
     - If multiple matches are found, select the most relevant and accurate one
-    - Categorize products correctly based on their nature (food items, energy sources, or transportation)
   expected_output: >
-    A JSON object with carbon footprint data following the common schema,
+    An array of JSON objects with carbon footprint data following the common schema,
     including value, emission_unit, product_unit, source, confidence, product_name, and category.
     The data should be high quality, accurate, and logically consistent.
   agent: milvus_researcher
-  output_file: logs/3_milvus.json
+  output_file: logs/5_milvus.json
   async_execution: true
-
+  context: [unit_normalization_task, cache_lookup_task, query_classification_task]
 
 discovery_research_task:
   description: >
-    Search Watson Discovery for carbon footprint information about the product identified in the parse task.
-    Extract structured data from documents, reports, and databases in the Discovery collection.
+    Search Watson Discovery for carbon footprint information about the products identified in the normalization task.
+    For products with cache hits, skip the research.
     
-    Return a complete JSON object that follows the required schema:
-    {
-      "value": <number - precise carbon footprint value, never zero or negative unless appropriate>,
-      "emission_unit": "kg CO2e" or "g CO2e",
-      "product_unit": "per kg" or appropriate unit,
-      "source": specific source document or database from Discovery,
-      "confidence": <number between 0-1 indicating data reliability>,
-      "product_name": <product name as identified in the documents>,
-      "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">
-    }
+    Return an array of complete JSON objects that follow the required schema:
+    [
+      {
+        "product_name": "exact product name as extracted",
+        "value": <number - precise carbon footprint value, never zero or negative unless appropriate>,
+        "emission_unit": "kg CO2e" or "g CO2e",
+        "product_unit": "per kg" or appropriate unit,
+        "source": specific source document or database from Discovery,
+        "confidence": <number between 0-1 indicating data reliability>,
+        "category": <one of: "Food & Diet", "Energy Use", "Mobility", "Purchases", "Miscellaneous">
+      }
+    ]
     
     Important guidelines:
+    - Research each product that had a cache MISS
     - Extract data from the most authoritative sources available (academic > government > industry)
     - Prefer recent data (published within last 3 years) over older information
-    - Calculate confidence score based on source credibility, methodology, and data recency
+    - Calculate confidence scores based on source credibility, methodology, and data recency
     - Identify the specific document or database the data came from
     - Verify units are clearly specified and convert to standard units when necessary
     - Ensure all required fields are included and properly formatted
-    - Categorize the product into one of the three standard categories
+    - Categorize the product into one of the five standard categories
   expected_output: >
-    A JSON object with carbon footprint data following the common schema,
+    An array of JSON objects with carbon footprint data following the common schema,
     including value, emission_unit, product_unit, source, confidence, product_name, and category.
     The data should be traced to specific documents and include appropriate confidence scoring.
   agent: discovery_researcher
-  output_file: logs/4_discovery.json
+  output_file: logs/6_discovery.json
   async_execution: true
-
+  context: [unit_normalization_task, cache_lookup_task, query_classification_task]
 
 serper_research_task:
   description: >
-    Search the web using Serper for carbon footprint data about the product identified in the parse task.
-    Analyze search results to extract the most accurate and reliable carbon footprint information available online.
+    Search the web using Serper for carbon footprint data about the products identified in the normalization task.
+    For products with cache hits, skip the research.
     
-    Return a complete JSON object that follows the required schema:
-    {
-      "value": <number - precise carbon footprint value, never zero or negative unless appropriate>,
-      "emission_unit": "kg CO2e" or "g CO2e",
-      "product_unit": "per kg" or appropriate unit,
-      "source": specific website, organization, or publication name,
-      "confidence": <number between 0-1 indicating data reliability>,
-      "product_name": <product name as researched>,
-      "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">
-    }
+    Return an array of complete JSON objects that follow the required schema:
+    [
+      {
+        "product_name": "exact product name as extracted",
+        "value": <number - precise carbon footprint value, never zero or negative unless appropriate>,
+        "emission_unit": "kg CO2e" or "g CO2e",
+        "product_unit": "per kg" or appropriate unit,
+        "source": specific website, organization, or publication name,
+        "confidence": <number between 0-1 indicating data reliability>,
+        "category": <one of: "Food & Diet", "Energy Use", "Mobility", "Purchases", "Miscellaneous">
+      }
+    ]
     
     Important guidelines:
+    - Research each product that had a cache MISS
     - Prioritize data from reputable sources (academic journals, government agencies, respected environmental organizations)
     - Verify the methodology used to calculate the carbon footprint when possible
     - Assign confidence scores based on source credibility, methodology transparency, and data recency
@@ -151,44 +246,51 @@ serper_research_task:
     - Handle special cases, regional variations, and different production methods
     - Categorize the product according to the standardized categories
   expected_output: >
-    A JSON object with carbon footprint data following the common schema,
+    An array of JSON objects with carbon footprint data following the common schema,
     including value, emission_unit, product_unit, source, confidence, product_name, and category.
     The data should come from reputable online sources with clear attribution.
   agent: serper_researcher
-  output_file: logs/5_serper.json
+  output_file: logs/7_serper.json
   async_execution: true
+  context: [unit_normalization_task, cache_lookup_task, query_classification_task]
 
-
-# 4. HARMONISE & RANK
+# 4. HARMONISE & ESTIMATE
 harmonise_task:
   description: >
     Harmonize all carbon footprint metrics from the research tasks to ensure consistent units and formats.
-    Convert all metrics to a standardized format (kg CO2e per kg) for fair comparison.
+    Convert all metrics to a standardized format (kg CO2e per kg or appropriate unit) for fair comparison.
     
-    For each metric in the array of research results:
+    For each product, combine metrics from all sources, then:
     
     1. Convert all emission units to kg CO2e (e.g., g CO2e ÷ 1000)
-    2. Standardize product units to "per kg" whenever possible
-    3. For non-weight items, establish reasonable weight equivalents (e.g., 1 apple ≈ 0.15 kg)
+    2. Standardize product units to "per kg" for food, "per km" for transport, etc.
+    3. For non-weight items, establish reasonable weight equivalents when needed
     4. Ensure consistent precision and significant figures
     5. Verify all metrics contain complete information including product_name and category
     6. Validate category assignment and correct if necessary
     
-    Return an array of normalized JSON objects, each following the schema:
+    Return an array of arrays, where each inner array contains the harmonized metrics for one product:
     [
-      {
-        "value": <number - normalized to standard units>,
-        "emission_unit": "kg CO2e",
-        "product_unit": "kg",
-        "source": <original source>,
-        "confidence": <original confidence score>,
-        "product_name": <product name>,
-        "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">
-      },
-      {...}
+      [  // Metrics for product 1
+        {
+          "product_name": "product 1 name",
+          "value": <number - normalized to standard units>,
+          "emission_unit": "kg CO2e",
+          "product_unit": "kg|km|kWh|item",
+          "source": <original source>,
+          "confidence": <original confidence score>,
+          "category": <one of the five standard categories>
+        },
+        {...}  // Additional metrics for product 1 from different sources
+      ],
+      [  // Metrics for product 2 (if applicable)
+        {...},
+        {...}
+      ]
     ]
     
     Important guidelines:
+    - Group metrics by product name
     - Handle edge cases like very small or very large values appropriately
     - Never lose precision by inappropriate rounding (especially for small values)
     - Document any conversion factors or assumptions used
@@ -196,19 +298,60 @@ harmonise_task:
     - Ensure all harmonized metrics are logically consistent
     - Validate and standardize category assignments across all metrics
   expected_output: >
-    An array of JSON objects containing harmonized carbon footprint metrics,
-    all with consistent units (kg CO2e per kg) and formatting including product_name and category.
+    An array of arrays containing harmonized carbon footprint metrics,
+    all with consistent units and formatting including product_name and category.
     The array should maintain all relevant information from the original metrics
     while ensuring they can be fairly compared.
   agent: unit_harmoniser
-  output_file: logs/6_harmonised.json
+  output_file: logs/8_harmonised.json
   async_execution: false
+  context: [milvus_research_task, discovery_research_task, serper_research_task, unit_normalization_task, query_classification_task]
 
-
-rank_task:
+carbon_estimation_task:
   description: >
-    Evaluate and rank all harmonized metrics to select the most reliable and accurate one.
-    Apply a weighted scoring system based on multiple factors:
+    Calculate precise carbon footprints for each product using the harmonized metrics and normalized quantities.
+    For queries with intent "lifecycle", include full lifecycle considerations.
+    For queries with regional specifications, adjust calculations accordingly.
+    
+    Return an array of calculated carbon footprints with the following structure:
+    [
+      {
+        "product_name": "product name",
+        "total_emission": <number - calculated total emissions>,
+        "emission_unit": "kg CO2e",
+        "base_value": <number - base emission factor used>,
+        "base_unit": "kg CO2e per kg|km|kWh|item",
+        "quantity": <number - quantity used in calculation>,
+        "quantity_unit": "kg|km|kWh|item",
+        "source": "source of the base emission factor",
+        "confidence": <number between 0-1>,
+        "category": <one of the five standard categories>,
+        "calculation_method": "description of calculation method used",
+        "lifecycle_stages": ["production", "use", "disposal"] // Only for lifecycle queries
+      }
+    ]
+    
+    Important guidelines:
+    - Multiply the base emission factor by the normalized quantity
+    - For lifecycle analyses, include emissions from all relevant lifecycle stages
+    - For regional calculations, adjust emission factors based on location-specific data
+    - Document the calculation methodology and any assumptions made
+    - Ensure results are logically consistent and plausible
+    - Include confidence scores that reflect certainty in the calculation
+    - Preserve category assignments from the harmonized metrics
+  expected_output: >
+    An array of JSON objects containing calculated carbon footprints for each product,
+    including total emissions, calculation methodology, and all required metadata.
+  agent: carbon_estimator
+  output_file: logs/9_estimation.json
+  async_execution: false
+  context: [harmonise_task, unit_normalization_task, query_classification_task]
+
+rank_metrics_task:
+  description: >
+    Evaluate and rank all carbon footprint estimates to identify the most reliable and accurate data point for each product.
+    
+    For each product, apply a weighted scoring system based on multiple factors:
     
     1. Source credibility: academic (1.0) > government (0.9) > industry (0.8) > general web (0.7)
     2. Methodological completeness: full LCA (1.0) > partial assessment (0.8) > estimation (0.6)
@@ -218,18 +361,20 @@ rank_task:
     
     Calculate a 95% confidence interval when sufficient data is available.
     
-    Return a single JSON object representing the best metric:
-    {
-      "value": <number - the best carbon footprint value>,
-      "emission_unit": "kg CO2e",
-      "product_unit": "kg",
-      "source": <source of the selected metric>,
-      "confidence": <final calculated confidence score>,
-      "product_name": <product name>,
-      "category": <one of: "Food and Beverages", "Household Energy Use", "Transport Related">,
-      "confidence_interval": "<lower bound> - <upper bound>",
-      "recency": "<year of data or 'latest'>"
-    }
+    Return an array of JSON objects, one for each product, with the best metrics:
+    [
+      {
+        "product_name": "product name",
+        "value": <number - the best carbon footprint value>,
+        "emission_unit": "kg CO2e",
+        "product_unit": "kg|km|kWh|item",
+        "source": <source of the selected metric>,
+        "confidence": <final calculated confidence score>,
+        "category": <one of the five standard categories>,
+        "confidence_interval": "<lower bound> - <upper bound>",
+        "recency": "<year of data or 'latest'>"
+      }
+    ]
     
     Important guidelines:
     - When metrics disagree significantly, investigate why and exclude obvious outliers
@@ -240,103 +385,192 @@ rank_task:
     - Verify the category assignment is correct based on the product type
     - Provide a confidence interval when possible to communicate uncertainty
   expected_output: >
-    A single JSON object representing the best carbon footprint metric,
+    An array of JSON objects representing the best carbon footprint metric for each product,
     selected based on a rigorous evaluation of confidence, reliability, recency, and source quality.
-    The object should include the standard fields (value, emission_unit, product_unit, source, confidence, 
-    product_name, category) plus confidence_interval and recency when available.
+    Each object should include the standard fields plus confidence_interval and recency when available.
   agent: metric_ranker
-  output_file: logs/7_ranked.json
+  output_file: logs/10_ranked.json
   async_execution: false
+  context: [carbon_estimation_task, query_classification_task]
 
-
-# 5. ANSWER & LOG
-answer_formatting_task:
+# 5. INTENT-SPECIFIC PROCESSING
+comparison_task:
   description: >
-    Format the final answer using the best carbon footprint metric and the original query quantity.
+    Create a clear comparison between multiple carbon footprints when the query intent is "compare".
+    Skip this task if the query intent is not "compare".
     
-    Follow these precise steps:
-    1. Extract the best metric from the rank_task output
-    2. Extract the normalized quantity from the parse_and_normalise_task output
-    3. Check if quantity is missing or zero:
-       - If missing (quantity_missing=true), use a default of 1 unit appropriate for the product
-       - If zero and not explicitly requested, use a default of 1 unit
-       - If explicitly requested as zero, include a note about typical usage
-    4. Calculate the total carbon footprint: metric_value × quantity
-    5. Format to appropriate precision (2 significant figures) and units
-    6. Include confidence score and uncertainty range (±)
-    7. Add a methodology explanation describing how the footprint was calculated:
-       - Explain the data sources and their reliability
-       - Mention the calculation methodology (e.g., life-cycle assessment)
-       - Note any assumptions made in the calculation
-       - Build trust by emphasizing scientific rigor and data quality
-    8. Categorize the product into one of these three categories:
-       - Food and Beverages: All edible items, drinks, agricultural products
-       - Household Energy Use: Electricity, gas, appliances, home heating/cooling
-       - Transport Related: Vehicles, flights, public transit, shipping
-    9. Include source information in a separate section clearly marked with "SOURCES:"
-    
-    Return a formatted multi-line response with the following structure:
-
-    Carbon Footprint: For [quantity] [product] the footprint is [value] [unit] (±[uncertainty]), confidence [score]
-    
-    Methodology: [Brief explanation of how the footprint was calculated and why the data is reliable]
-    
-    Category: [Food and Beverages | Household Energy Use | Transport Related]
-    
-    SOURCES:
-    - [source name/document/website from the metric used]
-    - (If applicable) Additional references used in research
+    Return a JSON object with the following structure:
+    {
+      "comparison_results": {
+        "items": [
+          {
+            "product_name": "product 1 name",
+            "emission": "12.5 kg CO₂e",
+            "category": "category 1"
+          },
+          {
+            "product_name": "product 2 name",
+            "emission": "8.3 kg CO₂e",
+            "category": "category 2"
+          }
+        ],
+        "difference": {
+          "absolute": "4.2 kg CO₂e",
+          "percentage": "33.6% less",
+          "better_option": "product 2 name"
+        },
+        "equivalent": "This difference is equivalent to driving a car for X km"
+      },
+      "method": "Description of the comparison methodology and data sources",
+      "sources": [
+        {"title": "Source 1", "url": "https://example.com/..."},
+        {"title": "Source 2", "url": "https://example.org/..."}
+      ]
+    }
     
     Important guidelines:
-    - Never return a calculation with zero quantity unless explicitly requested
-    - Use appropriate defaults for missing information
-    - Format numbers with appropriate precision and units
-    - Include confidence information and uncertainty ranges
-    - Provide a clear explanation of the calculation methodology to build trust
-    - Ensure the response is logically sound and contextually appropriate
-    - Always provide the correct category based on product type
-    - Always include the SOURCES section, even if there's only one source
+    - Only process comparison queries, skip for other intents
+    - Calculate absolute and percentage differences between items
+    - Identify the lower-carbon option
+    - Provide real-world equivalents to contextualize the difference
+    - Include methods and sources used for all items in the comparison
+    - Ensure fair comparison by using consistent units and methodologies
+    - Format the output in the specified JSON structure
   expected_output: >
-    A formatted multi-line response that presents the carbon footprint result, calculation methodology, 
-    product category, and sources. The output should account for the quantity properly, handle edge cases 
-    like missing or zero quantities, include confidence information, explain how the footprint was calculated, 
-    categorize the product appropriately, and list sources.
-    
-    Format:
-    Carbon Footprint: For [quantity] [product] the footprint is [value] [unit] (±[uncertainty]), confidence [score]
-    
-    Methodology: [Brief explanation of how the footprint was calculated and why the data is reliable]
-    
-    Category: [Food and Beverages | Household Energy Use | Transport Related]
-    
-    SOURCES:
-    - [primary source]
-    - [additional sources if available]
-  agent: answer_formatter
-  output_file: 0_final_answer.txt
+    A JSON object containing structured comparison results with emissions for each item,
+    difference calculations, the better option, equivalent activities, methodology, and sources.
+  agent: comparison_formatter
+  output_file: logs/11_comparison.json
   async_execution: false
+  context: [rank_metrics_task, query_classification_task]
 
-
-# 6. USAGE LOGGING
-usage_logging_task:
+recommendation_task:
   description: >
-    Log detailed information about this query and its processing for analytics and improvement purposes.
+    Generate evidence-based recommendations for reducing carbon footprints when query intent is "suggest".
+    Skip this task if the query intent is not "suggest".
     
-    Capture the following data points:
-    1. Original query text: "{query}"
-    2. Normalized product and quantity from parse_and_normalise_task
-    3. Cache status (hit/miss) from cache_lookup_task
-    4. Data sources used and their contributions to the final result
-    5. Processing time and task completion timestamps
-    6. Final confidence score and uncertainty range
-    7. Any unusual patterns, edge cases, or error conditions encountered
+    Return a JSON object with the following structure:
+    {
+      "recommendations": [
+        {
+          "action": "Specific recommendation",
+          "potential_saving": "Estimated carbon saving",
+          "feasibility": "High|Medium|Low",
+          "cost_implication": "Cost impact description",
+          "co_benefits": ["Health benefit", "Financial benefit", "etc."]
+        }
+      ],
+      "category": "The category from the query (Food & Diet, Energy Use, etc.)",
+      "baseline": "Current carbon footprint if available",
+      "method": "Description of recommendation methodology",
+      "sources": [
+        {"title": "Source 1", "url": "https://example.com/..."},
+        {"title": "Source 2", "url": "https://example.org/..."}
+      ]
+    }
     
-    Format the log data as a complete JSON object with consistent field names and types.
-    
-    Return a simple confirmation string: "OK" after logging is complete.
+    Important guidelines:
+    - Only process suggestion queries, skip for other intents
+    - Provide specific, actionable recommendations
+    - Quantify carbon savings whenever possible
+    - Assess feasibility and cost implications
+    - Highlight co-benefits beyond carbon reduction
+    - Base recommendations on scientific evidence and reliable sources
+    - Focus on the category identified in the query classification
+    - Format the output in the specified JSON structure
   expected_output: >
-    The string "OK" indicating successful logging of the request details
-    to the analytics system for future analysis and system improvement.
-  agent: answer_formatter
-  output_file: logs/8_usage.txt
+    A JSON object containing structured recommendations with specific actions,
+    potential carbon savings, feasibility, costs, co-benefits, methodology, and sources.
+  agent: recommendation_agent
+  output_file: logs/12_recommendation.json
   async_execution: false
+  context: [rank_metrics_task, query_classification_task, carbon_estimation_task]
+
+explanation_task:
+  description: >
+    Provide clear, scientifically accurate explanations of carbon footprint concepts or debunk
+    common misconceptions when query intent is "myth_bust".
+    Skip this task if the query intent is not "myth_bust".
+    
+    Return a JSON object with the following structure:
+    {
+      "explanation": {
+        "claim": "The claim or misconception being addressed",
+        "verdict": "True|Mostly True|Partially True|Mostly False|False",
+        "explanation": "Detailed explanation with evidence",
+        "nuances": "Important nuances or context"
+      },
+      "category": "The category from the query",
+      "method": "Description of fact-checking methodology",
+      "sources": [
+        {"title": "Source 1", "url": "https://example.com/..."},
+        {"title": "Source 2", "url": "https://example.org/..."}
+      ]
+    }
+    
+    Important guidelines:
+    - Only process myth-busting queries, skip for other intents
+    - Clearly identify the claim being evaluated
+    - Provide a nuanced verdict rather than simple true/false when appropriate
+    - Include detailed explanation with scientific evidence
+    - Acknowledge uncertainties and context that affect the answer
+    - Use reputable, peer-reviewed sources whenever possible
+    - Maintain scientific accuracy while being accessible
+    - Format the output in the specified JSON structure
+  expected_output: >
+    A JSON object containing a structured explanation with the claim, verdict,
+    detailed explanation, important nuances, methodology, and sources.
+  agent: explanation_agent
+  output_file: logs/13_explanation.json
+  async_execution: false
+  context: [rank_metrics_task, query_classification_task, carbon_estimation_task]
+
+# 6. FINAL FORMATTING
+answer_formatting_task:
+  description: >
+    Format the final answer for the user based on all collected data and analyses.
+    Ensure the response is structured as a valid JSON object with all required fields.
+    
+    Return a JSON object with the following structure:
+    {
+      "answer": "A clear, direct answer to the user's question",
+      "method": "Brief explanation of how this answer was calculated or determined",
+      "confidence": <number between 0.0-1.0>,
+      "category": "Food & Diet|Energy Use|Mobility|Purchases|Miscellaneous"
+    }
+    
+    Important guidelines for determining confidence score:
+    - 0.9-1.0: High-quality direct data from trusted academic or government sources
+    - 0.7-0.89: Good information with minor extrapolation or assumptions
+    - 0.5-0.69: Educated estimate based on similar cases or mixed-quality sources
+    - 0.3-0.49: General approximation with limited data points
+    - Below 0.3: Very limited data, significant assumptions required
+    
+    Important guidelines for determining category:
+    - Food & Diet: All food items, beverages, agricultural products, dietary choices
+    - Energy Use: Electricity, heating, cooling, appliances, home energy consumption
+    - Mobility: Transportation, vehicles, flights, public transit, commuting
+    - Purchases: Consumer goods, electronics, clothing, services, streaming
+    - Miscellaneous: Mixed activities, lifestyle changes, or items that don't fit other categories
+    
+    Your output MUST be a valid JSON object with these exact keys and no additional text.
+    DO NOT include any markdown formatting, explanation text, or code block syntax.
+    The output should be parseable directly as JSON without any pre-processing.
+    
+    For example, output SHOULD look like this:
+    {"answer": "The carbon footprint is 2.5 kg CO2e", "method": "Based on scientific data", "confidence": 0.85, "category": "Food & Diet"}
+    
+    Output should NOT look like this:
+    ```json
+    {"answer": "The carbon footprint is 2.5 kg CO2e", "method": "Based on scientific data", "confidence": 0.85, "category": "Food & Diet"}
+    ```
+    
+    The crew_agent.py process_output method will attempt to extract JSON from your response, but providing clean, 
+    properly formatted JSON without any surrounding text will ensure the most reliable processing.
+  expected_output: >
+    A properly formatted JSON object containing the answer, method, confidence score,
+    and category that directly responds to the user's query, with no additional text or formatting.
+  agent: answer_formatter
+  output_file: logs/14_formatted_answer.json
+  async_execution: false
+  context: [query_classification_task, rank_metrics_task, comparison_task, recommendation_task, explanation_task, carbon_estimation_task]

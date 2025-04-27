@@ -1,0 +1,271 @@
+﻿Project Pitch: CarbonSense, powered by IBM Watsonx
+Tagline: Empowering individuals to reduce their carbon footprint with AI-driven insights
+________________
+
+
+1. Problem Statement
+Climate change continues to accelerate due to excessive carbon emissions from daily activities and industrial processes. However, many individuals struggle to understand their personal carbon footprint or discover practical, personalized ways to reduce it. Existing assessment tools often lack depth, personalization, or ease of use, making it challenging for users to integrate sustainable choices into their daily routines.
+________________
+
+
+2. Solution Overview
+IBM CarbonSense, powered by Watsonx, is an AI-driven interactive platform designed to help individuals assess and reduce their carbon emissions. By leveraging Large Language Models (LLMs), Retrieval-Augmented Generation (RAG), and verified environmental datasets, this chatbot provides real-time insights, personalized recommendations, and engaging sustainability tracking.
+Key Functionalities
+* Automated Carbon Footprint Calculation: Users input daily activities, purchases, or travel data; the chatbot then estimates their emissions using verified datasets.
+* Sustainability Insights & Recommendations: Personalized suggestions for energy-efficient products, low-carbon meal choices, and greener modes of travel.
+* Real-Time Q&A on Carbon Footprints: Users can pose eco-related questions and receive accurate, data-backed answers.
+* Product Carbon Footprint Comparisons: The system analyzes manufacturing, disposal, and recycling processes to highlight environmentally friendly options.
+* Gamified Tracking Dashboard: A user-friendly interface (built with Streamlit or Reflex) helps individuals set eco-goals (e.g., “Reduce CO₂ by 20% in three months”) and track progress.
+________________
+
+
+3. Target Audience
+* Individuals looking to reduce their personal carbon footprint (primary focus).
+   * Sustainability enthusiasts seeking guidance on lower-emission lifestyles.
+* Persona:  https://cacoo.com/diagrams/NuVkqclRcvQz42zC/35E7D
+  
+
+3.1. User Stories
+Going through a day in Morgan’s life:
+
+- Morning Prompt: Going to work from SJ to SF
+“Hey CarbonSense, what’s the best way to go to work today?”
+Suggestion: Public Transportation Routes 
+
+
+- Afternoon Prompt: Date Planning
+“Hey CarbonSense, I have a date later tonight, what would you recommend?”
+Suggestion: Suggest a vegetarian restaurant close to home
+
+- Evening Prompt: Book Reading
+        “Hey CarbonSense, I need a new reading light. What are my options?”
+        Suggestion: Low Power LED Reading Lights or Nightstand Lamps[a][b]
+                
+
+
+________________
+
+
+4. Technology Stack
+* AI & NLP: IBM Watson and Watsonx for LLM-based insights, augmented with IBM Watson Discovery for advanced retrieval.
+* Data Processing: IBM Cloud Pak for Data or IBM Analytics Engine for big data analysis and processing.
+* Databases & Vector Storage: IBM Cloud Databases for PostgreSQL or IBM Watson Discovery for storing and retrieving embeddings.
+* Web Development & Deployment: Hosted on IBM Cloud for enterprise-grade reliability and scalability.
+* APIs: Integration with external carbon footprint calculators and verified environmental data sources.
+
+
+________________
+
+
+5. Implementation Plan & Timeline
+
+
+Gantt Chart: Gantt chart
+
+
+Version 
+	Phase
+	Tasks
+	Timeline (Start Date - )
+	1.0
+	Phase 1
+	Research & data collection (gather verified datasets)
+	03/05 - 
+	Phase 2
+	MVP Development (RAG + chatbot interface)
+	03/05 -
+	Phase 3
+	AI Model Training (carbon footprint estimation)
+	03/26 -
+	Evaluation Period & Presentation for IBM
+	04/23 – 04/30
+	TBD
+	Phase 3.5
+	Fine-tuning & incorporating user inputs + feedback from IBM
+	TBD
+	Phase 4
+	Dashboard & gamification development (Streamlit/Reflex)
+	TBD
+	Phase 5
+	Beta testing & feedback
+	TBD
+	Phase 6
+	Full launch & scaling
+	TBD
+	
+
+________________
+
+
+
+
+6. Detailed Task Breakdown
+6.1 Data Layer
+1. Data Hunting/Gathering (Research)
+   * Collect carbon footprint data for products (food, electronics, etc.)
+   * Document manufacturing processes and disposal/recycling impacts
+2. Data Processing Planning / Data Engineering (Work)
+   * Perform data cleaning and exploratory data analysis (EDA)
+3. Data Processing Pipeline (Work)
+   * Merging and standardizing multiple data sources for cohesive analysis
+4. Knowledge Graph (Work)
+   * Build a structured representation of product life cycles and sustainability metrics
+5. Data Vector DB (Work)
+   * Generate embeddings from textual data and store them for fast retrieval
+6.2 LLM & RAG Building
+1. LLM Finalizing (Research)
+   * Evaluate various models (e.g., climate fine-tuned LLMs, GPT series)
+   * Determine best model(s) for carbon footprint insights
+2. LLM BYOM in IBM Environment (Work)
+   * Integrate chosen model(s) into IBM’s infrastructure
+3. RAG Pipeline (Work)
+   * Implement a retrieval-augmented approach to ensure accurate, up-to-date responses
+4. Evaluations (Work)
+   * Validate and refine system outputs based on standard metrics (accuracy, user feedback)
+6.3 Frontend UI
+1. API/Connector Frontend & Backend (Work)
+   * Set up FastAPI endpoints to communicate with the LLM and data layer
+2. Frontend UX (Research/Work)
+   * Design dashboards with gamification elements
+   * Ensure user-friendly interactions
+3. Frontend UI Building (Work)
+   * Use Reflex or Streamlit to build an interactive, visually appealing UI
+________________
+
+
+7. Presentation Expectations (04/30)
+* Project Overview: Introducing IBM CarbonSense, powered by Watsonx.
+* Architecture & Components: Show how data is gathered, processed, and served by the chatbot.
+* Demo: Demonstrate the chatbot’s capabilities, from carbon footprint calculation to product comparisons.
+* Future Roadmap: Highlight next steps, including refinements, partnerships, and scaling plans.
+________________
+
+
+8. Challenges & Risks
+* Data Accuracy: Ensuring constantly updated, verified datasets.
+* User Engagement: Designing a chatbot experience that is engaging and habit-forming.
+* Scalability: Handling large user volumes in a robust manner.
+Mitigation Strategies
+* Partner with reputable environmental organizations for high-quality datasets.
+* Incorporate gamification and visually appealing dashboards to drive user adoption.
+* Leverage IBM Cloud-based, scalable infrastructure.
+________________
+
+
+9. Potential Datasets
+* Personal Carbon Footprint Calculators:
+   * Nature.org Calculator
+   * EPA Carbon Calculator
+   * UMich Carbon Footprint Factsheet
+   * FootprintCalculator.org
+* Renewable Energy Data:
+   * California Energy Commission
+   * California ISO Power System
+   * NREL Renewable Energy Data
+* Industry Carbon Footprint Databases:
+   * GHG Protocol Life Cycle Database
+   * BASF Product Carbon Footprint
+   * The Carbon Catalogue
+Other resources: https://carbondesignsystem.com/
+
+https://www.ibm.com/granite/playground/
+________________
+
+
+10. Evaluation Methodologies
+* Accuracy of Footprint Estimates: Compare chatbot estimates to authoritative references.
+* User Engagement & Behavior Change: Track adoption rates, repeat usage, and real-world emission reductions (self-reported or integrated data).
+* Responsiveness & Relevance: Evaluate how effectively the RAG approach retrieves and summarizes information.
+* Feedback Loops: Gather user feedback to fine-tune LLM responses and refine recommendations.
+________________
+  
+
+
+
+
+
+11. Needed Tools[c][d]
+
+
+* Watsonx Studio[e]
+* Watsonx [f]Data
+* Watsonx Runtime [g]
+* Watson Discovery[h]
+* Watsonx Assistant[i]
+* Cloud Object Storage[j]
+* IBM Knowledge Studio[k] (Watsonx.AI Studio)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+________________
+
+
+12. Team Members
+
+
+Team Member
+	Role
+	Responsibilities / Tasks
+	Somesh Pushpkumar Bagadiya
+	Project Manager | GenAI Engineer.
+	RAG Pipeline / Frontend
+Created the pipeline to generate and store Embeddings.
+Working on the Generation part using the context.
+	Rajat Sanjay Sharma
+	Data Analyst | LLM Researcher
+	Gathering insights from the datasets to narrow down the datasets we need to use for the project and making sure that they are in the correct format for the LLM training further.
+	Zeba Wahab
+	Data Analyst / Researcher
+	Preprocessing Of Datasets
+
+
+	Sivakrishna Yaganti
+	Model Evaluation | UI
+	Data preprocessing pipeline.
+Model Evaluation with different strategies and choosing model evaluation metrics
+UI building and integrating with IBM tools
+	Aditya Pandey
+	LLM Researcher
+	Trying out pipeline for LLMs to understand which one gets best results for our particular use case
+	
+
+
+
+________________
+
+
+13. Conclusion
+CarbonSense, powered by IBM Watsonx, leverages the robust capabilities of IBM Cloud to offer a secure, scalable, and user-friendly platform for carbon footprint awareness. By focusing on personalized insights and a gamified experience, the solution empowers individuals to actively reduce their environmental impact. Through continuous data integration, advanced AI, and user-centric design, IBM CarbonSense aspires to make sustainable living accessible, engaging, and impactful for all.
+
+
+[a]@someshpushpkumar.bagadiya@sjsu.edu @magdalini.eirinaki@sjsu.edu 
+
+
+Just having fun with some user stories/prompts. Feel free to change if needed.
+[b]Will update soon.
+[c]Starter Kit: https://github.com/watson-developer-cloud/assistant-toolkit/tree/master/integrations/extensions/starter-kits
+[d]Getting started checklist: https://cloud.ibm.com/docs/overview?topic=overview-get-started-checklist
+[e]Fine-tune your AI models before deploying them during runtime.
+[f]It helps maintain AI model governance, bias detection, and risk management in your RAG system.
+[g]This will power the LLM inference for your Retrieval-Augmented Generation (RAG) system, allowing users to query carbon footprint data and receive AI-generated insights.
+[h]This will enable you to extract, enrich, and query structured and unstructured data related to carbon footprint data from various sources.
+[i]IBM Watsonx Assistant is an AI-powered chatbot platform that allows you to build, deploy, and integrate conversational AI systems. It enables natural language interactions and can be customized for different use cases.
+[j]Required to store raw data, embeddings, and model artifacts used in your knowledge retrieval pipeline.
+[k]It can be used for custom NLP model training if you need to annotate and train domain-specific models related to carbon footprint terminology.

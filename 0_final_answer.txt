@@ -1,4 +1,0 @@
-Carbon Footprint: For 0.1333 kWh kettle the footprint is 3.8 kg CO2e (±0.55), confidence 0.85
-Methodology: This calculation is based on life-cycle assessment data that includes emissions from manufacturing, usage, and end-of-life of the kettle. The data comes from Carbon Footprint Ltd, 2021, which is a reputable source in the field of environmental research. The calculation methodology involves multiplying the base carbon footprint metric of 0.0283 kg CO2e per kg by the actual quantity used, which is 0.1333 kWh. The confidence score of 0.85 indicates a high level of reliability in the data, and the uncertainty range of ±0.55 kg CO2e reflects the potential variability in the calculation.
-Category: Household Energy Use
-SOURCES: - Carbon Footprint Ltd, 2021

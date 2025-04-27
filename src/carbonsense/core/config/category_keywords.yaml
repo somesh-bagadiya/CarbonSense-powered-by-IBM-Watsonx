@@ -1,0 +1,256 @@
+categories:
+  - name: "Food & Diet"
+    keywords:
+      - food
+      - meal
+      - ingredient
+      - tofu
+      - milk
+      - latte
+      - vegetable
+      - meat
+      - red meat
+      - beef
+      - pork
+      - chicken
+      - fish
+      - seafood
+      - banana
+      - apple
+      - fruit
+      - coffee
+      - tea
+      - water
+      - beer
+      - wine
+      - juice
+      - soda
+      - drink
+      - beverage
+      - dairy
+      - egg
+      - bread
+      - grain
+      - rice
+      - pasta
+      - bean
+      - diet
+      - vegan
+      - vegetarian
+      - restaurant
+      - cooking
+      - dining
+      - cheese
+      - yogurt
+      - cereal
+      - breakfast
+      - lunch
+      - dinner
+      - snack
+      - chocolate
+      - sugar
+      - organic
+      - grocery
+      - produce
+  
+  - name: "Energy Use"
+    keywords:
+      - AC
+      - air conditioning
+      - appliance
+      - TV
+      - television
+      - electricity
+      - kWh
+      - kilowatt
+      - shower
+      - heater
+      - heating
+      - cooling
+      - lighting
+      - standby
+      - light bulb
+      - LED
+      - power
+      - energy
+      - gas
+      - solar
+      - battery
+      - charging
+      - charger
+      - refrigerator
+      - fridge
+      - freezer
+      - oven
+      - microwave
+      - dishwasher
+      - washing machine
+      - dryer
+      - water heater
+      - thermostat
+      - computer
+      - laptop
+      - monitor
+      - gaming
+      - console
+      - fan
+      - furnace
+      - home
+      - house
+      - apartment
+      - building
+      - insulation
+      - window
+      - smart home
+  
+  - name: "Mobility"
+    keywords:
+      - drive
+      - driving
+      - car
+      - bus
+      - bike
+      - bicycle
+      - Uber
+      - Lyft
+      - taxi
+      - rideshare
+      - EV
+      - electric vehicle
+      - hybrid
+      - gasoline
+      - diesel
+      - engine
+      - fuel
+      - petrol
+      - train
+      - subway
+      - metro
+      - flight
+      - airplane
+      - plane
+      - airport
+      - travel
+      - carpool
+      - commute
+      - transport
+      - transportation
+      - vehicle
+      - motorcycle
+      - scooter
+      - truck
+      - SUV
+      - journey
+      - trip
+      - road
+      - highway
+      - mile
+      - kilometer
+      - distance
+      - transit
+      - public transport
+      - ferry
+      - boat
+      - ship
+      - cruise
+  
+  - name: "Purchases"
+    keywords:
+      - iPhone
+      - smartphone
+      - Android
+      - laptop
+      - computer
+      - tablet
+      - device
+      - electronics
+      - tote bag
+      - bag
+      - backpack
+      - Amazon
+      - shopping
+      - online
+      - shipping
+      - delivery
+      - packaging
+      - fashion
+      - clothes
+      - clothing
+      - shoe
+      - shoes
+      - sneakers
+      - jeans
+      - shirt
+      - furniture
+      - sofa
+      - chair
+      - table
+      - streaming
+      - Netflix
+      - subscription
+      - service
+      - product
+      - purchase
+      - buying
+      - consumption
+      - good
+      - retail
+      - recycling
+      - recycle
+      - waste
+      - plastic
+      - paper
+      - book
+      - toy
+      - household
+      - item
+      - accessory
+      - gadget
+      - tool
+      - appliance
+  
+  - name: "Miscellaneous"
+    keywords:
+      - lifestyle
+      - carbon footprint
+      - sustainable
+      - sustainability
+      - emission
+      - emissions
+      - climate
+      - CO2
+      - environment
+      - environmental
+      - green
+      - eco-friendly
+      - footprint
+      - carbon
+      - activity
+      - habit
+      - daily
+      - routine
+      - living
+      - choice
+      - impact
+      - reduce
+      - offset
+      - neutral
+      - zero waste
+      - zero-waste
+      - circular
+      - economy
+      - reuse
+      - repair
+      - upcycle
+      - downsize
+      - minimize
+      - action
+      - change
+      - behavior
+      - consumption
+      - overall
+      - general
+      - comprehensive
+      - total
+      - calculator
+      - measure 

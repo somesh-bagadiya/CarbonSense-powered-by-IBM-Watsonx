@@ -1,0 +1,22 @@
+{
+  "Food & Diet": {
+    "count": 2,
+    "total": 120.0
+  },
+  "Energy Use": {
+    "count": 4,
+    "total": 120.0
+  },
+  "Mobility": {
+    "count": 1,
+    "total": 15.0
+  },
+  "Purchases": {
+    "count": 0,
+    "total": 0
+  },
+  "Miscellaneous": {
+    "count": 1,
+    "total": 30.0
+  }
+}

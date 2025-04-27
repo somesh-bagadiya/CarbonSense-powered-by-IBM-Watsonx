@@ -131,6 +131,14 @@ The system creates the following structure:
 ├── src/                     # Source code
 │   └── carbonsense/         # Main package
 │       ├── core/            # Core functionality
+│       │   ├── crew_agent.py # CrewAI orchestration
+│       │   ├── yaml_manager.py # YAML config manager
+│       │   ├── config/      # YAML configuration files
+│       │   │   ├── agents.yaml  # Agent definitions
+│       │   │   ├── tasks.yaml   # Task workflow definitions
+│       │   │   ├── prompts.yaml # System prompts
+│       │   │   └── common_schema.yaml # Common schema definitions
+│       │   └── tools/       # Agent tools
 │       ├── services/        # Service integrations
 │       ├── utils/           # Utility functions
 │       ├── config/          # Configuration management
@@ -168,7 +176,10 @@ python -m src.carbonsense.main --mode generate --files Data_processed/Global/fil
 
 Available options:
 - `--mode generate`: Required. Specifies the generation mode
-- `--model`: Optional. Specify which model to use (30m, 125m, or granite)
+- `--model`: Optional. Specify which model to use:
+  - `30m`: ibm/slate-30m-english-rtrvr-v2 (384 dimensions)
+  - `125m`: ibm/slate-125m-english-rtrvr-v2 (768 dimensions)
+  - `granite`: ibm/granite-embedding-278m-multilingual (768 dimensions)
 - `--files`: Optional. List of specific files to process
 
 ### 3. Verification
@@ -196,13 +207,16 @@ python -m src.carbonsense.main --mode crew_agent --query "Compare the carbon foo
 #### Voice Queries
 
 ```powershell
-# Record for 15 seconds and process the voice query
+# Standard voice query (uses standard agent)
 python -m src.carbonsense.main --mode stt_query --record_duration 15
+
+# Voice query with CrewAI multi-agent system (advanced)
+python -m src.carbonsense.main --mode stt_crew_agent --record_duration 15 --show_context --debug
 ```
 
 #### Additional Options
 
-- `--mode`: Choose between `rag_agent` (standard), `crew_agent` (CrewAI), or `stt_query` (voice)
+- `--mode`: Choose between `rag_agent` (standard), `crew_agent` (CrewAI), `stt_query` (voice), or `stt_crew_agent` (voice with CrewAI)
 - `--query`: Your question about carbon footprint (required for text queries)
 - `--show_context`: Shows the sources or agents used to generate the answer
 - `--model`: Specify which model to use (30m, 125m, or granite)

@@ -7,146 +7,350 @@
     <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
     <!-- Include Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Include IBM Plex Sans font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/tracking.css') }}">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>CarbonSense</h1>
+        <!-- Top Header with Logo -->
+        <header class="site-header">
+            <div class="logo-container">
+                <img src="{{ url_for('static', path='/images/CarbonSense_Logo.png') }}" alt="CarbonSense Logo" class="logo-image">
+                <p class="tagline">Empowering your journey to net-zero with daily insights</p>
+            </div>
         </header>
         
-        <div class="dashboard">
-            <div class="metrics-grid">
-                <!-- Total Carbon Footprint -->
-                <div class="metric-card">
-                    <h2>Total Carbon Footprint</h2>
-                    <div class="circular-progress" data-value="{{ data.total_carbon / 10 * 100 }}">
-                        <div class="inner">
-                            <div class="value">{{ data.total_carbon }}</div>
-                            <div class="unit">kg</div>
-                        </div>
+        <main class="dashboard">
+            <!-- Left Sidebar - Carbon Breakdown -->
+            <aside class="sidebar">
+                <div class="breakdown-header">
+                    <h2 class="sidebar-title">Carbon Breakdown</h2>
+                    <div class="period-selector">
+                        <select id="time-period-selector">
+                            <option value="daily" selected>Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
                     </div>
-                    <div class="label">Today</div>
                 </div>
                 
-                <!-- Food & Beverages -->
-                <div class="metric-card">
-                    <h2>Food & Beverages</h2>
-                    <div class="circular-progress green" data-value="{{ data.food_carbon / 5 * 100 }}">
-                        <div class="inner">
-                            <div class="value">{{ data.food_carbon }}</div>
-                            <div class="unit">kg</div>
-                        </div>
+                <!-- Carbon Total -->
+                <div class="stat-box daily" id="carbon-total-box">
+                    <div class="stat-title">Today's Total</div>
+                    <div class="stat-value">{{ data.total_carbon }} kg CO<sub>2</sub></div>
+                    <div class="stat-compare">
+                        <span class="stat-target">Target: 12.15 kg</span>
+                        <span class="stat-change {% if data.total_carbon > 12.15 %}negative{% else %}positive{% endif %}">
+                            {% if data.total_carbon > 12.15 %}
+                                +{{ ((data.total_carbon - 12.15) / 12.15 * 100) | round(1) }}%
+                            {% else %}
+                                -{{ ((12.15 - data.total_carbon) / 12.15 * 100) | round(1) }}%
+                            {% endif %}
+                        </span>
                     </div>
-                    <div class="label">Today's intake</div>
                 </div>
                 
-                <!-- Household Energy Use -->
-                <div class="metric-card">
-                    <h2>Household Energy Use</h2>
-                    <div class="circular-progress blue" data-value="{{ data.household_carbon / 5 * 100 }}">
-                        <div class="inner">
-                            <div class="value">{{ data.household_carbon }}</div>
-                            <div class="unit">kg</div>
+                <!-- Consolidated Category Card with integrated legend -->
+                <div class="chart-card category-summary-card">
+                    <div class="card-header">
+                        <h3>Category Breakdown</h3>
+                        <i class="fas fa-chart-pie category-icon"></i>
+                    </div>
+                    
+                    <!-- Pie Chart Container -->
+                    <div class="pie-chart-container">
+                        <canvas id="category-pie-chart" class="category-pie-chart"></canvas>
+                    </div>
+                    
+                    <!-- Integrated Category Legend -->
+                    <div class="category-legend" id="category-legend">
+                        <div class="legend-item">
+                            <div class="legend-color food"></div>
+                            <div class="legend-text">
+                                <div class="legend-name">Food & Diet</div>
+                                <div class="legend-value">{{ data.food_carbon }} kg</div>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color energy"></div>
+                            <div class="legend-text">
+                                <div class="legend-name">Energy Use</div>
+                                <div class="legend-value">{{ data.household_carbon }} kg</div>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color mobility"></div>
+                            <div class="legend-text">
+                                <div class="legend-name">Mobility</div>
+                                <div class="legend-value">{{ data.transportation_carbon }} kg</div>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color purchases"></div>
+                            <div class="legend-text">
+                                <div class="legend-name">Purchases</div>
+                                <div class="legend-value">{{ data.goods_carbon }} kg</div>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color miscellaneous"></div>
+                            <div class="legend-text">
+                                <div class="legend-name">Miscellaneous</div>
+                                <div class="legend-value">{{ data.misc_carbon }} kg</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="label">Elec, Gas</div>
                 </div>
                 
-                <!-- Transportation -->
-                <div class="metric-card">
-                    <h2>Transportation</h2>
-                    <div class="circular-progress purple" data-value="{{ data.transportation_carbon / 5 * 100 }}">
-                        <div class="inner">
-                            <div class="value">{{ data.transportation_carbon }}</div>
-                            <div class="unit">kg</div>
+                <!-- Modal for Zoomed Pie Chart View -->
+                <div id="pie-chart-modal" class="modal">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <h2>Category Breakdown Details</h2>
+                        <div class="zoomed-pie-chart-container">
+                            <canvas id="zoomed-category-pie-chart" class="zoomed-category-pie-chart"></canvas>
+                        </div>
+                        <div class="detailed-category-breakdown">
+                            <!-- Food & Diet -->
+                            <div class="detail-item">
+                                <div class="detail-icon green">
+                                    <i class="fas fa-utensils"></i>
+                                </div>
+                                <div class="detail-info">
+                                    <div class="detail-name">Food & Diet</div>
+                                    <div class="detail-values">
+                                        <div class="detail-value">{{ data.food_carbon }} kg</div>
+                                        <div class="detail-target">Target: 1.8 kg</div>
+                                        <div class="detail-change {% if data.food_carbon > 1.8 %}negative{% else %}positive{% endif %}">
+                                            {% if data.food_carbon > 1.8 %}
+                                                +{{ ((data.food_carbon - 1.8) / 1.8 * 100) | round(0) }}%
+                                            {% else %}
+                                                -{{ ((1.8 - data.food_carbon) / 1.8 * 100) | round(0) }}%
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Energy Use -->
+                            <div class="detail-item">
+                                <div class="detail-icon blue">
+                                    <i class="fas fa-home"></i>
+                                </div>
+                                <div class="detail-info">
+                                    <div class="detail-name">Energy Use</div>
+                                    <div class="detail-values">
+                                        <div class="detail-value">{{ data.household_carbon }} kg</div>
+                                        <div class="detail-target">Target: 1.5 kg</div>
+                                        <div class="detail-change {% if data.household_carbon > 1.5 %}negative{% else %}positive{% endif %}">
+                                            {% if data.household_carbon > 1.5 %}
+                                                +{{ ((data.household_carbon - 1.5) / 1.5 * 100) | round(0) }}%
+                                            {% else %}
+                                                -{{ ((1.5 - data.household_carbon) / 1.5 * 100) | round(0) }}%
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Mobility -->
+                            <div class="detail-item">
+                                <div class="detail-icon purple">
+                                    <i class="fas fa-car"></i>
+                                </div>
+                                <div class="detail-info">
+                                    <div class="detail-name">Mobility</div>
+                                    <div class="detail-values">
+                                        <div class="detail-value">{{ data.transportation_carbon }} kg</div>
+                                        <div class="detail-target">Target: 1.1 kg</div>
+                                        <div class="detail-change {% if data.transportation_carbon > 1.1 %}negative{% else %}positive{% endif %}">
+                                            {% if data.transportation_carbon > 1.1 %}
+                                                +{{ ((data.transportation_carbon - 1.1) / 1.1 * 100) | round(0) }}%
+                                            {% else %}
+                                                -{{ ((1.1 - data.transportation_carbon) / 1.1 * 100) | round(0) }}%
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Purchases -->
+                            <div class="detail-item">
+                                <div class="detail-icon yellow">
+                                    <i class="fas fa-shopping-bag"></i>
+                                </div>
+                                <div class="detail-info">
+                                    <div class="detail-name">Purchases</div>
+                                    <div class="detail-values">
+                                        <div class="detail-value">{{ data.goods_carbon }} kg</div>
+                                        <div class="detail-target">Target: 1.4 kg</div>
+                                        <div class="detail-change {% if data.goods_carbon > 1.4 %}negative{% else %}positive{% endif %}">
+                                            {% if data.goods_carbon > 1.4 %}
+                                                +{{ ((data.goods_carbon - 1.4) / 1.4 * 100) | round(0) }}%
+                                            {% else %}
+                                                -{{ ((1.4 - data.goods_carbon) / 1.4 * 100) | round(0) }}%
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Miscellaneous -->
+                            <div class="detail-item">
+                                <div class="detail-icon gray">
+                                    <i class="fas fa-random"></i>
+                                </div>
+                                <div class="detail-info">
+                                    <div class="detail-name">Miscellaneous</div>
+                                    <div class="detail-values">
+                                        <div class="detail-value">{{ data.misc_carbon }} kg</div>
+                                        <div class="detail-target">Target: 0.5 kg</div>
+                                        <div class="detail-change {% if data.misc_carbon > 0.5 %}negative{% else %}positive{% endif %}">
+                                            {% if data.misc_carbon > 0.5 %}
+                                                +{{ ((data.misc_carbon - 0.5) / 0.5 * 100) | round(0) }}%
+                                            {% else %}
+                                                -{{ ((0.5 - data.misc_carbon) / 0.5 * 100) | round(0) }}%
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="label">Today</div>
                 </div>
-            </div>
+                
+            </aside>
             
-            <div class="content-sidebar">
-                <div class="content">
-                    <div class="query-container">
-                        <h2>Ask me anything about carbon footprints or enter your daily activities.</h2>
-                        <div class="examples">
-                            Example: "I drove 10 miles today" or "How much CO<sub>2</sub> does beef produce?"
-                        </div>
-                        
-                        <div id="conversation-container">
-                            <!-- Conversation history will be added here dynamically -->
-                        </div>
-                        
-                        <div class="input-container">
-                            <input type="text" id="query-input" placeholder="Ask me anything or enter your daily activity...">
-                            <button id="send-button">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                    </div>
+            <!-- Center Column - Chat Interface -->
+            <section class="chat-section">
+                <div class="chat-header">
+                    <h2>CarbonSense Assistant</h2>
+                    
+                    <!-- Moved advisory box into chat header section
+                    <div class="advisory-box" id="paris-agreement-box">
+                        <i class="fas fa-info-circle"></i>
+                        <p>The Paris Agreement target limits your daily CO<sub>2</sub> budget to <span class="highlight">6.3kg</span> per person. The global average is currently <span class="highlight">13.15kg</span>. In general, human survival activities do <span class="highlight">1kg</span> of CO<sub>2</sub>.</p>
+                    </div> -->
+                    
+                  
+                    <!-- <div class="chat-actions">
+                        <button class="action-button" id="log-activity-btn">
+                            <i class="fas fa-plus-circle"></i>
+                            <span>Log Activity</span>
+                        </button>
+                        <button class="action-button" id="get-tips-btn">
+                            <i class="fas fa-lightbulb"></i>
+                            <span>Get Tips</span>
+                        </button>
+                        <button class="action-button" id="compare-products-btn">
+                            <i class="fas fa-balance-scale"></i>
+                            <span>Compare Products</span>
+                        </button>
+                    </div> -->
                 </div>
                 
-                <div class="sidebar">
-                    <!-- Goal Section -->
-                    <div class="sidebar-card">
-                        <h2>Your Goal</h2>
-                        <div class="goal-text">Reduce CO<sub>2</sub> by 20% in 1 month</div>
-                        <div class="progress-bar">
-                            <div class="progress" style="width: {{ data.goal_percentage }}%"></div>
-                        </div>
-                        <div class="progress-labels">
-                            <span>0%</span>
-                            <span>{{ data.goal_percentage }}% complete</span>
-                            <span>100%</span>
-                        </div>
+                <!-- <div class="chat-examples">
+                    <div class="examples-title">Ask me about:</div>
+                    <div class="example-pills">
+                        <span class="example-pill" data-query="What's my biggest source of emissions today?">Today's emissions</span>
+                        <span class="example-pill" data-query="How much CO2 does a beef burger produce?">Food impacts</span>
+                        <span class="example-pill" data-query="How can I reduce my transport emissions?">Reducing transport</span>
+                        <span class="example-pill" data-query="What's my weekly progress?">Weekly progress</span>
                     </div>
-                    
-                    <!-- Badges Section -->
-                    <div class="sidebar-card">
-                        <h2>Badges & Achievements</h2>
-                        <div class="badges-container">
-                            <div class="badge active">
-                                <i class="fas fa-seedling"></i>
-                                <span>Eco Starter</span>
-                            </div>
-                            <div class="badge">
-                                <i class="fas fa-award"></i>
-                                <span>Committed</span>
-                            </div>
-                            <div class="badge">
-                                <i class="fas fa-bolt"></i>
-                                <span>Carbon Pro</span>
-                            </div>
-                        </div>
+                </div> -->
+
+                <div id="conversation-container">
+                    <!-- Conversation history will be added here dynamically -->
+                </div>
+                
+                <div class="chat-input-container">
+                    <input type="text" id="query-input" placeholder="Ask me anything or tell me about your activities...">
+                    <button id="mic-button" title="Record voice input">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button id="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                
+                <!-- Voice recording indicator (hidden by default) -->
+                <div id="recording-indicator" class="recording-indicator" style="display: none;">
+                    <div class="recording-animation">
+                        <div class="circle"></div>
+                        <div class="circle"></div>
+                        <div class="circle"></div>
                     </div>
-                    
-                    <!-- Weekly Trends -->
-                    <div class="sidebar-card">
-                        <h2>Weekly Trends</h2>
-                        <div class="chart-container">
-                            <canvas id="weeklyChart"></canvas>
-                        </div>
-                        <div class="days-labels">
-                            <span>Mon</span>
-                            <span>Tue</span>
-                            <span>Wed</span>
-                            <span>Thu</span>
-                            <span>Fri</span>
-                            <span>Sat</span>
-                            <span>Sun</span>
-                        </div>
-                    </div>
+                    <div class="recording-text">Recording... <span id="recording-time">0</span>s</div>
+                    <button id="stop-recording-button" class="stop-recording">
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                </div>
+                
+                
+            </section>
+        </main>
+        
+        <footer class="app-footer">
+            <div class="footer-content">
+                <p>© 2025 CarbonSense | Powered by IBM Watsonx</p>
+                <div class="footer-links">
+                    <a href="#">About</a>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Contact</a>
                 </div>
             </div>
-        </div>
+        </footer>
     </div>
 
-    <!-- Include Chart.js for the weekly trends chart -->
+    <!-- Include Chart.js for the charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Error handling helper -->
+    <script>
+        // Global error handler for diagnostics
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.message, 'at', e.filename, ':', e.lineno);
+        });
+        
+        // Fetch API error handler
+        const originalFetch = window.fetch;
+        window.fetch = async function(...args) {
+            try {
+                const response = await originalFetch(...args);
+                if (!response.ok) {
+                    console.error('Fetch error:', response.status, response.statusText, args[0]);
+                }
+                return response;
+            } catch (error) {
+                console.error('Fetch failed:', error, args[0]);
+                throw error;
+            }
+        };
+
+        // Helper function to check if element exists
+        window.elementExists = function(selector) {
+            return document.querySelector(selector) !== null;
+        }
+    </script>
+    
+    <!-- Include API Service -->
+    <script src="{{ url_for('static', path='/js/api.js') }}"></script>
+    
+    <!-- Include Dashboard Script -->
     <script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
+    
+    <!-- Include Voice Handler -->
+    <script src="{{ url_for('static', path='/js/voice-handler.js') }}"></script>
+    
     <script>
         // Initialize weekly data from backend
-        const weeklyData = {{ data.weekly_trend | tojson }};
+        const weeklyData = JSON.parse('{{ data.weekly_trend | tojson | safe }}');
     </script>
+
+    <script src="{{ url_for('static', path='/js/tracking.js') }}"></script>
 </body>
 </html> 

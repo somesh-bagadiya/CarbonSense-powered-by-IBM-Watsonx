@@ -32,7 +32,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "low"
-    max_tokens: 256
+    max_tokens: 128
     sources_tracked: false
 
   entity_extractor:
@@ -40,7 +40,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "low"
-    max_tokens: 256
+    max_tokens: 128
     sources_tracked: false
 
   unit_normalizer:
@@ -48,7 +48,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
-    max_tokens: 256
+    max_tokens: 128
     sources_tracked: false
 
   milvus_researcher:
@@ -56,7 +56,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2        # Lower temperature for more factual/precise responses
     reasoning_effort: "medium"  # Updated from "low" to "medium" for disambiguating semantic matches
-    max_tokens: 512        # Larger context for research
+    max_tokens: 256        # Larger context for research
     sources_tracked: true   # This agent tracks Milvus
 
   discovery_researcher:
@@ -64,7 +64,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"  # Updated from "low" to "medium" for better source extraction
-    max_tokens: 512
+    max_tokens: 256
     sources_tracked: true
 
   serper_researcher:
@@ -72,7 +72,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"
-    max_tokens: 512
+    max_tokens: 256
     sources_tracked: true
 
   carbon_estimator:
@@ -80,7 +80,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"
-    max_tokens: 512
+    max_tokens: 256
     sources_tracked: true
 
   answer_consolidator:
@@ -88,7 +88,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"  # Slightly higher for comparative evaluation
-    max_tokens: 512
+    max_tokens: 256
     sources_tracked: true
 
   unit_harmoniser:
@@ -96,7 +96,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
-    max_tokens: 256
+    max_tokens: 128
     sources_tracked: false
 
   metric_ranker:
@@ -104,7 +104,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
-    max_tokens: 256
+    max_tokens: 128
     sources_tracked: false
 
   comparison_formatter:
@@ -112,7 +112,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"  # Updated from "low" to "medium" for future expansion
-    max_tokens: 512
+    max_tokens: 256
     sources_tracked: true
 
   recommendation_agent:
@@ -120,7 +120,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"
-    max_tokens: 512
+    max_tokens: 256
     sources_tracked: true
 
   explanation_agent:
@@ -128,7 +128,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"
-    max_tokens: 512
+    max_tokens: 256
     sources_tracked: true
 
   answer_formatter:
@@ -136,7 +136,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.2
     reasoning_effort: "medium"  # Updated from "low" to "medium" for lifecycle/compare handling
-    max_tokens: 512
+    max_tokens: 256
     sources_tracked: false
     
   footprint_cache:
@@ -144,7 +144,7 @@ agents:
     # model: "watsonx/meta-llama/llama-3-2-3b-instruct"
     temperature: 0.1
     reasoning_effort: "low"
-    max_tokens: 256
+    max_tokens: 128
     sources_tracked: false
     
   manager:

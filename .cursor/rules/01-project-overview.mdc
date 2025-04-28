@@ -1,24 +1,28 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: false
 ---
 # CarbonSense Project Overview
 
-CarbonSense is a sophisticated RAG (Retrieval-Augmented Generation) system designed for carbon footprint analysis. It combines multiple AI models, vector databases, and web search capabilities to deliver accurate and context-aware responses to carbon-related queries.
+CarbonSense is a comprehensive system for carbon footprint data analysis powered by IBM watsonx.ai. The system processes, analyzes, and provides insights into carbon footprint data from various sources.
 
-## Project Structure
+## Core Components
 
-The main components of the project are organized as follows:
+### Main Entry Points
+- [src/carbonsense/main.py](mdc:src/carbonsense/main.py) - Main CLI interface for running different modes
+- [src/carbonsense/web/run_server.py](mdc:src/carbonsense/web/run_server.py) - Starts the web dashboard interface
+- [src/carbonsense/web/app.py](mdc:src/carbonsense/web/app.py) - FastAPI web application
 
-- Main entry point: [src/carbonsense/main.py](mdc:src/carbonsense/main.py)
-- Core components: [src/carbonsense/core/](mdc:src/carbonsense/core)
-- Web interface: [src/carbonsense/web/app.py](mdc:src/carbonsense/web/app.py)
-- Services: [src/carbonsense/services/](mdc:src/carbonsense/services)
-- Utilities: [src/carbonsense/utils/](mdc:src/carbonsense/utils)
-- Configuration: [src/carbonsense/config/](mdc:src/carbonsense/config)
+### Core Functionality
+- [src/carbonsense/core/crew_agent.py](mdc:src/carbonsense/core/crew_agent.py) - Multi-agent orchestration with CrewAI
+- [src/carbonsense/core/carbon_agent.py](mdc:src/carbonsense/core/carbon_agent.py) - Standard RAG agent implementation
+- [src/carbonsense/core/carbon_flow.py](mdc:src/carbonsense/core/carbon_flow.py) - Query processing pipeline
+- [src/carbonsense/core/embedding_generator.py](mdc:src/carbonsense/core/embedding_generator.py) - Generates embeddings for vector search
+- [src/carbonsense/core/yaml_manager.py](mdc:src/carbonsense/core/yaml_manager.py) - YAML configuration management
 
-For detailed architecture information, see:
-- [ARCHITECTURE.md](mdc:ARCHITECTURE.md)
-- [IMPLEMENTATION.md](mdc:IMPLEMENTATION.md)
-
+## Project Documentation
+- [README.md](mdc:README.md) - Project overview and setup instructions
+- [ARCHITECTURE.md](mdc:ARCHITECTURE.md) - Detailed system architecture
+- [IMPLEMENTATION.md](mdc:IMPLEMENTATION.md) - Technical implementation details
+- [Dataset_Column_Description.md](mdc:Dataset_Column_Description.md) - Dataset descriptions

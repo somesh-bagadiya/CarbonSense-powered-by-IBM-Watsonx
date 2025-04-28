@@ -1,29 +1,39 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: false
 ---
-# Core Components
+# CarbonSense Core Components
 
-The core functionality of CarbonSense is implemented through these key components:
+This rule details the main components that power the CarbonSense system.
 
-## Multi-Agent System
+## Agent Architecture
 
-The [crew_agent.py](mdc:src/carbonsense/core/crew_agent.py) file contains the multi-agent system implementation powered by CrewAI, which orchestrates specialized agents for different tasks in the carbon footprint analysis pipeline.
+The system uses different agent implementations:
 
-## Carbon Agent
+- [src/carbonsense/core/crew_agent.py](mdc:src/carbonsense/core/crew_agent.py) - Multi-agent orchestration using CrewAI
+- [src/carbonsense/core/carbon_agent.py](mdc:src/carbonsense/core/carbon_agent.py) - Single RAG agent implementation
+- [src/carbonsense/core/carbon_flow.py](mdc:src/carbonsense/core/carbon_flow.py) - Query processing pipeline
 
-The [carbon_agent.py](mdc:src/carbonsense/core/carbon_agent.py) file implements the main agent responsible for processing carbon footprint queries, including product extraction, database searching, and response generation.
+## YAML Configuration
 
-## Embedding Generation
+The system is highly configurable with YAML files:
 
-The [embedding_generator.py](mdc:src/carbonsense/core/embedding_generator.py) file handles the creation of vector embeddings for document chunks, supporting multiple IBM Watsonx embedding models.
+- [src/carbonsense/core/config/agents.yaml](mdc:src/carbonsense/core/config/agents.yaml) - Agent definitions and roles
+- [src/carbonsense/core/config/tasks.yaml](mdc:src/carbonsense/core/config/tasks.yaml) - Task workflows and execution paths
+- [src/carbonsense/core/config/ai_parameters.yaml](mdc:src/carbonsense/core/config/ai_parameters.yaml) - AI model parameters
+- [src/carbonsense/core/yaml_manager.py](mdc:src/carbonsense/core/yaml_manager.py) - YAML configuration manager
 
-## RAG Generation
+## External Services
 
-The [rag_generator.py](mdc:src/carbonsense/core/rag_generator.py) file implements the Retrieval-Augmented Generation functionality, combining retrieved context with language model generation.
+The system integrates with various IBM services:
 
-## YAML Configuration Management
+- [src/carbonsense/services/watsonx_service.py](mdc:src/carbonsense/services/watsonx_service.py) - IBM watsonx.ai integration
+- [src/carbonsense/services/milvus_service.py](mdc:src/carbonsense/services/milvus_service.py) - Milvus vector database
+- [src/carbonsense/services/discovery_service.py](mdc:src/carbonsense/services/discovery_service.py) - Watson Discovery for web search
+- [src/carbonsense/services/cos_service.py](mdc:src/carbonsense/services/cos_service.py) - IBM Cloud Object Storage
 
-The [yaml_manager.py](mdc:src/carbonsense/core/yaml_manager.py) file provides utilities for loading and managing YAML-based configuration for agents, tasks, and prompts.
+## Data Processing Pipeline
 
+- [src/carbonsense/core/embedding_generator.py](mdc:src/carbonsense/core/embedding_generator.py) - Generates embeddings for vector search
+- [src/carbonsense/services/embedding_storage_service.py](mdc:src/carbonsense/services/embedding_storage_service.py) - Manages embedding storage

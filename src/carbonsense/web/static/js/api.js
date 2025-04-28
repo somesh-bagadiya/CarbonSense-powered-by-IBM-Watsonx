@@ -5,6 +5,7 @@ console.log('[API] Initializing CarbonSense API Service');
 
 // Create a namespace for our API 
 window.CarbonSenseAPI = (function() {
+    console.log('[API] Building CarbonSenseAPI object');
     
     // Base URL for API endpoints (in case we need to change it later)
     const baseURL = '';
@@ -62,153 +63,47 @@ window.CarbonSenseAPI = (function() {
         }
     }
     
-    // Start voice recording
-    async function startVoiceRecording() {
-        console.log('[API] Starting voice recording session');
+    // Fetch dashboard data
+    async function fetchDashboardData() {
+        console.log('[API] Fetching dashboard data');
         
-        const url = `${baseURL}/api/start-recording`;
-        
-        const options = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        };
-        
-        try {
-            const result = await fetchWithErrorHandling(url, options);
-            console.log('[API] Voice recording session started successfully with ID:', result.session_id);
-            return result;
-        } catch (error) {
-            console.error('[API] Failed to start voice recording session:', error);
-            throw error;
-        }
-    }
-    
-    // Stop voice recording and get results
-    async function stopVoiceRecording(sessionId) {
-        console.log('[API] Stopping voice recording for session:', sessionId);
-        
-        if (!sessionId) {
-            console.error('[API] Session ID is required to stop recording');
-            throw new Error('Session ID is required to stop recording');
-        }
-        
-        const url = `${baseURL}/api/stop-recording/${sessionId}`;
-        
-        const options = {
-            method: 'POST'
-        };
-        
-        try {
-            const result = await fetchWithErrorHandling(url, options);
-            console.log('[API] Voice recording stopped successfully, result:', result);
-            return result;
-        } catch (error) {
-            console.log('[API] Error stopping recording:', error.message);
-            
-            // Special handling for session not found errors
-            if (error.message.includes('404')) {
-                console.log('[API] 404 error detected, handling as session expired case');
-                return { 
-                    status: 'error', 
-                    message: 'Recording session not found. It may have already completed processing.' 
-                };
-            }
-            throw error;
-        }
-    }
-    
-    // Check processing status for voice recording
-    async function checkProcessingStatus(sessionId) {
-        console.log('[API] Checking processing status for session:', sessionId);
-        
-        if (!sessionId) {
-            console.error('[API] Session ID is required to check processing status');
-            throw new Error('Session ID is required to check processing status');
-        }
-        
-        const url = `${baseURL}/api/check-processing/${sessionId}`;
+        const url = `${baseURL}/api/dashboard-data`;
         
         try {
             const result = await fetchWithErrorHandling(url);
-            console.log('[API] Processing status check result:', result);
+            console.log('[API] Dashboard data fetch successful');
             return result;
         } catch (error) {
-            console.log('[API] Error checking processing status:', error.message);
-            // If we get an error checking status, return a not_found response rather than throwing
-            return { status: 'not_found', message: error.message };
+            console.error('[API] Dashboard data fetch failed:', error);
+            throw error;
         }
     }
     
-    // Track a carbon query
-    async function trackCarbonQuery(query, category, carbonValue) {
-        console.log('[API] Tracking carbon query:', { query, category, carbonValue });
+    // Log user activity
+    async function logActivity(activity) {
+        console.log('[API] Logging activity:', activity);
         
-        if (!query) {
-            console.error('[API] Query is required for tracking');
-            throw new Error('Query is required for tracking');
+        if (!activity) {
+            console.error('[API] Activity is required');
+            throw new Error('Activity is required');
         }
         
-        if (!category) {
-            console.error('[API] Category is required for tracking');
-            throw new Error('Category is required for tracking');
-        }
-        
-        if (carbonValue === undefined || carbonValue === null) {
-            console.error('[API] Carbon value is required for tracking');
-            throw new Error('Carbon value is required for tracking');
-        }
-        
-        const url = `${baseURL}/api/track-query`;
+        const url = `${baseURL}/api/activity`;
         
         const options = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                query,
-                category,
-                carbon_value: carbonValue
-            })
+            body: JSON.stringify({ activity })
         };
         
         try {
             const result = await fetchWithErrorHandling(url, options);
-            console.log('[API] Carbon query tracked successfully, updated data:', result);
+            console.log('[API] Activity logging successful');
             return result;
         } catch (error) {
-            console.error('[API] Failed to track carbon query:', error);
-            throw error;
-        }
-    }
-    
-    // Upload voice data directly (alternative to the streaming approach)
-    async function uploadVoiceData(audioBlob) {
-        console.log('[API] Uploading voice data, blob size:', audioBlob?.size || 'N/A');
-        
-        if (!audioBlob) {
-            console.error('[API] Audio data is required');
-            throw new Error('Audio data is required');
-        }
-        
-        const url = `${baseURL}/api/voice-query`;
-        
-        const formData = new FormData();
-        formData.append('audio_data', audioBlob, 'voice_query.wav');
-        
-        const options = {
-            method: 'POST',
-            body: formData
-        };
-        
-        try {
-            const result = await fetchWithErrorHandling(url, options);
-            console.log('[API] Voice data uploaded and processed successfully');
-            return result;
-        } catch (error) {
-            console.error('[API] Failed to upload voice data:', error);
+            console.error('[API] Activity logging failed:', error);
             throw error;
         }
     }
@@ -262,24 +157,62 @@ window.CarbonSenseAPI = (function() {
         }
     }
     
-    // Public API
-    return {
+    // Compare products carbon footprint
+    async function compareProducts(products) {
+        console.log('[API] Comparing products:', products);
+        
+        if (!products || !Array.isArray(products) || products.length < 2) {
+            console.error('[API] At least two products are required for comparison');
+            throw new Error('At least two products are required for comparison');
+        }
+        
+        const url = `${baseURL}/api/compare-products`;
+        
+        const options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ products })
+        };
+        
+        try {
+            const result = await fetchWithErrorHandling(url, options);
+            console.log('[API] Product comparison successful');
+            return result;
+        } catch (error) {
+            console.error('[API] Product comparison failed:', error);
+            throw error;
+        }
+    }
+    
+    // Create API object with all functions
+    const api = {
+        fetchDashboardData,
         queryCarbonFootprint,
-        startVoiceRecording,
-        stopVoiceRecording,
-        checkProcessingStatus,
-        trackCarbonQuery,
-        uploadVoiceData,
+        logActivity,
         getPersonalizedTips,
-        applyTip
+        applyTip,
+        compareProducts
     };
+    
+    console.log('[API] API object created with these methods:', Object.keys(api).join(', '));
+    
+    // Public API
+    return api;
 })();
+
+// Log that we've initialized the API object
+console.log('[API] CarbonSenseAPI initialized with these methods:', 
+    Object.keys(window.CarbonSenseAPI || {}).join(', '));
 
 // Initialize API service without console logging
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
         console.log('[API] CarbonSenseAPI loaded and ready (DOMContentLoaded)');
+        console.log('[API] Available methods:', Object.keys(window.CarbonSenseAPI || {}).join(', '));
     });
 } else {
     console.log('[API] CarbonSenseAPI loaded and ready (immediate)');
+    console.log('[API] Available methods:', Object.keys(window.CarbonSenseAPI || {}).join(', '));
 } 

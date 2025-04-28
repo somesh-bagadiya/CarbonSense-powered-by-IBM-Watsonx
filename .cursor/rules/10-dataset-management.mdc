@@ -1,0 +1,35 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Dataset Management and Processing
+
+CarbonSense uses specialized datasets for carbon footprint analysis that are processed through a multi-stage pipeline to prepare them for vector embedding and retrieval.
+
+## Dataset Organization
+
+- Raw datasets: [backup-dataset/](mdc:backup-dataset/)
+- Processed datasets: [Data_processed/](mdc:Data_processed/)
+- Advanced processed datasets: [Data_processed_2/](mdc:Data_processed_2/)
+- Generated embeddings: [Embeddings/](mdc:Embeddings/)
+
+## Dataset Categories
+
+The carbon footprint data is organized into four main categories:
+
+- **Electricity**: Power generation and consumption emissions
+- **Industry**: Manufacturing and industrial process emissions
+- **Regional**: Geographic and location-specific emissions data
+- **Metadata**: Supporting information and context for the datasets
+
+## Processing Pipeline
+
+The dataset processing pipeline includes:
+1. Data validation and cleaning
+2. Standardization of units and metrics
+3. Chunking strategies for effective embedding
+4. Embedding generation using various IBM Watsonx models
+5. Storage in vector databases for efficient retrieval
+
+For more details on the dataset structure, see [Dataset_Column_Description.md](mdc:Dataset_Column_Description.md).

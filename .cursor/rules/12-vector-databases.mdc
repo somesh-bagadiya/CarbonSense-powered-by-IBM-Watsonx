@@ -1,0 +1,34 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Vector Database Integration
+
+CarbonSense uses vector databases to efficiently store and retrieve carbon footprint data using semantic similarity search.
+
+## Milvus Integration
+
+The system integrates with Milvus, a high-performance vector database:
+
+- Milvus connection configuration: [src/carbonsense/config/milvus.py](mdc:src/carbonsense/config/milvus.py)
+- Milvus service implementation: [src/carbonsense/services/milvus_service.py](mdc:src/carbonsense/services/milvus_service.py)
+
+## Collection Design
+
+The vector database uses collections with specialized schema design:
+
+- Schema definition including embedding vectors, metadata, and source information
+- Index configuration with L2 metric and IVF_FLAT index type
+- Optimized performance parameters for carbon footprint retrieval
+
+## Query Mechanisms
+
+The system supports various query types:
+
+- Semantic similarity search based on user queries
+- Hybrid search combining vector similarity and metadata filtering
+- Confidence scoring to evaluate result quality
+- Fallback mechanisms when confidence is below thresholds
+
+For storage implementation details, see [IMPLEMENTATION.md](mdc:IMPLEMENTATION.md).

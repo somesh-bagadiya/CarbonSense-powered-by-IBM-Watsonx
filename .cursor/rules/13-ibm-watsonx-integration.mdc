@@ -1,0 +1,34 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# IBM Watsonx Integration
+
+CarbonSense is powered by IBM Watsonx for foundation models, embedding generation, and AI services.
+
+## Foundation Models
+
+The system leverages various IBM Watsonx models:
+
+- For reasoning and generation: granite models
+- For embeddings: slate models with different parameter sizes
+- For specialized tasks: task-specific foundation models
+
+## Embedding Models
+
+Three primary embedding models are used:
+
+- **30M Parameter Model**: [ibm/slate-30m-english-rtrvr-v2](mdc:Embeddings/Embeddings_30m/) (384-dimensional embeddings)
+- **125M Parameter Model**: [ibm/slate-125m-english-rtrvr-v2](mdc:Embeddings/Embeddings_125m/) (768-dimensional embeddings)
+- **Granite Model**: [ibm/granite-embedding-278m-multilingual](mdc:Embeddings/Embeddings_granite/) (768-dimensional embeddings)
+
+## Service Integration
+
+IBM Watsonx services are integrated into the CarbonSense platform:
+
+- Watsonx service implementation: [src/carbonsense/services/watsonx_service.py](mdc:src/carbonsense/services/watsonx_service.py)
+- IBM Cloud SDK configuration: [src/carbonsense/config/ibm_cloud.py](mdc:src/carbonsense/config/ibm_cloud.py)
+- Authentication handling: [src/carbonsense/utils/auth.py](mdc:src/carbonsense/utils/auth.py)
+
+The system uses IBM Cloud Object Storage (COS) for efficient file operations and data management.

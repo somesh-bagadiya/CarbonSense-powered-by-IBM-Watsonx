@@ -1,8 +1,0 @@
-{
-  "timestamp": "2025-04-16T21:30:53.193529",
-  "key": "What is the carbon footprint of apple",
-  "value": {
-    "response": "Action:\n{\n  \"Ask question to coworker\": {\n    \"question\": \"What is the best carbon footprint metric for an apple, and how do we convert it into kg CO2e per kg for standardization?\",\n    \"context\": \"The product in question is an apple. We need to find its carbon footprint in kg CO2e per kg. The apple's carbon footprint will vary based on several factors including how it was grown, transported, and stored.\",\n    \"coworker\": \"Environmental Measurement Standardization Expert\"\n  }\n}",
-    "context": {}
-  }
-}

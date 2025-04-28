@@ -24,6 +24,7 @@ from src.carbonsense.utils.logger import setup_logger
 from src.carbonsense.services.milvus_service import MilvusService
 from src.carbonsense.core.carbon_agent import CarbonAgent
 from src.carbonsense.core.crew_agent import CrewAgentManager
+from src.carbonsense.core.carbon_flow import CarbonSenseFlow
 
 # Set up logger
 logger = setup_logger(__name__)
@@ -297,13 +298,68 @@ def process_stt_crew_query(config: ConfigManager, audio_file_path: str, show_con
             "transcription": ""
         }
 
+def process_stt_flow_query(config: ConfigManager, audio_file_path: str, debug_mode: bool = False,
+                           store_thoughts: bool = False) -> dict:
+    """Process a speech query using transcription and CarbonSenseFlow with event-driven Flow architecture.
+    
+    Args:
+        config: Configuration manager instance
+        audio_file_path: Path to the audio file
+        debug_mode: Enable detailed logs
+        store_thoughts: Store agent thoughts in log files
+        
+    Returns:
+        Dictionary containing the response and metadata
+    """
+    try:
+        # Transcribe the audio
+        transcript = transcribe_audio(config, audio_file_path)
+        if not transcript:
+            return {
+                "error": "Could not transcribe audio or transcription is empty.",
+                "response": "Failed to transcribe audio. Please try again.",
+                "transcription": ""
+            }
+            
+        print(f"\nTranscribed Query: {transcript}")
+        
+        # Process query using CarbonSenseFlow
+        flow = CarbonSenseFlow(
+            config=config,
+            debug_mode=debug_mode,
+            use_cache=True,
+            store_thoughts=store_thoughts
+        )
+        
+        print("\nProcessing query with CrewAI Flow...")
+        print("=" * 80)
+        
+        # Process the query using the flow
+        result = flow.process_query_with_flow(transcript)
+        
+        # Format the result
+        formatted_result = {
+            "response": result,
+            "transcription": transcript
+        }
+        
+        return formatted_result
+        
+    except Exception as e:
+        logger.error(f"Error processing STT Flow query: {str(e)}", exc_info=True)
+        return {
+            "error": f"Failed to process speech query: {str(e)}",
+            "response": "Sorry, I encountered an error while processing your speech query.",
+            "transcription": ""
+        }
+
 def main():
     """Main entry point for the application."""
     parser = argparse.ArgumentParser(description="CarbonSense - Carbon Footprint Analysis")
-    parser.add_argument("--mode", choices=["generate", "rag_agent", "crew_agent", "verify", "cleanup", "fetch_certs", "stt_query", "stt_crew_agent"], required=True, help="Operation mode")
+    parser.add_argument("--mode", choices=["generate", "rag_agent", "crew_agent", "flow_agent", "verify", "cleanup", "fetch_certs", "stt_query", "stt_crew_agent", "stt_flow_agent"], required=True, help="Operation mode")
     parser.add_argument("--model", choices=["125m", "granite", "30m"], help="Model to use for embeddings (used in generate/verify)")
-    parser.add_argument("--query", help="Query string for rag_agent and crew_agent modes")
-    parser.add_argument("--record_duration", type=int, default=10, help="Duration of audio recording in seconds for stt_query and stt_crew_agent modes (default: 10)")
+    parser.add_argument("--query", help="Query string for rag_agent, crew_agent, and flow_agent modes")
+    parser.add_argument("--record_duration", type=int, default=10, help="Duration of audio recording in seconds for stt modes (default: 10)")
     parser.add_argument("--input_device", type=int, default=None, help="Index of the input audio device (optional). If not provided, you will be prompted to select.")
     parser.add_argument("--show_context", action="store_true", help="Show context in query results")
     parser.add_argument("--files", nargs="+", help="Specific files to process (used in generate mode)")
@@ -367,7 +423,7 @@ def main():
                 crew_manager = CrewAgentManager(
                     config=config,
                     debug_mode=args.debug,
-                    use_cache=args.no_cache,
+                    use_cache=not args.no_cache,
                     use_hierarchical=not args.sequential,
                     store_thoughts=args.store_thoughts
                 )
@@ -398,6 +454,48 @@ def main():
             except Exception as e:
                 print(f"Error processing query with CrewAI: {str(e)}")
                 logger.error(f"Error in crew_agent mode: {str(e)}", exc_info=True)
+
+        elif args.mode == "flow_agent":
+            if not args.query:
+                print("Error: --query argument is required for flow_agent mode")
+                return
+                
+            try:
+                # Initialize the CarbonSenseFlow
+                flow = CarbonSenseFlow(
+                    config=config,
+                    debug_mode=args.debug,
+                    use_cache=args.no_cache,
+                    store_thoughts=args.store_thoughts
+                )
+                
+                print(f"\nProcessing query with CrewAI Flow...")
+                print("=" * 80)
+                
+                # Process the query using the Flow
+                result = flow.process_query_with_flow(args.query)
+                
+                if isinstance(result, dict) and "error" in result:
+                    print(f"Error: {result['error']}")
+                    return
+                
+                print("\nResponse:")
+                print("=" * 80)
+                print(result)
+                
+                # If output file is specified, save the result to the file
+                if args.output_file:
+                    try:
+                        with open(args.output_file, 'w') as f:
+                            formatted_result = {"response": result}
+                            json.dump(formatted_result, f)
+                        print(f"Results saved to {args.output_file}")
+                    except Exception as save_err:
+                        print(f"Error saving results to file: {str(save_err)}")
+                
+            except Exception as e:
+                print(f"Error processing query with CrewAI Flow: {str(e)}")
+                logger.error(f"Error in flow_agent mode: {str(e)}", exc_info=True)
 
         elif args.mode == "stt_query":
             selected_device_index = args.input_device
@@ -520,6 +618,74 @@ def main():
                                 json.dump({"error": "System error", "transcription": "", "response": "", "confidence": 0.0}, f)
                         except:
                             pass  # Nothing more we can do
+
+        elif args.mode == "stt_flow_agent":
+            selected_device_index = args.input_device
+            if selected_device_index is None:
+                selected_device_index = select_input_device_interactively()
+                if selected_device_index is None:
+                    print("Device selection failed or was cancelled. Exiting.")
+                    return
+
+            try:
+                # Record audio
+                print(f"\nRecording audio for {args.record_duration} seconds...")
+                temp_audio_path = record_audio(args.record_duration, SAMPLE_RATE, CHANNELS, 
+                                               device_index=selected_device_index)
+                
+                # Process the query using CarbonSenseFlow
+                print("\nTranscribing and processing with CrewAI Flow...")
+                result = process_stt_flow_query(
+                    config, 
+                    temp_audio_path, 
+                    debug_mode=args.debug,
+                    store_thoughts=args.store_thoughts
+                )
+                
+                if "error" in result:
+                    print(f"Error: {result['error']}")
+                    
+                    # If output file is specified, save error result to the file
+                    if args.output_file:
+                        try:
+                            with open(args.output_file, 'w') as f:
+                                json.dump(result, f)
+                            print(f"Error results saved to {args.output_file}")
+                        except Exception as save_err:
+                            print(f"Error saving results to file: {str(save_err)}")
+                    
+                    return
+                    
+                print("\nResponse:")
+                print("=" * 80)
+                print(result["response"])
+                
+                # If output file is specified, save the result to the file
+                if args.output_file:
+                    try:
+                        with open(args.output_file, 'w') as f:
+                            json.dump(result, f)
+                        print(f"Results saved to {args.output_file}")
+                    except Exception as save_err:
+                        print(f"Error saving results to file: {str(save_err)}")
+                
+            except Exception as e:
+                print(f"Error processing speech query with CrewAI Flow: {str(e)}")
+                logger.error(f"Error in stt_flow_agent mode: {str(e)}", exc_info=True)
+                
+                # If output file is specified, save error to the file
+                if args.output_file:
+                    try:
+                        error_result = {
+                            "error": f"Failed to process speech query: {str(e)}",
+                            "response": "Sorry, I encountered an error while processing your speech query.",
+                            "transcription": ""
+                        }
+                        with open(args.output_file, 'w') as f:
+                            json.dump(error_result, f)
+                        print(f"Error saved to {args.output_file}")
+                    except Exception as save_err:
+                        print(f"Error saving error to file: {str(save_err)}")
 
         elif args.mode == "verify":
             milvus = MilvusService(config)

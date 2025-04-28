@@ -337,8 +337,29 @@
         }
     </script>
     
-    <!-- Include API Service -->
+    <!-- Include API Service FIRST to ensure it's available for other scripts -->
     <script src="{{ url_for('static', path='/js/api.js') }}"></script>
+    
+    <!-- Script to check API initialization -->
+    <script>
+        // Check if API was loaded properly
+        (function() {
+            console.log('[Init] Checking API initialization');
+            if (window.CarbonSenseAPI) {
+                console.log('[Init] CarbonSenseAPI is available with methods:', 
+                    Object.keys(window.CarbonSenseAPI).join(', '));
+                
+                // Verify critical functions
+                if (window.CarbonSenseAPI.startThoughtPolling) {
+                    console.log('[Init] startThoughtPolling function is available');
+                } else {
+                    console.error('[Init] startThoughtPolling function is NOT available');
+                }
+            } else {
+                console.error('[Init] CarbonSenseAPI is NOT available');
+            }
+        })();
+    </script>
     
     <!-- Include Dashboard Script -->
     <script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>

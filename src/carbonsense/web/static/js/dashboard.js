@@ -1,5 +1,15 @@
 // CarbonSense Dashboard JavaScript
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('[Dashboard] Initializing dashboard components');
+    
+    // Check if the API is available
+    if (window.CarbonSenseAPI) {
+        console.log('[Dashboard] CarbonSenseAPI is available with methods:', 
+            Object.keys(window.CarbonSenseAPI).join(', '));
+    } else {
+        console.error('[Dashboard] CarbonSenseAPI is NOT available');
+    }
+    
     // Initialize dashboard components that exist in the DOM
     initializeCategoryPieChart();
     setupPieChartModal();
@@ -7,7 +17,97 @@ document.addEventListener('DOMContentLoaded', function() {
     setupInfoButtons();
     setupExamplePills();
     setupPeriodSelector();
+    
+    // Add CSS styles for thought streaming
+    addThoughtStreamingStyles();
 });
+
+// Add styles for thought streaming
+function addThoughtStreamingStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        .thinking-container {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 10px;
+            background: rgba(240, 240, 255, 0.7);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .thinking-container.collapsed {
+            max-height: 40px;
+            overflow: hidden;
+        }
+        
+        .thinking-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #424242;
+        }
+        
+        .thoughts-area {
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        
+        .thought {
+            padding: 6px 10px;
+            margin: 5px 0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .thought.thought {
+            background: rgba(173, 216, 230, 0.3);
+        }
+        
+        .thought.action {
+            background: rgba(144, 238, 144, 0.3);
+        }
+        
+        .thought.error {
+            background: rgba(255, 182, 193, 0.3);
+        }
+        
+        .thought.complete {
+            background: rgba(152, 251, 152, 0.4);
+            font-weight: bold;
+        }
+        
+        .thought-icon {
+            margin-right: 8px;
+            color: #3f51b5;
+        }
+        
+        .toggle-thinking-btn {
+            border: none;
+            background: none;
+            color: #3f51b5;
+            cursor: pointer;
+            font-size: 0.8em;
+            padding: 3px 8px;
+            border-radius: 4px;
+            transition: background 0.3s ease;
+        }
+        
+        .toggle-thinking-btn:hover {
+            background: rgba(63, 81, 181, 0.1);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    `;
+    document.head.appendChild(styleElement);
+}
 
 // Set up info buttons to show tooltips
 function setupInfoButtons() {
@@ -66,44 +166,281 @@ function setupChatInteractions() {
         const message = queryInput.value.trim();
         if (message === '') return;
         
+        console.log('[Dashboard] Sending message:', message);
+        
         // Add user message to conversation
         addUserMessage(message);
         
         // Clear input
         queryInput.value = '';
         
-        // Show loading indicator
-        const loadingMessage = document.createElement('div');
-        loadingMessage.className = 'message loading';
-        loadingMessage.textContent = 'Thinking...';
-        conversationContainer.appendChild(loadingMessage);
+        // Create thinking container for thoughts
+        const thinkingContainer = document.createElement('div');
+        thinkingContainer.className = 'thinking-container';
+        
+        // Create header for thinking container
+        const thinkingHeader = document.createElement('div');
+        thinkingHeader.className = 'thinking-header';
+        thinkingHeader.innerHTML = '<i class="fas fa-robot"></i> Thinking...';
+        thinkingContainer.appendChild(thinkingHeader);
+        
+        // Create thoughts area
+        const thoughtsArea = document.createElement('div');
+        thoughtsArea.className = 'thoughts-area';
+        thinkingContainer.appendChild(thoughtsArea);
+        
+        // Create a single reusable thought element
+        const thoughtElement = document.createElement('div');
+        thoughtElement.className = 'thought';
+        thoughtElement.innerHTML = `
+            <span class="thought-icon"><i class="fas fa-brain"></i></span>
+            <span class="thought-content">Initializing analysis...</span>
+        `;
+        thoughtsArea.appendChild(thoughtElement);
+        
+        // Add to conversation
+        conversationContainer.appendChild(thinkingContainer);
         conversationContainer.scrollTop = conversationContainer.scrollHeight;
         
-        // Make API request using CarbonSenseAPI
+        // Initialize polling variables
+        let thoughtPollingId = null;
+        let lastSeenThoughtIndex = -1;
+        let pollCount = 0;
+        let isPolling = false;
+        let currentThoughtType = 'thought';
+        
+        // Start independent thought polling immediately
+        startThoughtPolling();
+        
+        // Make actual query in parallel - use direct fetch if API not available
         if (window.CarbonSenseAPI && window.CarbonSenseAPI.queryCarbonFootprint) {
             window.CarbonSenseAPI.queryCarbonFootprint(message)
-                .then(result => {
-                    // Remove loading indicator
-                    conversationContainer.removeChild(loadingMessage);
-                    
-                    // Add bot response (now passing the entire result object)
-                    addBotMessage(result);
-                })
-                .catch(error => {
-                    console.error('Error querying API:', error);
-                    
-                    // Remove loading indicator
-                    conversationContainer.removeChild(loadingMessage);
-                    
-                    // Add error message, but let the API error propagate through
-                    addBotMessage("I'm unable to process your request at this time. Please try again later.");
-                });
+                .then(handleQueryResult)
+                .catch(handleQueryError);
         } else {
-            // Remove loading indicator
-            conversationContainer.removeChild(loadingMessage);
+            // Fallback to direct fetch
+            console.log('[Dashboard] Using direct fetch for query');
+            fetch('/api/query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: message })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(handleQueryResult)
+            .catch(handleQueryError);
+        }
+        
+        // Function to start thought polling - independent of backend response
+        function startThoughtPolling() {
+            console.log('[Dashboard] Starting independent thought polling');
+            thoughtPollingId = {};  // Use an object as a non-null identifier
+            pollForThoughts();
+        }
+        
+        // Function to poll for thoughts independently
+        async function pollForThoughts() {
+            // Prevent multiple concurrent polling
+            if (isPolling) return;
             
-            // Add system unavailable message
-            addBotMessage("The carbon footprint service is unavailable at this time.");
+            isPolling = true;
+            pollCount++;
+            
+            try {
+                console.log('[Dashboard] Polling for thoughts directly (poll #' + pollCount + ')');
+                
+                // Make direct fetch request to backend
+                const response = await fetch('/api/check-thoughts');
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                
+                const thoughtsData = await response.json();
+                console.log('[Dashboard] Received thoughts data:', thoughtsData);
+                    
+                // Process the thoughts if we have any
+                if (thoughtsData && thoughtsData.thoughts && thoughtsData.thoughts.length > 0) {
+                    // Process only new thoughts
+                    const newThoughts = thoughtsData.thoughts.slice(lastSeenThoughtIndex + 1);
+                    
+                    if (newThoughts.length > 0) {
+                        console.log('[Dashboard] Found new thoughts:', newThoughts.length);
+                        
+                        // Get the latest thought (we're only displaying the latest one)
+                        const latestThought = newThoughts[newThoughts.length - 1];
+                    
+                        // Update last seen thought index
+                        lastSeenThoughtIndex = thoughtsData.thoughts.length - 1;
+                        
+                        // Update the thought element with the latest thought
+                        updateThoughtElement(thoughtElement, latestThought);
+                        
+                        // Scroll thoughts area down to show updated thought
+                        thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
+                    }
+                    
+                    // Check status for completion or error
+                    if (thoughtsData.status === 'complete') {
+                        console.log('[Dashboard] Thought process complete');
+                        
+                        // Add final thought
+                        updateThoughtElement(thoughtElement, {
+                            content: 'Analysis complete!',
+                            type: 'complete'
+                        });
+                        
+                        // Scroll thoughts area down
+                        thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
+                        
+                        // Stop polling when complete
+                        stopPolling();
+                        return; // Exit the function early
+                    } else if (thoughtsData.status === 'error') {
+                        console.log('[Dashboard] Thought process error');
+                        
+                        // Update with error thought
+                        updateThoughtElement(thoughtElement, {
+                            content: 'Error in thought processing',
+                            type: 'error'
+                        });
+                        
+                        // Scroll thoughts area down
+                        thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
+                        
+                        // Stop polling when there's an error
+                        stopPolling();
+                        return; // Exit the function early
+                    }
+                } else {
+                    console.log('[Dashboard] No thoughts available yet');
+                }
+            } catch (error) {
+                console.error('[Dashboard] Error fetching thoughts:', error);
+            } finally {
+                isPolling = false;
+                
+                // Continue polling with a delay regardless of backend response
+                if (thoughtPollingId !== null) {
+                    // Use exponential backoff for polling frequency
+                    const delayMs = Math.min(1000 * Math.pow(1.2, Math.min(pollCount, 10)), 5000);
+                    console.log(`[Dashboard] Next poll in ${delayMs/1000} seconds`);
+                    
+                    setTimeout(() => {
+                        if (thoughtPollingId !== null) {  // Check again in case stopped during timeout
+                            pollForThoughts();
+                        }
+                    }, delayMs);
+                }
+            }
+        }
+        
+        // Function to update the thought element
+        function updateThoughtElement(element, thought) {
+            // Get thought type or default to 'thought'
+            const thoughtType = thought.type || 'thought';
+            
+            // Only change the class if the type has changed
+            if (currentThoughtType !== thoughtType) {
+                // Update element class
+                element.className = `thought ${thoughtType}`;
+                currentThoughtType = thoughtType;
+                
+                // Update icon based on type
+                let icon = '';
+                switch(thoughtType) {
+                    case 'thought':
+                        icon = '<i class="fas fa-brain"></i>';
+                        break;
+                    case 'action':
+                        icon = '<i class="fas fa-cog fa-spin"></i>';
+                        break;
+                    case 'error':
+                        icon = '<i class="fas fa-exclamation-triangle"></i>';
+                        break;
+                    case 'complete':
+                        icon = '<i class="fas fa-check-circle"></i>';
+                        break;
+                    default:
+                        icon = '<i class="fas fa-comment"></i>';
+                }
+                
+                // Update the icon
+                const iconElement = element.querySelector('.thought-icon');
+                if (iconElement) {
+                    iconElement.innerHTML = icon;
+                }
+            }
+            
+            // Ensure thought.content exists before using it
+            const content = thought.content || 'No content available';
+            
+            // Update the content
+            const contentElement = element.querySelector('.thought-content');
+            if (contentElement) {
+                contentElement.textContent = content;
+            }
+            
+            console.log(`[Dashboard] Updated thought: ${content} (${thoughtType})`);
+        }
+        
+        function stopPolling() {
+            console.log('[Dashboard] Stopping thought polling');
+            
+            if (thoughtPollingId !== null) {
+                thoughtPollingId = null;
+                // No longer clean up thoughts - we want to keep them
+                // fetch('/api/cleanup-thoughts', {
+                //     method: 'POST'
+                // }).catch(error => {
+                //     console.error('[Dashboard] Error cleaning up thoughts:', error);
+                // });
+            }
+        }
+        
+        // Handler for successful query results - independent of thought polling
+        function handleQueryResult(result) {
+            console.log('[Dashboard] Query result:', result);
+            
+            // Handle the final result
+            // Collapse thinking container
+            thinkingContainer.classList.add('collapsed');
+            
+            // Create a toggle button
+            const toggleButton = document.createElement('button');
+            toggleButton.className = 'toggle-thinking-btn';
+            toggleButton.innerHTML = '<i class="fas fa-lightbulb"></i> Show Thinking';
+            toggleButton.addEventListener('click', () => {
+                thinkingContainer.classList.toggle('collapsed');
+                toggleButton.innerHTML = thinkingContainer.classList.contains('collapsed') ?
+                    '<i class="fas fa-lightbulb"></i> Show Thinking' :
+                    '<i class="fas fa-lightbulb"></i> Hide Thinking';
+            });
+            
+            // Add toggle button to thinking header
+            thinkingHeader.appendChild(toggleButton);
+            
+            // Add bot response
+            addBotMessage(result);
+            
+            // Stop polling since query is complete
+            stopPolling();
+        }
+        
+        // Handler for query errors - independent of thought polling
+        function handleQueryError(error) {
+            console.error('[Dashboard] Error querying API:', error);
+            
+            // Add error message to the conversation
+            addBotMessage("I'm unable to process your request at this time. Please try again later.");
+            
+            // Stop polling since there was an error
+            stopPolling();
         }
     }
     
@@ -114,6 +451,45 @@ function setupChatInteractions() {
         conversationContainer.appendChild(messageElement);
         conversationContainer.scrollTop = conversationContainer.scrollHeight;
     }
+}
+
+// Helper function to add a thought to the thoughts area
+function addThought(container, thought, type) {
+    console.log(`[Dashboard] Adding thought to UI: ${thought.content} (${type})`);
+    const thoughtElement = document.createElement('div');
+    thoughtElement.className = `thought ${type || 'thought'}`;
+    
+    // Add icon based on type
+    let icon = '';
+    switch(type) {
+        case 'thought':
+            icon = '<i class="fas fa-brain"></i>';
+            break;
+        case 'action':
+            icon = '<i class="fas fa-cog fa-spin"></i>';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-triangle"></i>';
+            break;
+        case 'complete':
+            icon = '<i class="fas fa-check-circle"></i>';
+            break;
+        default:
+            icon = '<i class="fas fa-comment"></i>';
+    }
+    
+    // Ensure thought.content exists before using it
+    const content = thought.content || 'No content available';
+    
+    thoughtElement.innerHTML = `
+        <span class="thought-icon">${icon}</span>
+        <span class="thought-content">${content}</span>
+    `;
+    
+    container.appendChild(thoughtElement);
+    
+    // Ensure the container is scrolled to the bottom
+    container.scrollTop = container.scrollHeight;
 }
 
 // Make addUserMessage available globally for the voice handler
@@ -764,3 +1140,4 @@ function updateDashboardData(data) {
 window.addBotMessage = addBotMessage;
 window.updateDashboardData = updateDashboardData;
 window.showTrackingNotification = showTrackingNotification; 
+window.addThought = addThought; 

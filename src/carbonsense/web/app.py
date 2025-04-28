@@ -1,25 +1,33 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form
+from fastapi import FastAPI, Request, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form, Response, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
-import sys
-import asyncio
+import io
 import json
 import time
 import tempfile
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-import queue
+import shutil
+from typing import Optional, List, Dict, Any
+import random
+import asyncio
+import functools
 import threading
 import logging
-import subprocess
-import numpy as np
+import traceback
 import sounddevice as sd
+import numpy as np
 import scipy.io.wavfile as wav
+from pathlib import Path
+import sys
+import queue
 from ibm_watson import SpeechToTextV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+
+from ..config.config_manager import ConfigManager
+from ..core.crew_agent import CrewAgentManager
+from ..core.carbon_flow import CarbonSenseFlow
 
 # Configure logging
 logging.basicConfig(
@@ -42,6 +50,20 @@ from src.carbonsense.core.crew_agent import CrewAgentManager
 SAMPLE_RATE = 44100  # Sample rate in Hz
 CHANNELS = 1  # Mono recording
 global_transcript=""
+
+# Define a global variable for the current query ID and thoughts file path
+CURRENT_QUERY_ID = None
+# Create logs/thoughts directory if it doesn't exist
+thoughts_dir = os.path.join(project_root, "logs", "thoughts")
+os.makedirs(thoughts_dir, exist_ok=True)
+THOUGHTS_FILE_PATH = os.path.join(thoughts_dir, "persistant_thoughts.json")
+
+# Initialize a global state for the thought process
+current_thought_state = {
+    "query_id": None,
+    "thoughts": [],
+    "status": "idle"  # idle, processing, complete, error
+}
 
 # Define functions that will be used by endpoints
 def select_input_device_interactively() -> int | None:
@@ -232,15 +254,19 @@ static_path = Path(__file__).parent / "static"
 templates = Jinja2Templates(directory=str(templates_path))
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
-# Initialize ConfigManager and CrewAgentManager at startup (only once)
+# Initialize ConfigManager and set up our engines at startup 
 config = ConfigManager()
-crew_manager = CrewAgentManager(
+
+# Initialize carbon flow as the primary engine
+carbon_flow = CarbonSenseFlow(
     config=config,
     debug_mode=False,
     use_cache=False,
-    use_hierarchical=True,
     store_thoughts=True
 )
+
+# Keep crew_manager for backward compatibility
+crew_manager = None
 
 # Global thought queue to store agent thoughts during processing
 # We'll use a thread-safe queue to handle multiple concurrent requests
@@ -561,34 +587,12 @@ def simulate_agent_thoughts(request_id: str, query: str):
         logger.info(f"Starting thought simulation for {request_id}")
         logger.info(f"[{request_id}] Query: {query}")
         
-        # Check if the request queue still exists (in case client disconnected)
-        if request_id not in thought_queues:
-            logger.warning(f"Queue {request_id} no longer exists")
-            return
-            
-        # Helper function to safely add thoughts to the queue
-        def safe_add_thought(thought):
-            try:
-                if request_id in thought_queues:
-                    thought_queues[request_id].put(thought)
-                    logger.info(f"[{request_id}] Added thought: {json.dumps(thought)}")
-                    return True
-                else:
-                    logger.warning(f"[{request_id}] Queue disappeared, cannot add thought")
-                    return False
-            except Exception as e:
-                logger.error(f"[{request_id}] Error adding thought to queue: {str(e)}")
-                return False
+        # Initialize the thought process
+        set_thought_status("processing", request_id)
         
         # Initial thought
         time.sleep(0.5)
-        initial_thought = {
-            "type": "thought", 
-            "content": f"Analyzing query: '{query}'"
-        }
-        
-        if not safe_add_thought(initial_thought):
-            return
+        add_thought("thought", f"Analyzing query: '{query}'", request_id)
         
         # Determine query type to provide relevant thoughts
         query_lower = query.lower()
@@ -640,43 +644,28 @@ def simulate_agent_thoughts(request_id: str, query: str):
         
         # Send the thoughts with a delay between each
         for i, thought_data in enumerate(thoughts):
-            # Extract the delay and remove it from what we send to the client
+            # Extract the delay and remove it from what we send
             current_delay = thought_data.pop("delay", delay)
             time.sleep(current_delay)  # Delay between thoughts
             
-            # Check if the queue still exists before adding each thought
-            if not safe_add_thought(thought_data):
-                return
-                
+            # Add the thought
+            add_thought(thought_data["type"], thought_data["content"], request_id)
+        
         # Final delay before completing
         time.sleep(1.5)
         
         # Add a concluding thought
-        conclusion = {
-            "type": "thought",
-            "content": "I've gathered all the relevant information and am ready to provide a complete answer."
-        }
+        add_thought("thought", "I've gathered all the relevant information and am ready to provide a complete answer.", request_id)
         
-        if not safe_add_thought(conclusion):
-            return
-            
-        time.sleep(0.5)  # Short delay before completion
+        # Signal completion - don't need to do this here as the query processing will handle it
+        # set_thought_status("complete", request_id)
         
-        # Signal completion
-        if request_id in thought_queues:
-            logger.info(f"[{request_id}] Signaling completion")
-            thought_queues[request_id].put("DONE")
-            logger.info(f"[{request_id}] Thought simulation completed")
+        logger.info(f"[{request_id}] Thought simulation completed")
         
     except Exception as e:
         logger.error(f"Error in simulate_agent_thoughts: {e}", exc_info=True)
-        # Make sure we always try to signal completion and clean up
-        try:
-            if request_id in thought_queues:
-                logger.error(f"[{request_id}] Signaling completion due to error")
-                thought_queues[request_id].put("DONE")
-        except:
-            pass  # Ignore any errors in final cleanup
+        # Make sure we always set an error status
+        set_thought_status("error", request_id)
 
 def extract_structured_response(response_data):
     """
@@ -883,112 +872,96 @@ def extract_structured_response(response_data):
 
 @app.post("/api/query")
 async def query_carbon(request: Request):
-    data = await request.json()
-    query = data.get("query", "")
-    
-    if not query:
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
-    
+    """
+    Process a carbon footprint query.
+    """
     try:
-        # Process the query using CrewAgentManager (already initialized globally)
+        data = await request.json()
+        query = data.get('query', '')
+        request_id = data.get('request_id', None)
+        use_crew = data.get('use_crew', False)  # Parameter to choose crew vs flow (default is flow)
+        
+        if not query:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Query cannot be empty"}
+            )
+        
+        # Create stream file and tracking for the query
+        write_thoughts_to_file([])
+        set_thought_status('PROCESSING', request_id)
+        
+        # Process the query directly (async)
         try:
-            result = crew_manager.process_query(query, show_context=False)
+            result = await process_query_with_flow(query, request_id)
+            return JSONResponse(
+                content={"result": result, "request_id": request_id}
+            )
         except Exception as process_err:
-            logger.error(f"CrewAgentManager process_query error: {str(process_err)}", exc_info=True)
-            return {
-                "answer": f"I'm unable to process your request: {str(process_err)}",
-                "method": "No calculation could be performed due to an error.",
-                "confidence": 0.0,
-                "category": "Miscellaneous",
-                "sources": []
-            }
-        
-        # Log the raw result for debugging
-        print("========== RESULT ==========")
-        print(result)
-        print("============================")
-
-        # Check for errors
-        if "error" in result:
-            raise HTTPException(status_code=500, detail=result["error"])
-        
-        # Extract and normalize the response
-        try:
-            structured_response = extract_structured_response(result)
-        except Exception as extract_err:
-            logger.error(f"Error extracting structured response: {str(extract_err)}", exc_info=True)
-            # Fallback to a simple response when extraction fails
-            return {
-                "answer": str(result.get("response", "I processed your query but couldn't format the response.")),
-                "method": "Based on environmental data analysis.",
-                "confidence": 0.5,
-                "category": "Miscellaneous",
-                "sources": []
-            }
-        
-        # Log the final structured response
-        print("Final structured response:")
-        print(structured_response)
-        
-        return structured_response
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions so FastAPI can handle them properly
-        raise
+            logger.error(f"Error processing query: {str(process_err)}")
+            return JSONResponse(
+                status_code=500, 
+                content={"error": f"Error processing query: {str(process_err)}"}
+            )
     except Exception as e:
-        logger.error(f"Error processing query: {str(e)}", exc_info=True)
-        # Return a generic error message with the structured format
-        return {
-            "answer": f"I'm unable to process your request: {str(e)}",
-            "method": "No calculation could be performed due to an error.",
-            "confidence": 0.0,
-            "category": "Miscellaneous",
-            "sources": []
-        }
+        print(f"Error in query_carbon endpoint: {str(e)}")
+        print(traceback.format_exc())
+        return JSONResponse(
+            status_code=500, 
+            content={"error": f"Error processing query: {str(e)}"}
+        )
 
-# API endpoint for updating daily activity
-@app.post("/api/activity")
-async def add_activity(request: Request):
-    data = await request.json()
-    activity = data.get("activity", "")
-    
-    if not activity:
-        raise HTTPException(status_code=400, detail="Activity cannot be empty")
-    
+async def process_query_with_flow(query: str, request_id: str):
+    """Process a query using the Flow-based approach with thought streaming."""
     try:
-        # Process the activity query using CrewAgentManager
-        # This will eventually update the user's carbon footprint
-        result = crew_manager.process_query(f"Record this activity: {activity}", show_context=True)
+        # Start processing
+        add_thought("start", f"Processing query: {query}", request_id)
+        add_thought("thinking", "Using CarbonSenseFlow to process your query with event-driven architecture...", request_id)
         
-        if "error" in result:
-            return {
-                "status": "warning",
-                "message": f"Activity recorded with warning: {result['error']}"
-            }
+        # Add intermediate thoughts to mimic the flow's steps
+        add_thought("thinking", "Analyzing query intent and extracting entities...", request_id)
+        add_thought("thinking", "Researching carbon footprint data from multiple sources...", request_id)
+        add_thought("thinking", "Harmonizing data and calculating carbon estimates...", request_id)
         
-        return {
-            "status": "success",
-            "message": f"Activity '{activity}' recorded successfully.",
-            "analysis": result["response"]
-        }
+        # Process query with flow (directly use the global instance) using async method
+        result = await carbon_flow.process_query_with_flow_async(query)
+        
+        # Format result for output
+        formatted_result = result
+        if isinstance(result, dict) and "answer" in result:
+            formatted_result = result["answer"]
+            
+        # Add completion thought with result
+        add_thought("completion", formatted_result, request_id)
+        
+        # Update status
+        set_thought_status("COMPLETE", request_id)
+        
+        return formatted_result
+        
     except Exception as e:
-        logger.error(f"Error processing activity: {str(e)}")
+        print(f"Error processing query with flow: {str(e)}")
+        print(traceback.format_exc())
+        
+        # Add error thought
+        add_thought("error", f"An error occurred while processing your query: {str(e)}", request_id)
+        set_thought_status("ERROR", request_id)
         return {
-            "status": "error",
-            "message": f"Failed to record activity: {str(e)}",
-            "analysis": None
+            "error": str(e),
+            "response": f"An error occurred: {str(e)}"
         }
 
 @app.post("/api/voice-query")
 async def process_voice_query(request: Request, audio_data: UploadFile = File(...)):
     """
-    Process an audio query using the CrewAI STT functionality.
+    Process an audio query using the Speech-to-Text and CarbonSenseFlow functionality.
     
     This endpoint:
     1. Receives audio data from the frontend
     2. Saves it to a temporary file
-    3. Processes it with the CrewAI STT system
-    4. Returns the results
+    3. Transcribes it with IBM Watson STT
+    4. Processes it with the CarbonSenseFlow
+    5. Returns the results
     """
     temp_file_path = None
     try:
@@ -1002,8 +975,7 @@ async def process_voice_query(request: Request, audio_data: UploadFile = File(..
         # Log the received audio file
         logger.info(f"Received audio file, saved to {temp_file_path}")
         
-        # Process the audio file with transcription and crew_manager
-        # Transcribe the audio
+        # Transcribe the audio using IBM Watson STT
         transcript = transcribe_audio(config, temp_file_path)
         if not transcript:
             return JSONResponse(
@@ -1016,26 +988,45 @@ async def process_voice_query(request: Request, audio_data: UploadFile = File(..
             
         logger.info(f"\nTranscribed Query: {transcript}")
         
-        # Process the query using the global CrewAgentManager instance
-        result = crew_manager.process_query(transcript, show_context=True)
+        # Generate a request ID for tracking
+        request_id = f"voice_api_{int(time.time() * 1000)}"
         
-        # Add transcription to the result
-        result["transcription"] = transcript
+        # Setup thought tracking as with text queries
+        write_thoughts_to_file([])
+        set_thought_status('PROCESSING', request_id)
+        
+        # Process the query using the same function as text queries
+        result = await process_query_with_flow(transcript, request_id)
+        
+        # Format the result to match expected structure
+        if not isinstance(result, dict):
+            formatted_result = {
+                "response": str(result),
+                "transcription": transcript,
+                "confidence": 0.8,
+                "sources": []
+            }
+        else:
+            formatted_result = result
+            formatted_result["transcription"] = transcript
+            if "confidence" not in formatted_result:
+                formatted_result["confidence"] = 0.8
+            if "sources" not in formatted_result:
+                formatted_result["sources"] = []
         
         # Check for errors
-        if "error" in result:
+        if isinstance(formatted_result, dict) and "error" in formatted_result:
+            set_thought_status("ERROR", request_id)
             return JSONResponse(
                 status_code=400,
-                content={"error": result["error"], "message": result["response"]}
+                content={"error": formatted_result["error"], "message": formatted_result.get("response", "An error occurred")}
             )
         
+        # Set thought processing as complete
+        set_thought_status("COMPLETE", request_id)
+        
         # Return the response
-        return {
-            "transcription": result.get("transcription", ""),
-            "response": result["response"],
-            "confidence": result.get("confidence", 0.8),
-            "sources": result.get("context", {}).get("sources", []) if "context" in result else []
-        }
+        return formatted_result
     except Exception as e:
         logger.error(f"Error processing voice query: {str(e)}")
         return JSONResponse(
@@ -1050,6 +1041,38 @@ async def process_voice_query(request: Request, audio_data: UploadFile = File(..
                 logger.info(f"Deleted temporary file: {temp_file_path}")
         except Exception as e:
             logger.error(f"Error cleaning up temporary file: {str(e)}")
+
+@app.post("/api/activity")
+async def add_activity(request: Request):
+    data = await request.json()
+    activity = data.get("activity", "")
+    
+    if not activity:
+        raise HTTPException(status_code=400, detail="Activity cannot be empty")
+    
+    try:
+        # Process the activity query using CarbonSenseFlow async method
+        result = await carbon_flow.process_query_with_flow_async(f"Record this activity: {activity}")
+        
+        # Check for errors
+        if isinstance(result, dict) and "error" in result:
+            return {
+                "status": "warning",
+                "message": f"Activity recorded with warning: {result['error']}"
+            }
+        
+        return {
+            "status": "success",
+            "message": f"Activity '{activity}' recorded successfully.",
+            "analysis": result.get("response", str(result)) if isinstance(result, dict) else str(result)
+        }
+    except Exception as e:
+        logger.error(f"Error processing activity: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Failed to record activity: {str(e)}",
+            "analysis": None
+        }
 
 @app.post("/api/start-recording")
 async def start_recording():
@@ -1101,7 +1124,7 @@ async def start_recording():
         _record_audio = record_audio
         _transcribe_audio = transcribe_audio
         _config = config
-        _crew_manager = crew_manager
+        _carbon_flow = carbon_flow
         
         # Start recording in a background thread
         def record_and_process():
@@ -1144,48 +1167,54 @@ async def start_recording():
                         # write global transcript to file atomically
                         write_transcript_to_file(global_transcript)
                         try:
-                            # Process with crew_manager
-                            query_result, used_fallback = process_query_with_fallback(_crew_manager, transcript, show_context=True)
+                            # Generate a request ID similar to text queries
+                            request_id = f"voice_{int(time.time() * 1000)}"
                             
-                            # Add transcription to result
-                            result = query_result.copy() if isinstance(query_result, dict) else {"response": str(query_result)}
-                            result["transcription"] = transcript
+                            # Setup thought tracking as in text queries
+                            write_thoughts_to_file([])
+                            set_thought_status('PROCESSING', request_id)
                             
-                            # If we used fallback, add a note
-                            if used_fallback:
-                                if isinstance(result["response"], str):
-                                    result["response"] = f"{result['response']} (Note: Used fallback processing method)"
+                            # Process using the same flow as text queries
+                            # We need to run it synchronously since we're in a thread
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                # Use the same processing function as text queries
+                                query_result = loop.run_until_complete(process_query_with_flow(transcript, request_id))
+                                
+                                # Format the result - should already be properly formatted from process_query_with_flow
+                                result = query_result
+                                if not isinstance(result, dict):
+                                    result = {
+                                        "response": str(result),
+                                        "transcription": transcript,
+                                        "confidence": 0.8
+                                    }
                                 else:
-                                    result["response_note"] = "Used fallback processing method"
+                                    # Ensure we have the transcript
+                                    result["transcription"] = transcript
+                                    
+                                    # Ensure confidence exists
+                                    if "confidence" not in result:
+                                        result["confidence"] = 0.8
+                            finally:
+                                loop.close()
                             
-                            # Ensure confidence exists
-                            if "confidence" not in result:
-                                result["confidence"] = 0.8
+                            # Set thought processing as complete
+                            set_thought_status("COMPLETE", request_id)
                         except Exception as query_err:
                             logger.error(f"Error processing query: {str(query_err)}")
                             
-                            # Special handling for the "Manager agent should not have tools" error
-                            if "Manager agent should not have tools" in str(query_err):
-                                logger.info("Detected CrewAI manager agent tools error, will provide fallback response")
-                                
-                                # Try to reset the crew manager
-                                reset_crew_manager()
-                                
-                                # Create a fallback response that acknowledges the transcript but doesn't use CrewAI
-                                result = {
-                                    "error": "CrewAI processing error",
-                                    "response": f"I heard your question about '{transcript}', but I'm having trouble processing it right now. Please try again or rephrase your question.",
-                                    "transcription": transcript,
-                                    "confidence": 0.7
-                                }
-                            else:
-                                # Handle other errors
-                                result = {
-                                    "error": f"Query processing failed: {str(query_err)}",
-                                    "response": f"I heard you say: '{transcript}', but I couldn't process your request. Please try again.",
-                                    "transcription": transcript,
-                                    "confidence": 0.0
-                                }
+                            # Create a fallback response that acknowledges the transcript
+                            result = {
+                                "error": f"Processing error: {str(query_err)}",
+                                "response": f"I heard your question about '{transcript}', but I'm having trouble processing it right now. Please try again or rephrase your question.",
+                                "transcription": transcript,
+                                "confidence": 0.7
+                            }
+                            
+                            # Set error status in thought tracking
+                            set_thought_status("ERROR", request_id)
                 except Exception as trans_err:
                     logger.error(f"Error during transcription: {str(trans_err)}")
                     result = {
@@ -1264,7 +1293,7 @@ async def stop_recording(request: Request):
                 content={"error": "Missing session_id", "message": "Session ID is required"}
             )
         
-        # Check if we have results
+        # First check if we have results in the temporary file
         temp_file = recording_manager.get_temp_file(session_id)
         if temp_file and os.path.exists(temp_file):
             try:
@@ -1300,20 +1329,86 @@ async def stop_recording(request: Request):
                 else:
                     logger.info(f"Keeping temp file {temp_file} as processing is still ongoing")
                 
-                return {
-                    "status": "success",
-                    "result": {
-                        "transcription": results.get("transcription", ""),
-                        "response": results.get("response", ""),
-                        "confidence": results.get("confidence", 0.5)
+                # If we have complete results, return them
+                if has_complete_results:
+                    return {
+                        "status": "success",
+                        "result": {
+                            "transcription": results.get("transcription", ""),
+                            "response": results.get("response", ""),
+                            "confidence": results.get("confidence", 0.5)
+                        }
                     }
-                }
             except Exception as e:
-                logger.error(f"Error reading results: {str(e)}", exc_info=True)
-                return {
-                    "status": "error",
-                    "message": f"Failed to read transcription results: {str(e)}"
-                }
+                logger.error(f"Error reading results from temp file: {str(e)}", exc_info=True)
+        
+        # Next check thought tracking, which is used by process_query_with_flow
+        try:
+            thoughts_data = read_thoughts_from_file()
+            if thoughts_data:
+                status = thoughts_data.get("status", "").upper()
+                
+                # Get the transcript either from global variable or from file
+                transcript = global_transcript
+                if not transcript:
+                    try:
+                        transcript_path = os.path.join(project_root, "transcript.txt")
+                        if os.path.exists(transcript_path):
+                            with open(transcript_path, 'r') as f:
+                                transcript = f.read().strip()
+                    except Exception as e:
+                        logger.error(f"Error reading transcript file: {str(e)}")
+                
+                # If processing is complete, return the final thought as the response
+                if status == "COMPLETE":
+                    # Find the most recent completion thought
+                    completion_thoughts = [t for t in thoughts_data.get("thoughts", []) if t.get("type") == "completion"]
+                    if completion_thoughts:
+                        # Sort by timestamp and get the most recent
+                        latest_completion = sorted(completion_thoughts, key=lambda x: x.get("timestamp", 0))[-1]
+                        return {
+                            "status": "success",
+                            "result": {
+                                "transcription": transcript,
+                                "response": latest_completion.get("content", "Processing completed."),
+                                "confidence": 0.8
+                            }
+                        }
+                
+                # If there was an error, return it
+                elif status == "ERROR":
+                    # Find the most recent error thought
+                    error_thoughts = [t for t in thoughts_data.get("thoughts", []) if t.get("type") == "error"]
+                    if error_thoughts:
+                        # Sort by timestamp and get the most recent
+                        latest_error = sorted(error_thoughts, key=lambda x: x.get("timestamp", 0))[-1]
+                        return {
+                            "status": "error",
+                            "result": {
+                                "transcription": transcript,
+                                "response": latest_error.get("content", "An error occurred."),
+                                "confidence": 0.5
+                            }
+                        }
+                
+                # If we have a transcript but processing is ongoing, return as partial result
+                elif transcript:
+                    # Get the most recent thought to show progress
+                    if thoughts_data.get("thoughts"):
+                        thoughts = sorted(thoughts_data["thoughts"], key=lambda x: x.get("timestamp", 0))
+                        latest_thought = thoughts[-1]
+                        return {
+                            "status": "processing",
+                            "result": {
+                                "transcription": transcript,
+                                "response": f"Processing query: {transcript}\nCurrent status: {latest_thought.get('content', 'Processing...')}",
+                                "confidence": 0.5
+                            }
+                        }
+        except Exception as e:
+            logger.error(f"Error checking thoughts tracking: {str(e)}")
+        
+        # If no results yet, return no_results status
         return {
             "status": "no_results",
             "message": "No transcription results available. Try recording again."
@@ -1332,7 +1427,7 @@ async def stop_recording_by_path(request: Request, session_id: str):
     """
     logger.info(f"Stopping recording via path parameter for session: {session_id}")
     
-    # Check if we have results
+    # First check if we have results in the temporary file
     temp_file = recording_manager.get_temp_file(session_id)
     if temp_file and os.path.exists(temp_file):
         try:
@@ -1348,40 +1443,40 @@ async def stop_recording_by_path(request: Request, session_id: str):
             except json.JSONDecodeError as json_err:
                 logger.error(f"JSON decode error reading results: {str(json_err)}")
                 results = {"transcription": "", "response": "Error reading results: Invalid JSON format.", "confidence": 0.0}
-            
-            # Check if we have complete results with content
-            has_complete_results = (
-                "transcription" in results and 
-                "response" in results and 
-                results.get("transcription") and  # Has actual transcription content
-                results.get("response")  # Has actual response content
-            )
-            
-            # Only delete the file if we have complete results
-            if has_complete_results:
-                try:
-                    os.unlink(temp_file)
-                    logger.info(f"Deleted temporary file: {temp_file}")
-                except Exception as e:
-                    logger.warning(f"Failed to delete temp file: {str(e)}")
-                recording_manager.cleanup_session(session_id)
-            else:
-                logger.info(f"Keeping temp file {temp_file} as processing is still ongoing")
-            
-            return {
-                "status": "success",
-                "result": {
-                    "transcription": results.get("transcription", ""),
-                    "response": results.get("response", ""),
-                    "confidence": results.get("confidence", 0.5)
+                
+                # Check if we have complete results with content
+                has_complete_results = (
+                    "transcription" in results and 
+                    "response" in results and 
+                    results.get("transcription") and  # Has actual transcription content
+                    results.get("response")  # Has actual response content
+                )
+                
+                # Only delete the file if we have complete results
+                if has_complete_results:
+                    try:
+                        os.unlink(temp_file)
+                        logger.info(f"Deleted temporary file: {temp_file}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete temp file: {str(e)}")
+                    recording_manager.cleanup_session(session_id)
+                else:
+                    logger.info(f"Keeping temp file {temp_file} as processing is still ongoing")
+                
+                return {
+                    "status": "success",
+                    "result": {
+                        "transcription": results.get("transcription", ""),
+                        "response": results.get("response", ""),
+                        "confidence": results.get("confidence", 0.5)
+                    }
                 }
-            }
         except Exception as e:
             logger.error(f"Error reading results: {str(e)}", exc_info=True)
             return {
                 "status": "error",
                 "message": f"Failed to read transcription results: {str(e)}"
-            }
+                }
     return {
         "status": "no_results",
         "message": "No transcription results available. Try recording again."
@@ -1456,6 +1551,84 @@ async def check_processing(session_id: str):
         except Exception as e:
             logger.error(f"Error reading transcript file: {str(e)}")
 
+    # First check if we have a temp file result from the recording process
+    temp_file = recording_manager.get_temp_file(session_id)
+    if temp_file and os.path.exists(temp_file):
+        try:
+            with open(temp_file, 'r') as f:
+                content = f.read().strip()
+                if content:
+                    try:
+                        result = json.loads(content)
+                        # Return the result directly if we have valid content
+                        if result.get("transcription") and result.get("response"):
+                            logger.info(f"Found complete result in temp file for session {session_id}")
+                            return {
+                                "status": "complete",
+                                "result": result
+                            }
+                    except json.JSONDecodeError:
+                        logger.warning(f"Couldn't parse JSON in temp file: {temp_file}")
+        except Exception as e:
+            logger.error(f"Error reading temp file: {str(e)}")
+    
+    # Next check thought tracking which is used for process_query_with_flow
+    try:
+        thoughts_data = read_thoughts_from_file()
+        if thoughts_data:
+            status = thoughts_data.get("status", "").upper()
+            
+            # If processing is complete, return the final thought as the response
+            if status == "COMPLETE":
+                # Find the most recent completion thought
+                completion_thoughts = [t for t in thoughts_data.get("thoughts", []) if t.get("type") == "completion"]
+                if completion_thoughts:
+                    # Sort by timestamp and get the most recent
+                    latest_completion = sorted(completion_thoughts, key=lambda x: x.get("timestamp", 0))[-1]
+                    return {
+                        "status": "complete",
+                        "result": {
+                            "transcription": _transcript,
+                            "response": latest_completion.get("content", "Processing completed."),
+                            "confidence": 0.8
+                        }
+                    }
+            
+            # If there was an error, return it
+            elif status == "ERROR":
+                # Find the most recent error thought
+                error_thoughts = [t for t in thoughts_data.get("thoughts", []) if t.get("type") == "error"]
+                if error_thoughts:
+                    # Sort by timestamp and get the most recent
+                    latest_error = sorted(error_thoughts, key=lambda x: x.get("timestamp", 0))[-1]
+                    return {
+                        "status": "error",
+                        "result": {
+                            "transcription": _transcript,
+                            "response": latest_error.get("content", "An error occurred."),
+                            "error": "Processing error",
+                            "confidence": 0.5
+                        }
+                    }
+            
+            # If processing, show that it's in progress
+            elif status == "PROCESSING":
+                # Get the most recent thought to show progress
+                if thoughts_data.get("thoughts"):
+                    thoughts = sorted(thoughts_data["thoughts"], key=lambda x: x.get("timestamp", 0))
+                    latest_thought = thoughts[-1]
+                    return {
+                        "status": "processing",
+                        "progress": {
+                            "transcription": _transcript,
+                            "current_step": latest_thought.get("content", "Processing in progress..."),
+                            "type": latest_thought.get("type", "thinking")
+                        }
+                    }
+    except Exception as e:
+        logger.error(f"Error checking thoughts tracking: {str(e)}")
+
+    # Finally, if we just have a transcript but no other information, return it
     print("--------------------------------")
     print()
     print("frontend check-processing")
@@ -1463,39 +1636,19 @@ async def check_processing(session_id: str):
     print()
     print("--------------------------------")
 
-    # Properly structure the response to match what the frontend expects
-    # Check if we have a response already being processed
-    try:
-        # Check if we have a query response in process for this transcript
-        # For now, we'll just see if there's a crew manager process running
-        is_processing = crew_manager.is_processing() if hasattr(crew_manager, "is_processing") else False
-        
-        if is_processing:
-            return {
-                "status": "processing",
-                "transcription": _transcript,
-                "message": "Response is being generated"
-            }
-        # If we have a transcript, return it with a placeholder response
-        elif _transcript:
-            return {
-                "status": "complete",
-                "result": {
-                    "transcription": _transcript,
-                    "response": f"Processing query: {_transcript}",
-                    "confidence": 0.5
-                }
-            }
-        else:
-            return {
-                "status": "pending",
-                "message": "No transcript available yet"
-            }
-    except Exception as e:
-        logger.error(f"Error checking processing status: {str(e)}")
+    if _transcript:
         return {
-            "status": "complete",
-            "transcription": _transcript
+            "status": "transcribed",
+            "result": {
+                "transcription": _transcript,
+                "response": f"Processing query: {_transcript}",
+                "confidence": 0.5
+            }
+        }
+    else:
+        return {
+            "status": "pending",
+            "message": "No transcript available yet"
         }
 
 @app.get("/api/check-transcript-file")
@@ -1599,7 +1752,7 @@ def write_transcript_to_file(transcript_text):
 
 # Add function to reset the CrewManager
 def reset_crew_manager():
-    """Reset the crew manager to fix potential state issues."""
+    """Reset the global crew manager instance."""
     global crew_manager
     try:
         logger.info("Attempting to reset CrewAgentManager")
@@ -1617,17 +1770,35 @@ def reset_crew_manager():
         logger.error(f"Failed to reset CrewAgentManager: {str(e)}")
         return False
 
-@app.post("/api/reset-crew")
-async def reset_crew_endpoint():
-    """Endpoint to manually reset the CrewAgentManager."""
-    success = reset_crew_manager()
-    if success:
-        return {"status": "success", "message": "CrewAgentManager reset successfully"}
-    else:
-        return {"status": "error", "message": "Failed to reset CrewAgentManager"}
+def reset_carbon_flow():
+    """Reset the global carbon flow instance."""
+    global carbon_flow
+    try:
+        # Reinitialize the carbon flow with original settings
+        carbon_flow = CarbonSenseFlow(
+            config=config,
+            debug_mode=False,
+            use_cache=False,
+            store_thoughts=True
+        )
+        logger.info("Carbon flow has been reset")
+        return True
+    except Exception as e:
+        logger.error(f"Error resetting Carbon Flow: {str(e)}")
+        return False
+    
+@app.post("/api/reset")
+async def reset_endpoint():
+    """Reset the carbon flow instance."""
+    try:
+        success = reset_carbon_flow()
+        return {"status": "success" if success else "error", 
+                "message": "CarbonSenseFlow has been reset" if success else "Error resetting CarbonSenseFlow"}
+    except Exception as e:
+        return {"status": "error", "message": f"Error resetting CarbonSenseFlow: {str(e)}"}
 
 # Add a function to process with fallback to non-hierarchical mode
-def process_query_with_fallback(crew_manager, transcript, show_context=True):
+def process_query_with_fallback(crew_manager, transcript, show_context=False):
     """Process a query with fallback to non-hierarchical mode if hierarchical fails."""
     try:
         # First try with current settings
@@ -1657,6 +1828,235 @@ def process_query_with_fallback(crew_manager, transcript, show_context=True):
         else:
             # For other errors, re-raise
             raise e
+
+# Add this function to write thoughts to file atomically
+def write_thoughts_to_file(thoughts_data):
+    """Write thoughts to file in an atomic operation."""
+    try:
+        temp_path = THOUGHTS_FILE_PATH + ".tmp"
+        
+        # Write to temporary file first
+        with open(temp_path, "w") as f:
+            json.dump(thoughts_data, f, indent=2)
+        
+        # Then rename to final location (atomic operation)
+        os.replace(temp_path, THOUGHTS_FILE_PATH)
+        logger.info(f"Successfully wrote thoughts to file: {THOUGHTS_FILE_PATH}")
+        return True
+    except Exception as e:
+        logger.error(f"Error writing thoughts to file: {str(e)}")
+        return False
+
+# Add this function to read thoughts from file
+def read_thoughts_from_file():
+    """Read thoughts from file."""
+    try:
+        if os.path.exists(THOUGHTS_FILE_PATH):
+            with open(THOUGHTS_FILE_PATH, 'r') as f:
+                thoughts_data = json.load(f)
+                logger.info(f"Successfully read thoughts from file")
+                return thoughts_data
+        else:
+            logger.warning(f"Thoughts file does not exist: {THOUGHTS_FILE_PATH}")
+            return None
+    except Exception as e:
+        logger.error(f"Error reading thoughts from file: {str(e)}")
+        return None
+
+# Add this function to clean up thoughts file
+def cleanup_thoughts_file():
+    """Reset the thoughts file state to idle without deleting the file."""
+    try:
+        global current_thought_state
+        
+        # Read existing thoughts data to preserve history
+        existing_data = None
+        if os.path.exists(THOUGHTS_FILE_PATH):
+            try:
+                with open(THOUGHTS_FILE_PATH, 'r') as f:
+                    existing_data = json.load(f)
+                    logger.info(f"Read existing thoughts from file: {THOUGHTS_FILE_PATH}")
+            except Exception as e:
+                logger.error(f"Error reading existing thoughts: {str(e)}")
+                existing_data = None
+        
+        # Reset the current state
+        current_thought_state = {
+            "query_id": None,
+            "thoughts": existing_data.get("thoughts", []) if existing_data else [],
+            "status": "idle"
+        }
+        
+        # Write updated state to file
+        write_thoughts_to_file(current_thought_state)
+        
+        logger.info(f"Reset thoughts file state: {THOUGHTS_FILE_PATH}")
+        return True
+    except Exception as e:
+        logger.error(f"Error resetting thoughts file: {str(e)}")
+        return False
+
+# Update function to add thought to the state and file
+def add_thought(thought_type, content, query_id=None):
+    """Add a thought to the current state and write to file."""
+    global current_thought_state
+    
+    try:
+        # Log detailed debugging info
+        logger.info(f"Adding thought - Type: {thought_type}, Content: {content}, Query ID: {query_id}")
+        
+        # Create thought object
+        timestamp = time.time()
+        thought = {
+            "type": thought_type,
+            "content": content,
+            "timestamp": timestamp
+        }
+        
+        # If query_id is provided, update the current state
+        if query_id is not None:
+            if current_thought_state["query_id"] != query_id:
+                # First, read any existing thoughts to preserve history
+                existing_thoughts = []
+                if os.path.exists(THOUGHTS_FILE_PATH):
+                    try:
+                        with open(THOUGHTS_FILE_PATH, 'r') as f:
+                            existing_data = json.load(f)
+                            existing_thoughts = existing_data.get("thoughts", [])
+                    except Exception as e:
+                        logger.error(f"Error reading existing thoughts: {str(e)}")
+                
+                # New query with preserved history
+                current_thought_state = {
+                    "query_id": query_id,
+                    "thoughts": existing_thoughts + [thought],
+                    "status": "processing"
+                }
+                logger.info(f"Started new thought process for query ID: {query_id} with {len(existing_thoughts)} existing thoughts")
+            else:
+                # Add to existing query
+                current_thought_state["thoughts"].append(thought)
+                logger.info(f"Added thought to existing process for query ID: {query_id}")
+        else:
+            # Just add to current state without changing query_id
+            current_thought_state["thoughts"].append(thought)
+            logger.info(f"Added thought to current process without query ID")
+        
+        # Write updated state to file
+        success = write_thoughts_to_file(current_thought_state)
+        
+        # Log the result
+        if success:
+            logger.info(f"Successfully wrote thought to file")
+        else:
+            logger.error(f"Failed to write thought to file")
+        
+        return success
+    except Exception as e:
+        logger.error(f"Error adding thought: {str(e)}")
+        return False
+
+# Add a function to set the thought process status
+def set_thought_status(status, query_id=None):
+    """Set the status of the thought process."""
+    global current_thought_state
+    
+    try:
+        # Update query_id if provided
+        if query_id is not None:
+            current_thought_state["query_id"] = query_id
+        
+        # Update status
+        current_thought_state["status"] = status
+        logger.info(f"Updated thought process status to: {status} for query ID: {current_thought_state['query_id']}")
+        
+        # Write updated state to file
+        success = write_thoughts_to_file(current_thought_state)
+        
+        return success
+    except Exception as e:
+        logger.error(f"Error setting thought status: {str(e)}")
+        return False
+
+# Add an API endpoint to check for thoughts
+@app.get("/api/check-thoughts")
+async def check_thoughts():
+    """Check for thoughts from the file."""
+    try:
+        # Read thoughts from file
+        thoughts_data = read_thoughts_from_file()
+        
+        if thoughts_data:
+            logger.info(f"Returning thoughts data - Status: {thoughts_data.get('status')}, Thought count: {len(thoughts_data.get('thoughts', []))}")
+            return thoughts_data
+        else:
+            logger.warning("No thoughts data available")
+            return {
+                "query_id": None,
+                "thoughts": [],
+                "status": "idle"
+            }
+    except Exception as e:
+        logger.error(f"Error checking thoughts: {str(e)}")
+        return {
+            "query_id": None,
+            "thoughts": [],
+            "status": "error",
+            "error": str(e)
+        }
+
+# Add an API endpoint to clean up thoughts
+@app.post("/api/cleanup-thoughts")
+async def cleanup_thoughts():
+    """Clean up the thoughts file."""
+    success = cleanup_thoughts_file()
+    return {"status": "success" if success else "error"}
+
+# Add this function at the module level
+def process_query_sync(query, request_id=None):
+    """Process a query synchronously, for use in threads."""
+    try:
+        # Generate a request ID if none was provided
+        if request_id is None:
+            request_id = f"sync_{int(time.time() * 1000)}"
+            
+        # Setup thought tracking
+        add_thought("start", f"Processing query: {query}", request_id)
+        add_thought("thinking", "Using CarbonSenseFlow to process your query with event-driven architecture...", request_id)
+        set_thought_status("processing", request_id)
+        
+        # Add intermediate thoughts to mimic the flow's steps (matching process_query_with_flow)
+        add_thought("thinking", "Analyzing query intent and extracting entities...", request_id)
+        add_thought("thinking", "Researching carbon footprint data from multiple sources...", request_id)
+        add_thought("thinking", "Harmonizing data and calculating carbon estimates...", request_id)
+        
+        # Use the global carbon_flow instance
+        global carbon_flow
+        result = carbon_flow.process_query_with_flow(query)
+        
+        # Format result for output (matching process_query_with_flow)
+        formatted_result = result
+        if isinstance(result, dict) and "answer" in result:
+            formatted_result = result["answer"]
+            
+        # Add completion thought with result
+        add_thought("completion", formatted_result, request_id)
+        
+        # Update status
+        set_thought_status("COMPLETE", request_id)
+        
+        return formatted_result
+    except Exception as e:
+        logger.error(f"Error in process_query_sync: {str(e)}")
+        
+        # Add error thought
+        add_thought("error", f"An error occurred while processing your query: {str(e)}", request_id)
+        set_thought_status("ERROR", request_id)
+        
+        return {
+            "error": str(e),
+            "response": f"An error occurred: {str(e)}"
+        }
 
 # Run the app using uvicorn if executed directly
 if __name__ == "__main__":

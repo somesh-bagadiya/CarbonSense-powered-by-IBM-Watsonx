@@ -1,0 +1,46 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# CarbonSense Data Management
+
+This rule describes how CarbonSense manages data, including processing, embedding generation, and storage.
+
+## Data Directories
+
+CarbonSense uses several data directories:
+
+- `Data_RAW/` - Original data files
+- `Data_processed/` - Processed and structured data
+- `Embeddings/` - Stored embeddings for different models
+- `file_cache/` - Local file cache for efficient processing
+- `logs/` - Log files including agent thoughts and visualizations
+
+## Embedding Models
+
+The system supports multiple embedding models:
+
+1. **30M Parameter Model** (default):
+   - `ibm/slate-30m-english-rtrvr-v2`
+   - 384-dimensional embeddings
+   - General purpose retrieval
+
+2. **125M Parameter Model**:
+   - `ibm/slate-125m-english-rtrvr-v2`
+   - 768-dimensional embeddings
+   - Enhanced performance
+
+3. **Granite Model**:
+   - `ibm/granite-embedding-278m-multilingual`
+   - 768-dimensional embeddings
+   - Multilingual support
+
+## Key Components
+
+- [src/carbonsense/core/embedding_generator.py](mdc:src/carbonsense/core/embedding_generator.py) - Embedding generation
+- [src/carbonsense/services/embedding_storage_service.py](mdc:src/carbonsense/services/embedding_storage_service.py) - Embedding storage
+- [src/carbonsense/services/milvus_service.py](mdc:src/carbonsense/services/milvus_service.py) - Vector database management
+- [src/carbonsense/services/cos_service.py](mdc:src/carbonsense/services/cos_service.py) - Cloud Object Storage
+- [src/carbonsense/utils/document_processor.py](mdc:src/carbonsense/utils/document_processor.py) - Document processing
+

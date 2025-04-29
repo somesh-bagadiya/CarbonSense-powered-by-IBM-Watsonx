@@ -191,9 +191,10 @@ h1 {
     flex: 1;
     background-color: var(--primary-light);
     border-radius: 8px;
-    padding: 16px; /* Reduced from 18px */
+    padding: 20px;
     display: flex;
     flex-direction: column;
+    gap: 10px;
 }
 
 .stat-box.daily {
@@ -207,46 +208,58 @@ h1 {
 }
 
 .stat-title {
-    font-size: 13px; /* Reduced from 14px */
+    font-size: 16px;
     font-weight: 600;
     color: var(--text-light);
-    margin-bottom: 4px; /* Reduced from 6px */
 }
 
 .stat-value {
-    font-size: 24px; /* Reduced from 26px */
+    font-size: 28px;
     font-weight: 700;
     color: var(--text-dark);
-    margin-bottom: 8px; /* Reduced from 10px */
-}
-
-.stat-compare {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 12px; /* Reduced from 13px */
 }
 
 .stat-target {
     color: var(--text-light);
-    font-size: 13px;
-    margin-bottom: 4px;
+    font-size: 15px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
 }
 
 .stat-change {
     font-weight: 600;
-    padding: 2px 8px;
+    font-size: 15px;
+    padding: 8px 14px;
     border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-change:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.stat-change i {
+    font-size: 18px;
 }
 
 .stat-change.positive {
     color: var(--green-color);
     background-color: var(--green-light);
+    border-left: 4px solid var(--green-color);
 }
 
 .stat-change.negative {
     color: var(--red-color);
     background-color: var(--red-light);
+    border-left: 4px solid var(--red-color);
 }
 
 .climate-fact {
@@ -416,23 +429,23 @@ h1 {
 }
 
 .legend-color.food {
-    background-color: #4CAF50;
+    background-color: #A7D7C5;
 }
 
 .legend-color.energy {
-    background-color: #2196F3;
+    background-color: #FAE29C;
 }
 
 .legend-color.mobility {
-    background-color: #9C27B0;
+    background-color: #64B5F6;
 }
 
 .legend-color.purchases {
-    background-color: #FFC107;
+    background-color: #3B8686;
 }
 
 .legend-color.miscellaneous {
-    background-color: #9E9E9E;
+    background-color: #F5B665;
 }
 
 .legend-text {
@@ -552,11 +565,11 @@ h1 {
     flex-shrink: 0; /* Prevent icon from shrinking */
 }
 
-.detail-icon.green { background-color: #4CAF50; }
-.detail-icon.blue { background-color: #2196F3; }
-.detail-icon.purple { background-color: #9C27B0; }
-.detail-icon.yellow { background-color: #FFC107; }
-.detail-icon.gray { background-color: #9E9E9E; }
+.detail-icon.green { background-color: #A7D7C5; }
+.detail-icon.blue { background-color: #FAE29C; }
+.detail-icon.purple { background-color: #64B5F6; }
+.detail-icon.yellow { background-color: #3B8686; }
+.detail-icon.gray { background-color: #F5B665; }
 
 .detail-info {
     flex: 1;
@@ -592,20 +605,35 @@ h1 {
 .detail-change {
     font-size: 14px;
     font-weight: 600;
-    padding: 2px 8px;
+    padding: 8px 14px;
     border-radius: 12px;
-    min-width: 60px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.detail-change:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
+}
+
+.detail-change i {
+    font-size: 15px;
 }
 
 .detail-change.positive {
     color: var(--green-color);
     background-color: var(--green-light);
+    border-left: 3px solid var(--green-color);
 }
 
 .detail-change.negative {
     color: var(--red-color);
     background-color: var(--red-light);
+    border-left: 3px solid var(--red-color);
 }
 
 /* Chat Section */
@@ -1276,4 +1304,11 @@ h1 {
     color: #333;
     flex: 1;
     line-height: 1.4;
+}
+
+.period-indicator {
+    color: #666;
+    font-size: 0.9em;
+    font-weight: normal;
+    margin-left: 8px;
 } 

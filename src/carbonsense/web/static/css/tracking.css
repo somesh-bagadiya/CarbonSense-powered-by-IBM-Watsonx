@@ -34,32 +34,101 @@
 
 .notification {
     position: fixed;
-    top: 20px;
+    bottom: 20px;
     right: 20px;
-    padding: 12px 24px;
+    padding: 12px 20px;
     border-radius: 4px;
     color: white;
-    z-index: 1000;
-    animation: slideIn 0.3s ease-out;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-.notification.success {
-    background-color: #2ecc71;
-}
-
-.notification.error {
-    background-color: #e74c3c;
+    font-weight: 500;
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: slideIn 0.3s forwards, fadeOut 0.5s 2.5s forwards;
+    max-width: 350px;
 }
 
 @keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
     to {
-        transform: translateX(0);
         opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOut {
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+.notification.success {
+    background-color: #4CAF50;
+}
+
+.notification.error {
+    background-color: #f44336;
+}
+
+.notification.warning {
+    background-color: #ff9800;
+}
+
+/* Value updated animation */
+.value-updated {
+    animation: highlight 0.3s ease-out;
+}
+
+@keyframes highlight {
+    0% {
+        background-color: rgba(76, 175, 80, 0.3);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+/* Button styles */
+.tracked {
+    background-color: #4CAF50 !important;
+    color: white !important;
+}
+
+/* Period selector enhancements */
+.period-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#refresh-data-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #2196F3;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+#refresh-data-btn:hover {
+    background-color: rgba(33, 150, 243, 0.1);
+    transform: rotate(30deg);
+}
+
+#refresh-data-btn.loading {
+    animation: spin 1s linear infinite;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
     }
 }
 
@@ -73,10 +142,6 @@
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
-}
-
-.value-updated {
-    animation: pulse 0.3s ease-in-out;
 }
 
 /* Tracking notification */

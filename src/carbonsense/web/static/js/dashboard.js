@@ -701,6 +701,12 @@ function setupExamplePills() {
 
 // Setup for time period selector
 function setupPeriodSelector() {
+    console.log('[Dashboard] Setting up period selector - SKIPPING to use tracking.js implementation');
+    
+    // Skip this entire function since tracking.js now handles period selection
+    return;
+    
+    /*
     const periodSelector = document.getElementById('time-period-selector');
     const totalBox = document.getElementById('carbon-total-box');
     
@@ -779,6 +785,7 @@ function setupPeriodSelector() {
         // Update pie chart
         updateCategoryPieChart(data.categories);
     });
+    */
 }
 
 // Update category legend with new data
@@ -800,26 +807,60 @@ function updateCategoryLegend(categories) {
     
 // Update category pie chart with new data
 function updateCategoryPieChart(categories) {
-    const chart = Chart.getChart('category-pie-chart');
-    if (!chart) return;
+    console.log('[Dashboard] Attempting to update pie chart with categories:', categories);
     
-    // Extract values in the correct order
-    const values = [
-        parseFloat(categories.food),
-        parseFloat(categories.energy),
-        parseFloat(categories.mobility),
-        parseFloat(categories.purchases),
-        parseFloat(categories.misc)
-    ];
+    // Try to get the chart in multiple ways
+    let chart = null;
     
-    chart.data.datasets[0].data = values;
-    chart.update();
+    try {
+        // First try from Chart.js registry
+        chart = Chart.getChart('category-pie-chart');
+        
+        // If not found, try global variable
+        if (!chart && window.categoryPieChart) {
+            chart = window.categoryPieChart;
+        }
+        
+        if (!chart) {
+            console.log('[Dashboard] No chart instance found, will create a new one');
+            // Initialize a new chart if needed
+            return initializeCategoryPieChart();
+        }
+        
+        // Extract values in the correct order
+        const values = [
+            parseFloat(categories.food) || 0,
+            parseFloat(categories.energy) || 0,
+            parseFloat(categories.mobility) || 0,
+            parseFloat(categories.purchases) || 0,
+            parseFloat(categories.misc) || 0
+        ];
+        
+        console.log('[Dashboard] Updating pie chart with values:', values);
+        
+        // Update the chart data
+        chart.data.datasets[0].data = values;
+        chart.update();
+        
+        return chart;
+    } catch (error) {
+        console.error('[Dashboard] Error updating category pie chart:', error);
+        // Try to recover by creating a new chart
+        return initializeCategoryPieChart();
+    }
 }
 
 // Initialize category pie chart
 function initializeCategoryPieChart() {
     const categoryChart = document.getElementById('category-pie-chart');
     if (!categoryChart) return;
+    
+    // Destroy any existing chart instance first
+    const existingChart = Chart.getChart('category-pie-chart');
+    if (existingChart) {
+        console.log('[Dashboard] Destroying existing category pie chart instance');
+        existingChart.destroy();
+    }
     
     // Get category values from the DOM with null checks
     const getValueFromLegend = (index) => {
@@ -832,6 +873,9 @@ function initializeCategoryPieChart() {
     const mobilityValue = getValueFromLegend(3);
     const purchasesValue = getValueFromLegend(4);
     const miscValue = getValueFromLegend(5);
+    
+    console.log('[Dashboard] Creating pie chart with values:', 
+                [foodValue, energyValue, mobilityValue, purchasesValue, miscValue]);
         
     // Create the pie chart
     const pieChart = new Chart(categoryChart, {
@@ -841,11 +885,11 @@ function initializeCategoryPieChart() {
                 datasets: [{
                     data: [foodValue, energyValue, mobilityValue, purchasesValue, miscValue],
                     backgroundColor: [
-                        '#4CAF50', // Green for Food
-                        '#2196F3', // Blue for Energy
-                        '#9C27B0', // Purple for Mobility
-                        '#FFC107', // Yellow for Purchases
-                        '#9E9E9E'  // Gray for Miscellaneous
+                        '#A7D7C5', // Green for Food
+                        '#FAE29C', // Blue for Energy
+                        '#64B5F6', // Purple for Mobility
+                        '#3B8686', // Yellow for Purchases
+                        '#F5B665'  // Gray for Miscellaneous
                     ],
                     borderWidth: 1,
                     borderColor: '#fff'
@@ -878,6 +922,7 @@ function initializeCategoryPieChart() {
     
     // Make chart instance available globally
     window.categoryPieChart = pieChart;
+    console.log('[Dashboard] Category pie chart initialized and made available globally');
     return pieChart;
 }
 
@@ -920,6 +965,13 @@ function initializeZoomedPieChart() {
     const zoomedChart = document.getElementById('zoomed-category-pie-chart');
     if (!zoomedChart) return;
     
+    // Destroy any existing chart instance to prevent the "Canvas is already in use" error
+    const existingChart = Chart.getChart('zoomed-category-pie-chart');
+    if (existingChart) {
+        console.log('[Dashboard] Destroying existing zoomed chart instance');
+        existingChart.destroy();
+    }
+    
     // Get category values from the DOM with null checks
     const getValueFromLegend = (index) => {
         const element = document.querySelector(`.legend-item:nth-child(${index}) .legend-value`);
@@ -932,6 +984,9 @@ function initializeZoomedPieChart() {
     const purchasesValue = getValueFromLegend(4);
     const miscValue = getValueFromLegend(5);
     
+    console.log('[Dashboard] Creating new zoomed pie chart with values:', 
+                [foodValue, energyValue, mobilityValue, purchasesValue, miscValue]);
+    
     // Create the zoomed pie chart
     new Chart(zoomedChart, {
         type: 'pie',
@@ -940,11 +995,11 @@ function initializeZoomedPieChart() {
             datasets: [{
                 data: [foodValue, energyValue, mobilityValue, purchasesValue, miscValue],
                 backgroundColor: [
-                    '#4CAF50', // Green for Food
-                    '#2196F3', // Blue for Energy
-                    '#9C27B0', // Purple for Mobility
-                    '#FFC107', // Yellow for Purchases
-                    '#9E9E9E'  // Gray for Miscellaneous
+                    '#A7D7C5', // Green for Food
+                    '#FAE29C', // Blue for Energy
+                    '#64B5F6', // Purple for Mobility
+                    '#3B8686', // Yellow for Purchases
+                    '#F5B665'  // Gray for Miscellaneous
                 ],
                 borderWidth: 1,
                 borderColor: '#fff'
@@ -981,6 +1036,138 @@ function initializeZoomedPieChart() {
             backgroundColor: 'white'
         }
     });
+    
+    // Update the detailed breakdown in the modal
+    updateDetailedBreakdown(foodValue, energyValue, mobilityValue, purchasesValue, miscValue);
+}
+
+// Update the detailed breakdown in the modal
+function updateDetailedBreakdown(foodValue, energyValue, mobilityValue, purchasesValue, miscValue) {
+    // Get the current period from the selector
+    const periodSelector = document.getElementById('time-period-selector');
+    const currentPeriod = periodSelector ? periodSelector.value : 'daily';
+    
+    console.log(`[Dashboard] Updating detailed breakdown for period: ${currentPeriod}`);
+    
+    // Update period indicator in the modal title
+    const periodIndicator = document.querySelector('.period-indicator');
+    if (periodIndicator) {
+        const periodName = currentPeriod.charAt(0).toUpperCase() + currentPeriod.slice(1);
+        periodIndicator.textContent = `(${periodName})`;
+    }
+    
+    // Update Food & Diet
+    const foodValueElement = document.querySelector('.detail-item:nth-child(1) .detail-value');
+    if (foodValueElement) {
+        foodValueElement.textContent = `${foodValue.toFixed(2)} kg`;
+    }
+    
+    // Update Energy Use
+    const energyValueElement = document.querySelector('.detail-item:nth-child(2) .detail-value');
+    if (energyValueElement) {
+        energyValueElement.textContent = `${energyValue.toFixed(2)} kg`;
+    }
+    
+    // Update Mobility
+    const mobilityValueElement = document.querySelector('.detail-item:nth-child(3) .detail-value');
+    if (mobilityValueElement) {
+        mobilityValueElement.textContent = `${mobilityValue.toFixed(2)} kg`;
+    }
+    
+    // Update Purchases
+    const purchasesValueElement = document.querySelector('.detail-item:nth-child(4) .detail-value');
+    if (purchasesValueElement) {
+        purchasesValueElement.textContent = `${purchasesValue.toFixed(2)} kg`;
+    }
+    
+    // Update Miscellaneous
+    const miscValueElement = document.querySelector('.detail-item:nth-child(5) .detail-value');
+    if (miscValueElement) {
+        miscValueElement.textContent = `${miscValue.toFixed(2)} kg`;
+    }
+    
+    // Update the target comparisons and percentages
+    updateDetailTargetComparisons(currentPeriod, {
+        food: foodValue,
+        energy: energyValue,
+        mobility: mobilityValue,
+        purchases: purchasesValue,
+        misc: miscValue
+    });
+}
+
+// Update the target comparisons for detailed items based on period
+function updateDetailTargetComparisons(period, values) {
+    // Define targets for each period
+    const targets = {
+        daily: {
+            food: 1.8,
+            energy: 1.5,
+            mobility: 1.1,
+            purchases: 1.4,
+            misc: 6.35      // Adjusted to sum to 12.15 daily total
+        },
+        weekly: {
+            food: 12.6,    // 1.8 * 7
+            energy: 10.5,   // 1.5 * 7
+            mobility: 7.7,  // 1.1 * 7
+            purchases: 9.8,  // 1.4 * 7
+            misc: 44.45      // Adjusted to sum to 85.05 weekly total
+        },
+        monthly: {
+            food: 54.0,    // 1.8 * 30
+            energy: 45.0,   // 1.5 * 30
+            mobility: 33.0,  // 1.1 * 30
+            purchases: 42.0,  // 1.4 * 30
+            misc: 190.5      // Adjusted to sum to 364.5 monthly total
+        }
+    };
+    
+    // Get current period's targets
+    const currentTargets = targets[period] || targets.daily;
+    
+    // Update each category's target and percentage values
+    updateCategoryTarget(1, 'food', values.food, currentTargets.food, false);
+    updateCategoryTarget(2, 'energy', values.energy, currentTargets.energy, false);
+    updateCategoryTarget(3, 'mobility', values.mobility, currentTargets.mobility, false);
+    updateCategoryTarget(4, 'purchases', values.purchases, currentTargets.purchases, false);
+    updateCategoryTarget(5, 'misc', values.misc, currentTargets.misc, true); // Hide percentage for Miscellaneous
+}
+
+// Helper function to update a category's target display and percentage
+function updateCategoryTarget(index, category, value, target, hidePercentage) {
+    // Update target text
+    const targetElement = document.querySelector(`.detail-item:nth-child(${index}) .detail-target`);
+    if (targetElement) {
+        targetElement.textContent = `Target: ${target.toFixed(1)} kg`;
+    }
+    
+    // Calculate and update percentage
+    const percentElement = document.querySelector(`.detail-item:nth-child(${index}) .detail-change`);
+    if (percentElement) {
+        if (hidePercentage) {
+            // Hide percentage for Miscellaneous
+            percentElement.style.display = 'none';
+        } else {
+            // Show and update percentage for other categories
+            percentElement.style.display = '';
+            const percentChange = ((Math.abs(value - target) / target) * 100).toFixed(1);
+            let percentText, cssClass, icon;
+            
+            if (value > target) {
+                percentText = `${percentChange}% over target`;
+                cssClass = 'negative';
+                icon = 'fa-arrow-circle-up';
+            } else {
+                percentText = `${percentChange}% under target`;
+                cssClass = 'positive';
+                icon = 'fa-arrow-circle-down';
+            }
+            
+            percentElement.innerHTML = `<i class="fas ${icon}"></i> ${percentText}`;
+            percentElement.className = `detail-change ${cssClass}`;
+        }
+    }
 }
 
 // Helper function for parsing nested JSON in API responses
@@ -1385,3 +1572,4 @@ window.addBotMessage = addBotMessage;
 window.updateDashboardData = updateDashboardData;
 window.showTrackingNotification = showTrackingNotification; 
 window.addThought = addThought; 
+window.updateDetailedBreakdown = updateDetailedBreakdown; 

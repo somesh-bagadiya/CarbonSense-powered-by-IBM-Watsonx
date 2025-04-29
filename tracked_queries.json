@@ -1,22 +1,68 @@
 {
-  "Food & Diet": {
-    "count": 0,
-    "total": 0.0
+  "daily": {
+    "Food & Diet": {
+      "count": 3,
+      "total": 2.8
+    },
+    "Energy Use": {
+      "count": 3,
+      "total": 1.2
+    },
+    "Mobility": {
+      "count": 4,
+      "total": 1.54
+    },
+    "Purchases": {
+      "count": 3,
+      "total": 2.6
+    },
+    "Miscellaneous": {
+      "count": 1,
+      "total": 0.8
+    }
   },
-  "Energy Use": {
-    "count": 2,
-    "total": 1.5
+  "weekly": {
+    "Food & Diet": {
+      "count": 6,
+      "total": 91.6
+    },
+    "Energy Use": {
+      "count": 6,
+      "total": 9.2
+    },
+    "Mobility": {
+      "count": 8,
+      "total": 26.9
+    },
+    "Purchases": {
+      "count": 4,
+      "total": 8.5
+    },
+    "Miscellaneous": {
+      "count": 2,
+      "total": 1.2
+    }
   },
-  "Mobility": {
-    "count": 3,
-    "total": 13.54
-  },
-  "Purchases": {
-    "count": 3,
-    "total": 2.6
-  },
-  "Miscellaneous": {
-    "count": 1,
-    "total": 0.3
+  "monthly": {
+    "Food & Diet": {
+      "count": 15,
+      "total": 131.2
+    },
+    "Energy Use": {
+      "count": 19,
+      "total": 34.5
+    },
+    "Mobility": {
+      "count": 25,
+      "total": 96.8
+    },
+    "Purchases": {
+      "count": 15,
+      "total": 34.2
+    },
+    "Miscellaneous": {
+      "count": 8,
+      "total": 4.6
+    }
   }
 }

@@ -1509,7 +1509,12 @@ function setupVoiceRecording() {
                 console.log('[Voice] Formatted result for addBotMessage:', formattedResult);
                 
                 // Pass the formatted result to the global addBotMessage function
+                // Note: addBotMessage in dashboard.js already adds a Track Impact button when appropriate
                 window.addBotMessage(formattedResult);
+                
+                // NOTE: We don't need to add a Track Impact button here because
+                // the dashboard's addBotMessage function already adds one when appropriate.
+                // This prevents duplicate buttons from appearing.
             } else {
                 console.log('[Voice] Using local display method (addBotMessage not available)');
                 // Create message container
@@ -1627,7 +1632,7 @@ function setupVoiceRecording() {
         });
     }
     
-    // Helper function to display structured response 
+    // Display the structured response
     function displayStructuredResponse(result) {
         console.log('[Voice] Displaying structured response:', result);
         
@@ -1684,35 +1689,8 @@ function setupVoiceRecording() {
         // Add the response to the chat
         addBotMessage(content);
         
-        // Add Track Impact button if we have a carbon value
-        if (carbonValue !== null && category !== null) {
-            console.log('[Voice] Adding Track Impact button for:', carbonValue, category);
-            
-            // Create a container for the button
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'track-button-container';
-            
-            // Create the button
-            const trackButton = document.createElement('button');
-            trackButton.className = 'btn btn-primary track-query-btn';
-            trackButton.innerHTML = '<i class="fas fa-chart-line"></i> Track Impact';
-            
-            // Set up the event listener
-            trackButton.addEventListener('click', function(event) {
-                trackQuery(content, category, carbonValue, event);
-            });
-            
-            // Add button to container
-            buttonContainer.appendChild(trackButton);
-            
-            // Add the button container to the chat
-            const messagesContainer = document.getElementById('messages');
-            if (messagesContainer) {
-                messagesContainer.appendChild(buttonContainer);
-            } else {
-                console.error('[Voice] Could not find messages container');
-            }
-        }
+        // NOTE: Track Impact button is now added in displayResponse function
+        // to avoid duplicates, so we've removed that code from here
         
         // Scroll to the bottom of the messages container
         const messagesContainer = document.getElementById('messages');
@@ -1950,17 +1928,7 @@ function setupVoiceRecording() {
 
 // Add the trackQuery function if it doesn't exist already in this context
 function trackQuery(answer, category, carbonValue, event) {
-    console.log('[Voice] Tracking query with carbonValue:', carbonValue, 'category:', category);
-    
-    // Use the global trackQuery if it exists
-    if (typeof window.trackQuery === 'function') {
-        console.log('[Voice] Using global trackQuery function from dashboard.js');
-        window.trackQuery(answer, category, carbonValue, event);
-        return;
-    }
-    
-    // Fallback implementation if global trackQuery is not available
-    console.log('[Voice] Using local trackQuery implementation');
+    console.log('[Voice] Tracking query directly with carbonValue:', carbonValue, 'category:', category);
     
     // Get target button from event or find it
     const targetButton = event ? event.currentTarget : document.querySelector('.track-query-btn');
@@ -1969,11 +1937,28 @@ function trackQuery(answer, category, carbonValue, event) {
         return;
     }
     
+    // Validate carbon value
+    if (isNaN(carbonValue) || carbonValue <= 0) {
+        console.error(`[Voice] Invalid carbon value: ${carbonValue}`);
+        if (typeof window.showTrackingNotification === 'function') {
+            window.showTrackingNotification(false, 'Invalid carbon value for tracking');
+        } else {
+            alert('Invalid carbon value. Please try again.');
+        }
+        return;
+    }
+    
     // Disable the button to prevent multiple submissions
     targetButton.disabled = true;
     targetButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Tracking...';
     
-    // Send tracking request
+    console.log('[Voice] Making API request with payload:', {
+        query: answer,
+        category: category,
+        carbon_value: carbonValue
+    });
+    
+    // Send tracking request directly to API
     fetch('/api/track-query', {
         method: 'POST',
         headers: {
@@ -1982,10 +1967,18 @@ function trackQuery(answer, category, carbonValue, event) {
         body: JSON.stringify({
             query: answer,
             category: category,
-            carbonValue: carbonValue
+            carbon_value: carbonValue // Use carbon_value as expected by the API
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            console.error('[Voice] API responded with error status:', response.status);
+            return response.json().then(errData => {
+                throw new Error(errData.message || `HTTP error: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         console.log('[Voice] Query tracked successfully:', data);
         
@@ -1993,9 +1986,14 @@ function trackQuery(answer, category, carbonValue, event) {
         targetButton.innerHTML = '<i class="fas fa-check"></i> Tracked';
         targetButton.classList.add('tracked');
         
-        // Show tracking confirmation toast if function exists
-        if (typeof window.showToast === 'function') {
-            window.showToast('Query tracked successfully!', 'success');
+        // Update dashboard data if the function exists
+        if (typeof window.updateDashboardData === 'function') {
+            window.updateDashboardData(data);
+        }
+        
+        // Show tracking notification if the function exists
+        if (typeof window.showTrackingNotification === 'function') {
+            window.showTrackingNotification(true, `Added ${carbonValue.toFixed(2)} kg CO₂ to your ${category} footprint.`);
         } else {
             // Simple alert fallback
             alert('Carbon impact tracked successfully!');
@@ -2008,12 +2006,12 @@ function trackQuery(answer, category, carbonValue, event) {
         targetButton.disabled = false;
         targetButton.innerHTML = '<i class="fas fa-chart-line"></i> Track Impact';
         
-        // Show error toast if function exists
-        if (typeof window.showToast === 'function') {
-            window.showToast('Failed to track query. Please try again.', 'error');
+        // Show error notification if the function exists
+        if (typeof window.showTrackingNotification === 'function') {
+            window.showTrackingNotification(false, `Failed to track query: ${error.message || 'Unknown error'}`);
         } else {
             // Simple alert fallback
-            alert('Failed to track carbon impact. Please try again.');
+            alert(`Failed to track carbon impact: ${error.message || 'Unknown error'}`);
         }
     });
 }
@@ -2200,3 +2198,4 @@ function ensureScrolling() {
         }
     });
 }
+

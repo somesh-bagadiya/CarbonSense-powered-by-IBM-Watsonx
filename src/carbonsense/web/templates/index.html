@@ -28,28 +28,47 @@
             <aside class="sidebar">
                 <div class="breakdown-header">
                     <h2 class="sidebar-title">Carbon Breakdown</h2>
-                    <div class="period-selector">
-                        <select id="time-period-selector">
-                            <option value="daily" selected>Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                        </select>
+                    <div class="period-actions">
+                        <div class="period-selector">
+                            <select id="time-period-selector">
+                                <option value="daily" {% if data.period == 'daily' %}selected{% endif %}>Daily</option>
+                                <option value="weekly" {% if data.period == 'weekly' %}selected{% endif %}>Weekly</option>
+                                <option value="monthly" {% if data.period == 'monthly' %}selected{% endif %}>Monthly</option>
+                            </select>
+                        </div>
+                        <!-- <button id="refresh-data-btn" title="Refresh data from tracked_queries.json">
+                            <i class="fas fa-sync-alt"></i>
+                        </button> -->
                     </div>
                 </div>
                 
                 <!-- Carbon Total -->
                 <div class="stat-box daily" id="carbon-total-box">
-                    <div class="stat-title">Today's Total</div>
+                    <div class="stat-title">{{ data.period|title }} Total</div>
                     <div class="stat-value">{{ data.total_carbon }} kg CO<sub>2</sub></div>
-                    <div class="stat-compare">
-                        <span class="stat-target">Target: 12.15 kg</span>
-                        <span class="stat-change {% if data.total_carbon > 12.15 %}negative{% else %}positive{% endif %}">
-                            {% if data.total_carbon > 12.15 %}
-                                +{{ ((data.total_carbon - 12.15) / 12.15 * 100) | round(1) }}%
-                            {% else %}
-                                -{{ ((12.15 - data.total_carbon) / 12.15 * 100) | round(1) }}%
-                            {% endif %}
-                        </span>
+                    <div class="stat-target">
+                        {% if data.period == 'weekly' %}
+                            Target: 85.05 kg
+                        {% elif data.period == 'monthly' %}
+                            Target: 364.5 kg
+                        {% else %}
+                            Target: 12.15 kg
+                        {% endif %}
+                    </div>
+                    <div class="stat-change {% if data.total_carbon > 12.15 %}negative{% else %}positive{% endif %}">
+                        {% if data.period == 'weekly' %}
+                            {% set target = 85.05 %}
+                        {% elif data.period == 'monthly' %}
+                            {% set target = 364.5 %}
+                        {% else %}
+                            {% set target = 12.15 %}
+                        {% endif %}
+                        
+                        {% if data.total_carbon > target %}
+                            <i class="fas fa-arrow-circle-up"></i> {{ ((data.total_carbon - target) / target * 100) | round(1) }}% over target
+                        {% else %}
+                            <i class="fas fa-arrow-circle-down"></i> {{ ((target - data.total_carbon) / target * 100) | round(1) }}% under target
+                        {% endif %}
                     </div>
                 </div>
                 
@@ -109,7 +128,7 @@
                 <div id="pie-chart-modal" class="modal">
                     <div class="modal-content">
                         <span class="close-modal">&times;</span>
-                        <h2>Category Breakdown Details</h2>
+                        <h2>Category Breakdown Details <span class="period-indicator">({{ data.period|title }})</span></h2>
                         <div class="zoomed-pie-chart-container">
                             <canvas id="zoomed-category-pie-chart" class="zoomed-category-pie-chart"></canvas>
                         </div>
@@ -123,12 +142,28 @@
                                     <div class="detail-name">Food & Diet</div>
                                     <div class="detail-values">
                                         <div class="detail-value">{{ data.food_carbon }} kg</div>
-                                        <div class="detail-target">Target: 1.8 kg</div>
-                                        <div class="detail-change {% if data.food_carbon > 1.8 %}negative{% else %}positive{% endif %}">
-                                            {% if data.food_carbon > 1.8 %}
-                                                +{{ ((data.food_carbon - 1.8) / 1.8 * 100) | round(0) }}%
+                                        <div class="detail-target">
+                                            {% if data.period == 'weekly' %}
+                                                Target: 12.6 kg
+                                            {% elif data.period == 'monthly' %}
+                                                Target: 54.0 kg
                                             {% else %}
-                                                -{{ ((1.8 - data.food_carbon) / 1.8 * 100) | round(0) }}%
+                                                Target: 1.8 kg
+                                            {% endif %}
+                                        </div>
+                                        <div class="detail-change {% if data.period == 'weekly' and data.food_carbon > 12.6 or data.period == 'monthly' and data.food_carbon > 54.0 or data.period == 'daily' and data.food_carbon > 1.8 %}negative{% else %}positive{% endif %}">
+                                            {% if data.period == 'weekly' %}
+                                                {% set target = 12.6 %}
+                                            {% elif data.period == 'monthly' %}
+                                                {% set target = 54.0 %}
+                                            {% else %}
+                                                {% set target = 1.8 %}
+                                            {% endif %}
+                                            
+                                            {% if data.food_carbon > target %}
+                                                <i class="fas fa-arrow-circle-up"></i> {{ ((data.food_carbon - target) / target * 100) | round(0) }}% over target
+                                            {% else %}
+                                                <i class="fas fa-arrow-circle-down"></i> {{ ((target - data.food_carbon) / target * 100) | round(0) }}% under target
                                             {% endif %}
                                         </div>
                                     </div>
@@ -144,12 +179,28 @@
                                     <div class="detail-name">Energy Use</div>
                                     <div class="detail-values">
                                         <div class="detail-value">{{ data.household_carbon }} kg</div>
-                                        <div class="detail-target">Target: 1.5 kg</div>
-                                        <div class="detail-change {% if data.household_carbon > 1.5 %}negative{% else %}positive{% endif %}">
-                                            {% if data.household_carbon > 1.5 %}
-                                                +{{ ((data.household_carbon - 1.5) / 1.5 * 100) | round(0) }}%
+                                        <div class="detail-target">
+                                            {% if data.period == 'weekly' %}
+                                                Target: 10.5 kg
+                                            {% elif data.period == 'monthly' %}
+                                                Target: 45.0 kg
                                             {% else %}
-                                                -{{ ((1.5 - data.household_carbon) / 1.5 * 100) | round(0) }}%
+                                                Target: 1.5 kg
+                                            {% endif %}
+                                        </div>
+                                        <div class="detail-change {% if data.period == 'weekly' and data.household_carbon > 10.5 or data.period == 'monthly' and data.household_carbon > 45.0 or data.period == 'daily' and data.household_carbon > 1.5 %}negative{% else %}positive{% endif %}">
+                                            {% if data.period == 'weekly' %}
+                                                {% set target = 10.5 %}
+                                            {% elif data.period == 'monthly' %}
+                                                {% set target = 45.0 %}
+                                            {% else %}
+                                                {% set target = 1.5 %}
+                                            {% endif %}
+                                            
+                                            {% if data.household_carbon > target %}
+                                                <i class="fas fa-arrow-circle-up"></i> {{ ((data.household_carbon - target) / target * 100) | round(0) }}% over target
+                                            {% else %}
+                                                <i class="fas fa-arrow-circle-down"></i> {{ ((target - data.household_carbon) / target * 100) | round(0) }}% under target
                                             {% endif %}
                                         </div>
                                     </div>
@@ -165,12 +216,28 @@
                                     <div class="detail-name">Mobility</div>
                                     <div class="detail-values">
                                         <div class="detail-value">{{ data.transportation_carbon }} kg</div>
-                                        <div class="detail-target">Target: 1.1 kg</div>
-                                        <div class="detail-change {% if data.transportation_carbon > 1.1 %}negative{% else %}positive{% endif %}">
-                                            {% if data.transportation_carbon > 1.1 %}
-                                                +{{ ((data.transportation_carbon - 1.1) / 1.1 * 100) | round(0) }}%
+                                        <div class="detail-target">
+                                            {% if data.period == 'weekly' %}
+                                                Target: 7.7 kg
+                                            {% elif data.period == 'monthly' %}
+                                                Target: 33.0 kg
                                             {% else %}
-                                                -{{ ((1.1 - data.transportation_carbon) / 1.1 * 100) | round(0) }}%
+                                                Target: 1.1 kg
+                                            {% endif %}
+                                        </div>
+                                        <div class="detail-change {% if data.period == 'weekly' and data.transportation_carbon > 7.7 or data.period == 'monthly' and data.transportation_carbon > 33.0 or data.period == 'daily' and data.transportation_carbon > 1.1 %}negative{% else %}positive{% endif %}">
+                                            {% if data.period == 'weekly' %}
+                                                {% set target = 7.7 %}
+                                            {% elif data.period == 'monthly' %}
+                                                {% set target = 33.0 %}
+                                            {% else %}
+                                                {% set target = 1.1 %}
+                                            {% endif %}
+                                            
+                                            {% if data.transportation_carbon > target %}
+                                                <i class="fas fa-arrow-circle-up"></i> {{ ((data.transportation_carbon - target) / target * 100) | round(0) }}% over target
+                                            {% else %}
+                                                <i class="fas fa-arrow-circle-down"></i> {{ ((target - data.transportation_carbon) / target * 100) | round(0) }}% under target
                                             {% endif %}
                                         </div>
                                     </div>
@@ -186,12 +253,28 @@
                                     <div class="detail-name">Purchases</div>
                                     <div class="detail-values">
                                         <div class="detail-value">{{ data.goods_carbon }} kg</div>
-                                        <div class="detail-target">Target: 1.4 kg</div>
-                                        <div class="detail-change {% if data.goods_carbon > 1.4 %}negative{% else %}positive{% endif %}">
-                                            {% if data.goods_carbon > 1.4 %}
-                                                +{{ ((data.goods_carbon - 1.4) / 1.4 * 100) | round(0) }}%
+                                        <div class="detail-target">
+                                            {% if data.period == 'weekly' %}
+                                                Target: 9.8 kg
+                                            {% elif data.period == 'monthly' %}
+                                                Target: 42.0 kg
                                             {% else %}
-                                                -{{ ((1.4 - data.goods_carbon) / 1.4 * 100) | round(0) }}%
+                                                Target: 1.4 kg
+                                            {% endif %}
+                                        </div>
+                                        <div class="detail-change {% if data.period == 'weekly' and data.goods_carbon > 9.8 or data.period == 'monthly' and data.goods_carbon > 42.0 or data.period == 'daily' and data.goods_carbon > 1.4 %}negative{% else %}positive{% endif %}">
+                                            {% if data.period == 'weekly' %}
+                                                {% set target = 9.8 %}
+                                            {% elif data.period == 'monthly' %}
+                                                {% set target = 42.0 %}
+                                            {% else %}
+                                                {% set target = 1.4 %}
+                                            {% endif %}
+                                            
+                                            {% if data.goods_carbon > target %}
+                                                <i class="fas fa-arrow-circle-up"></i> {{ ((data.goods_carbon - target) / target * 100) | round(0) }}% over target
+                                            {% else %}
+                                                <i class="fas fa-arrow-circle-down"></i> {{ ((target - data.goods_carbon) / target * 100) | round(0) }}% under target
                                             {% endif %}
                                         </div>
                                     </div>
@@ -207,12 +290,28 @@
                                     <div class="detail-name">Miscellaneous</div>
                                     <div class="detail-values">
                                         <div class="detail-value">{{ data.misc_carbon }} kg</div>
-                                        <div class="detail-target">Target: 0.5 kg</div>
-                                        <div class="detail-change {% if data.misc_carbon > 0.5 %}negative{% else %}positive{% endif %}">
-                                            {% if data.misc_carbon > 0.5 %}
-                                                +{{ ((data.misc_carbon - 0.5) / 0.5 * 100) | round(0) }}%
+                                        <div class="detail-target">
+                                            {% if data.period == 'weekly' %}
+                                                Target: 3.5 kg
+                                            {% elif data.period == 'monthly' %}
+                                                Target: 15.0 kg
                                             {% else %}
-                                                -{{ ((0.5 - data.misc_carbon) / 0.5 * 100) | round(0) }}%
+                                                Target: 0.5 kg
+                                            {% endif %}
+                                        </div>
+                                        <div class="detail-change {% if data.period == 'weekly' and data.misc_carbon > 3.5 or data.period == 'monthly' and data.misc_carbon > 15.0 or data.period == 'daily' and data.misc_carbon > 0.5 %}negative{% else %}positive{% endif %}">
+                                            {% if data.period == 'weekly' %}
+                                                {% set target = 3.5 %}
+                                            {% elif data.period == 'monthly' %}
+                                                {% set target = 15.0 %}
+                                            {% else %}
+                                                {% set target = 0.5 %}
+                                            {% endif %}
+                                            
+                                            {% if data.misc_carbon > target %}
+                                                <i class="fas fa-arrow-circle-up"></i> {{ ((data.misc_carbon - target) / target * 100) | round(0) }}% over target
+                                            {% else %}
+                                                <i class="fas fa-arrow-circle-down"></i> {{ ((target - data.misc_carbon) / target * 100) | round(0) }}% under target
                                             {% endif %}
                                         </div>
                                     </div>
@@ -306,9 +405,6 @@
         </footer>
     </div>
 
-    <!-- Include Chart.js for the charts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <!-- Error handling helper -->
     <script>
         // Global error handler for diagnostics
@@ -337,7 +433,10 @@
         }
     </script>
     
-    <!-- Include API Service FIRST to ensure it's available for other scripts -->
+    <!-- Include Chart.js FIRST for charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Include API Service to ensure it's available for other scripts -->
     <script src="{{ url_for('static', path='/js/api.js') }}"></script>
     
     <!-- Script to check API initialization -->
@@ -361,16 +460,15 @@
         })();
     </script>
     
-    <!-- Add before dashboard.js and voice-handler.js -->
-    <script src="{{ url_for('static', path='/js/agent-messages.js') }}"></script>
-    <script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
-    <script src="{{ url_for('static', path='/js/voice-handler.js') }}"></script>
-    
+    <!-- Weekly data from backend -->
     <script>
-        // Initialize weekly data from backend
         const weeklyData = JSON.parse('{{ data.weekly_trend | tojson | safe }}');
     </script>
-
+    
+    <!-- Load scripts in the proper order: dashboard first to create charts, then tracking to modify them -->
+    <script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/agent-messages.js') }}"></script>
     <script src="{{ url_for('static', path='/js/tracking.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/voice-handler.js') }}"></script>
 </body>
 </html> 

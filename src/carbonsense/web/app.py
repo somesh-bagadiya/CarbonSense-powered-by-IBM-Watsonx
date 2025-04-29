@@ -379,30 +379,48 @@ def load_tracked_data():
         with open(TRACKED_DATA_FILE, 'r') as f:
             return json.load(f)
     return {
-        "Food & Diet": {"count": 0, "total": 0},
-        "Energy Use": {"count": 0, "total": 0},
-        "Mobility": {"count": 0, "total": 0},
-        "Purchases": {"count": 0, "total": 0},
-        "Miscellaneous": {"count": 0, "total": 0}
+        "daily": {
+            "Food & Diet": {"count": 0, "total": 0},
+            "Energy Use": {"count": 0, "total": 0},
+            "Mobility": {"count": 0, "total": 0},
+            "Purchases": {"count": 0, "total": 0},
+            "Miscellaneous": {"count": 0, "total": 0}
+        },
+        "weekly": {
+            "Food & Diet": {"count": 0, "total": 0},
+            "Energy Use": {"count": 0, "total": 0},
+            "Mobility": {"count": 0, "total": 0},
+            "Purchases": {"count": 0, "total": 0},
+            "Miscellaneous": {"count": 0, "total": 0}
+        },
+        "monthly": {
+            "Food & Diet": {"count": 0, "total": 0},
+            "Energy Use": {"count": 0, "total": 0},
+            "Mobility": {"count": 0, "total": 0},
+            "Purchases": {"count": 0, "total": 0},
+            "Miscellaneous": {"count": 0, "total": 0}
+        }
     }
 
 tracked_data = load_tracked_data()
 
 # Sample data for the dashboard (in a real application, this would come from a database)
-def get_sample_data():
-    # Calculate total carbon from tracked data
-    total_carbon = sum(cat["total"] for cat in tracked_data.values())
+def get_sample_data(period="daily"):
+    # Calculate total carbon from tracked data for the selected period
+    period_data = tracked_data.get(period, tracked_data["daily"])
+    total_carbon = sum(cat["total"] for cat in period_data.values())
     
     return {
         "total_carbon": round(total_carbon, 2),
-        "food_carbon": round(tracked_data["Food & Diet"]["total"], 2),
-        "household_carbon": round(tracked_data["Energy Use"]["total"], 2),
-        "transportation_carbon": round(tracked_data["Mobility"]["total"], 2),
-        "goods_carbon": round(tracked_data["Purchases"]["total"], 2),
-        "misc_carbon": round(tracked_data["Miscellaneous"]["total"], 2),
+        "food_carbon": round(period_data["Food & Diet"]["total"], 2),
+        "household_carbon": round(period_data["Energy Use"]["total"], 2),
+        "transportation_carbon": round(period_data["Mobility"]["total"], 2),
+        "goods_carbon": round(period_data["Purchases"]["total"], 2),
+        "misc_carbon": round(period_data["Miscellaneous"]["total"], 2),
         "goal_percentage": 30,  # Keep static for now
         "weekly_trend": [4.5, 5.2, 6.0, 6.8, 5.9, 7.1, 8.2],  # Keep static for now
-        "badges": ["Eco Starter", "Committed", "Carbon Pro"]  # Keep static for now
+        "badges": ["Eco Starter", "Committed", "Carbon Pro"],  # Keep static for now
+        "period": period  # Include the current period in the response
     }
 
 # Sample personalized tips (in a real app, these would be generated dynamically based on user data)
@@ -452,8 +470,12 @@ def get_personalized_tips():
 
 # Routes
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    data = get_sample_data()
+async def index(request: Request, period: str = "daily"):
+    # Reload tracked data from file to ensure latest values
+    global tracked_data
+    tracked_data = load_tracked_data()
+    
+    data = get_sample_data(period)
     tips = get_personalized_tips()
     return templates.TemplateResponse(
         "index.html", 
@@ -1573,8 +1595,9 @@ async def track_query(request: Request):
     query = data.get("query")
     category = data.get("category", "Miscellaneous")
     carbon_value = float(data.get("carbon_value", 0))
+    period = data.get("period", "daily")
     
-    logger.info(f"Tracking query: '{query}' in category: {category} with value: {carbon_value}")
+    logger.info(f"Tracking query: '{query}' in category: {category} with value: {carbon_value}, period: {period}")
     
     # Validate carbon value
     if carbon_value <= 0:
@@ -1584,33 +1607,41 @@ async def track_query(request: Request):
             content={"error": "Invalid carbon value", "message": "Carbon value must be greater than 0"}
         )
     
-    # Update tracked data
-    if category in tracked_data:
-        tracked_data[category]["count"] += 1
-        tracked_data[category]["total"] += carbon_value
-    else:
-        tracked_data[category] = {"count": 1, "total": carbon_value}
+    # Reload tracked data from file to ensure latest values
+    global tracked_data
+    tracked_data = load_tracked_data()
+    
+    # Update tracked data for all periods
+    periods = ["daily", "weekly", "monthly"]
+    for p in periods:
+        if category in tracked_data[p]:
+            tracked_data[p][category]["count"] += 1
+            tracked_data[p][category]["total"] += carbon_value
+        else:
+            tracked_data[p][category] = {"count": 1, "total": carbon_value}
     
     # Save to file
     with open(TRACKED_DATA_FILE, 'w') as f:
         json.dump(tracked_data, f, indent=2)
     
-    logger.info(f"Updated tracked data: {tracked_data}")
+    logger.info(f"Updated tracked data for all periods")
     
-    # Calculate updated dashboard data
-    total_carbon = sum(cat["total"] for cat in tracked_data.values())
+    # Calculate updated dashboard data for the requested period
+    period_data = tracked_data.get(period, tracked_data["daily"])
+    total_carbon = sum(cat["total"] for cat in period_data.values())
     
     # Format the response data to match the expected structure
     updated_data = {
         "total_carbon": round(total_carbon, 2),
-        "food_carbon": round(tracked_data.get("Food & Diet", {"total": 0})["total"], 2),
-        "household_carbon": round(tracked_data.get("Energy Use", {"total": 0})["total"], 2),
-        "transportation_carbon": round(tracked_data.get("Mobility", {"total": 0})["total"], 2),
-        "goods_carbon": round(tracked_data.get("Purchases", {"total": 0})["total"], 2),
-        "misc_carbon": round(tracked_data.get("Miscellaneous", {"total": 0})["total"], 2)
+        "food_carbon": round(period_data.get("Food & Diet", {"total": 0})["total"], 2),
+        "household_carbon": round(period_data.get("Energy Use", {"total": 0})["total"], 2),
+        "transportation_carbon": round(period_data.get("Mobility", {"total": 0})["total"], 2),
+        "goods_carbon": round(period_data.get("Purchases", {"total": 0})["total"], 2),
+        "misc_carbon": round(period_data.get("Miscellaneous", {"total": 0})["total"], 2),
+        "period": period
     }
     
-    logger.info(f"Returning updated dashboard data: {updated_data}")
+    logger.info(f"Returning updated dashboard data for period {period}: {updated_data}")
     
     return JSONResponse(content=updated_data)
 
@@ -2394,3 +2425,39 @@ def capture_agent_output(agent_type, output_text, query_id=None):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True) 
+
+# API endpoint for getting carbon data for a specific period
+@app.get("/api/period-data")
+async def get_period_data(period: str = "daily"):
+    # Validate period
+    if period not in ["daily", "weekly", "monthly"]:
+        logger.warning(f"Invalid period requested: {period}")
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Invalid period", "message": "Period must be one of: daily, weekly, monthly"}
+        )
+    
+    # Reload tracked data from file to ensure latest values
+    global tracked_data
+    try:
+        logger.info(f"Loading tracked data from {TRACKED_DATA_FILE} for period: {period}")
+        tracked_data = load_tracked_data()
+        logger.info(f"Successfully loaded tracked data with periods: {list(tracked_data.keys())}")
+        
+        # Log specific period data
+        period_data = tracked_data.get(period, {})
+        logger.info(f"Period data for {period}:")
+        for category, data in period_data.items():
+            logger.info(f"  - {category}: count={data['count']}, total={data['total']}")
+    except Exception as e:
+        logger.error(f"Error loading tracked data: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Error loading data", "message": f"Failed to load tracked data: {str(e)}"}
+        )
+    
+    # Get data for the specified period
+    data = get_sample_data(period)
+    logger.info(f"Returning data for period {period}: {data}")
+    
+    return JSONResponse(content=data)

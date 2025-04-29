@@ -1147,12 +1147,10 @@ class CrewAgentManager:
                 return task_output
             except Exception as e:
                 logger.error(f"Error creating agent or task objects: {e}")
-                logger.error(f"Stack trace: {traceback.format_exc()}")
                 return None
                 
         except Exception as e:
             logger.error(f"Error executing task {task_name}: {e}")
-            logger.error(f"Stack trace: {traceback.format_exc()}")
             return None
 
     def process_query(self, query: str, show_context: bool = False) -> Dict[str, Any]:

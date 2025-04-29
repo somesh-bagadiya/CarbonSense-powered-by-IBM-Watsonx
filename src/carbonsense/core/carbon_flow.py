@@ -43,7 +43,8 @@ class CarbonSenseFlow(Flow[CarbonSenseState]):
     """Carbon footprint analysis flow using CrewAI's Flow approach."""
     
     def __init__(self, config: ConfigManager, debug_mode: bool = False, 
-                 use_cache: bool = False, store_thoughts: bool = False):
+                 use_cache: bool = False, store_thoughts: bool = False,
+                 agent_callback=None):
         """Initialize the CarbonSense flow.
         
         Args:
@@ -51,6 +52,7 @@ class CarbonSenseFlow(Flow[CarbonSenseState]):
             debug_mode: Whether to enable debug mode
             use_cache: Whether to use caching (ignored now)
             store_thoughts: Whether to store agent thoughts and reasoning in log files
+            agent_callback: Optional callback function to notify about current agent step
         """
         super().__init__()
         logger.info("Initializing CarbonSenseFlow...")
@@ -58,9 +60,9 @@ class CarbonSenseFlow(Flow[CarbonSenseState]):
         # Store configuration
         self.config = config
         self.debug_mode = debug_mode
-        # Always set use_cache to False
         self.use_cache = False
         self.store_thoughts = store_thoughts
+        self.agent_callback = agent_callback
         
         # Initialize services
         self.milvus = MilvusService(config)
@@ -435,112 +437,6 @@ class CarbonSenseFlow(Flow[CarbonSenseState]):
         
         return result
     
-    def execute_task(self, task_name: str, inputs: Dict[str, Any]) -> Any:
-        """Execute a task using the crew agent manager.
-        
-        Args:
-            task_name: Name of the task to execute
-            inputs: Input data for the task
-            
-        Returns:
-            Task execution result
-        """
-        # Make sure to include the query in all task inputs
-        if "query" not in inputs and hasattr(self.state, 'query') and self.state.query:
-            inputs["query"] = self.state.query
-            
-        try:
-            # Get the crew from the manager
-            crew = self.crew_manager.carbon_crew
-            
-            # Get the task method by name
-            task_method = getattr(crew, task_name, None)
-            if not task_method:
-                logger.error(f"Task {task_name} not found in CarbonSenseCrew")
-                logger.error(f"Available tasks: {', '.join(dir(crew))}")
-                return None
-                
-            # Get the agent associated with this task
-            task_config = crew.tasks_config.get(task_name, {})
-            agent_name = task_config.get('agent')
-            
-            if not agent_name:
-                logger.error(f"No agent specified for task {task_name}")
-                logger.error(f"Task config: {task_config}")
-                return None
-                
-            # Handle case where agent_name is an Agent object instead of a string
-            from crewai.agent import Agent
-            
-            # If agent_name is already an Agent object, use it directly
-            if isinstance(agent_name, Agent):
-                logger.info(f"Using Agent object directly")
-                agent_obj = agent_name
-                task_obj = task_method()
-                
-                # Execute the task
-                logger.info(f"Executing task: {task_name} with direct Agent object")
-                task_output = agent_obj.execute_task(task_obj, context=inputs)
-                
-                # Process the task output
-                return self._process_task_output(task_output)
-            
-            # Try to find agent by name in crew
-            agent_method = getattr(crew, agent_name, None)
-            if not agent_method:
-                # Try to find agent by role (common attribute) if exact name not found
-                for attr_name in dir(crew):
-                    attr = getattr(crew, attr_name)
-                    if callable(attr) and not attr_name.startswith('_'):
-                        try:
-                            potential_agent = attr()
-                            if isinstance(potential_agent, Agent) and hasattr(potential_agent, 'role'):
-                                if potential_agent.role == agent_name:
-                                    logger.info(f"Found agent by role: {agent_name}")
-                                    agent_method = attr
-                                    break
-                        except:
-                            pass
-            
-            # If we still couldn't find the agent, try to create agent directly from task_config
-            if not agent_method:
-                if isinstance(task_config.get('agent'), Agent):
-                    logger.info(f"Using Agent object directly since the name {agent_name} wasn't found")
-                    agent_obj = task_config.get('agent')
-                    task_obj = task_method()
-                    
-                    # Execute the task
-                    logger.info(f"Executing task: {task_name} with direct Agent object")
-                    task_output = agent_obj.execute_task(task_obj, context=inputs)
-                    
-                    # Process the task output
-                    return self._process_task_output(task_output)
-                else:
-                    logger.error(f"Agent {agent_name} not found in CarbonSenseCrew")
-                    logger.error(f"Available agents: {', '.join([m for m in dir(crew) if not m.startswith('_')])}")
-                    return None
-                    
-            # Create the agent and task objects using the method we found
-            try:
-                agent_obj = agent_method()
-                task_obj = task_method()
-                
-                # Execute the task
-                logger.info(f"Executing task: {task_name}")
-                task_output = agent_obj.execute_task(task_obj, context=inputs)
-                
-                # Process the task output
-                return self._process_task_output(task_output)
-            except Exception as e:
-                logger.error(f"Error creating agent or task objects: {e}")
-                logger.error(f"Stack trace: {traceback.format_exc()}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error executing task {task_name}: {e}")
-            logger.error(f"Stack trace: {traceback.format_exc()}")
-            return None
-            
     def _process_task_output(self, task_output):
         """Helper method to process task output consistently"""
         try:
@@ -557,6 +453,111 @@ class CarbonSenseFlow(Flow[CarbonSenseState]):
             logger.warning(f"Error parsing task output: {e}")
             logger.warning(f"Stack trace: {traceback.format_exc()}")
             return task_output
+            
+    def _save_task_result_to_file(self, task_name, result):
+        """Save task result to its corresponding output file.
+        
+        Args:
+            task_name: Name of the task
+            result: Result to save
+        """
+        try:
+            # Get the output file from the task config
+            crew = self.crew_manager.carbon_crew
+            task_config = crew.tasks_config.get(task_name, {})
+            
+            if not task_config or 'output_file' not in task_config:
+                logger.warning(f"No output file configured for task: {task_name}")
+                return
+                
+            output_file = task_config['output_file']
+            
+            # Handle relative paths
+            if not os.path.isabs(output_file):
+                output_file = os.path.join(os.getcwd(), output_file)
+                
+            # Make sure the directory exists
+            output_dir = os.path.dirname(output_file)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+                
+            # Write the result to the file
+            with open(output_file, 'w') as f:
+                if isinstance(result, (dict, list)):
+                    import json
+                    json.dump(result, f, indent=2)
+                else:
+                    f.write(str(result))
+                    
+            logger.info(f"Saved task result to output file: {output_file}")
+        except Exception as e:
+            logger.error(f"Error saving task result to file: {str(e)}")
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+    
+    def execute_task(self, task_name: str, inputs: Dict[str, Any]) -> Any:
+        """Execute a task using the crew manager and handle the output.
+        
+        Args:
+            task_name (str): The name of the task to execute
+            inputs (Dict[str, Any]): The inputs to the task
+            
+        Returns:
+            Any: The processed task output
+        """
+        task_start_time = time.time()
+        logger.info(f"Executing task: {task_name}")
+        
+        try:
+            # Notify via callback if provided
+            if self.agent_callback:
+                try:
+                    # Get the agent associated with this task
+                    agent_info = self.crew_manager.get_agent_for_task(task_name)
+                    if agent_info:
+                        self.agent_callback(agent_info)
+                except Exception as cb_error:
+                    logger.error(f"Error in agent callback: {cb_error}")
+                    
+            # Execute the task
+            result = self.crew_manager.execute_task(task_name, inputs)
+            
+            # Log execution time
+            task_end_time = time.time()
+            execution_time = task_end_time - task_start_time
+            logger.info(f"Task {task_name} executed in {execution_time:.2f} seconds")
+            
+            # Process the result
+            processed_result = self._process_task_output(result)
+            
+            # Save the result to a file if store_thoughts is enabled
+            if self.store_thoughts:
+                self._save_task_result_to_file(task_name, processed_result)
+                
+            # Try to capture detailed agent output for thought streaming
+            try:
+                # Import here to avoid circular imports
+                from ..web.app import capture_agent_output
+                
+                # Get the agent associated with this task
+                agent_info = self.crew_manager.get_agent_for_task(task_name)
+                if agent_info and hasattr(agent_info, 'role'):
+                    # Extract the full agent output including thoughts
+                    agent_role = agent_info.role
+                    agent_output = str(result)
+                    
+                    # Capture the detailed output
+                    capture_agent_output(agent_role, agent_output)
+            except Exception as capture_error:
+                logger.warning(f"Error capturing detailed agent output: {capture_error}")
+                
+            return processed_result
+            
+        except Exception as e:
+            logger.error(f"Error executing task {task_name}: {str(e)}")
+            logger.error(traceback.format_exc())
+            
+            # Return a partial result or error indicator
+            return {"error": str(e)}
     
     def process_query_with_flow(self, query: str, save_visualization: bool = True) -> Dict[str, Any]:
         """Process a query using the flow.
@@ -600,17 +601,21 @@ class CarbonSenseFlow(Flow[CarbonSenseState]):
             logger.error(f"Stack trace: {traceback.format_exc()}")
             return {"error": str(e), "response": f"An error occurred while processing your query: {str(e)}"}
             
-    async def process_query_with_flow_async(self, query: str, save_visualization: bool = True) -> Dict[str, Any]:
+    async def process_query_with_flow_async(self, query: str, save_visualization: bool = True, agent_callback=None) -> Dict[str, Any]:
         """Process a query using the flow asynchronously.
         
         Args:
             query: User query string
             save_visualization: Whether to save a visualization of the flow
+            agent_callback: Optional callback function to notify about current agent step
             
         Returns:
             Processed result as a dictionary
         """
         try:
+            # Store the callback
+            self.agent_callback = agent_callback
+            
             # Create state with the query
             state = CarbonSenseState(query=query)
             
@@ -641,6 +646,9 @@ class CarbonSenseFlow(Flow[CarbonSenseState]):
             logger.error(f"Error processing query with flow asynchronously: {e}")
             logger.error(f"Stack trace: {traceback.format_exc()}")
             return {"error": str(e), "response": f"An error occurred while processing your query: {str(e)}"}
+        finally:
+            # Clear the callback
+            self.agent_callback = None
     
     def save_flow_visualization(self, query: str = None) -> str:
         """Generate and save a visualization of the flow.

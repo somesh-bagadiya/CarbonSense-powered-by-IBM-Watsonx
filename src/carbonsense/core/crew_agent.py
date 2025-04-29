@@ -259,6 +259,42 @@ class CarbonSenseCrew:
             logger.warning(f"Error getting task output: {str(e)}")
             return None
     
+    def _save_task_output(self, task_name: str, output: Any) -> None:
+        """Save task output to a file.
+        
+        Args:
+            task_name: Name of the task
+            output: Task output to save
+        """
+        try:
+            if task_name not in self.tasks_config:
+                return
+                
+            output_file = self.tasks_config[task_name].get('output_file')
+            if not output_file:
+                return
+                
+            # Handle relative paths
+            if not os.path.isabs(output_file):
+                output_file = os.path.join(os.getcwd(), output_file)
+                
+            # Ensure directory exists
+            output_dir = os.path.dirname(output_file)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+                
+            # Save output to file
+            with open(output_file, 'w') as f:
+                if isinstance(output, (dict, list)):
+                    import json
+                    json.dump(output, f, indent=2)
+                else:
+                    f.write(str(output))
+                    
+            logger.info(f"Saved task output to {output_file}")
+        except Exception as e:
+            logger.warning(f"Error saving task output: {str(e)}")
+    
     @agent
     def query_classifier(self) -> Agent:
         """Query Intent and Category Classifier agent."""
@@ -602,6 +638,26 @@ class CarbonSenseCrew:
         print(output)
         print("="*100)
 
+        # Save task outputs to files
+        for task in self.tasks:
+            # Get the method name from the task method to match with the config
+            task_method_name = None
+            for attr_name in dir(self):
+                if attr_name.endswith('_task') and callable(getattr(self, attr_name)):
+                    try:
+                        if getattr(self, attr_name)() == task:
+                            task_method_name = attr_name
+                            break
+                    except:
+                        pass
+            
+            if task_method_name and task_method_name in self.tasks_config:
+                # We found a match - save the output
+                if hasattr(task, 'output'):
+                    output_value = task.output.raw if hasattr(task.output, 'raw') else task.output
+                    self._save_task_output(task_method_name, output_value)
+                    logger.info(f"Saved output for task: {task_method_name}")
+
         # Handle CrewOutput object (from newer versions of CrewAI)
         if hasattr(output, '__class__') and output.__class__.__name__ == 'CrewOutput':
             logger.info("Processing CrewOutput object")
@@ -861,6 +917,16 @@ class CarbonSenseCrew:
         # Create logs directory if it doesn't exist
         if self.store_thoughts:
             os.makedirs("logs/thoughts", exist_ok=True)
+            logger.info("Created logs/thoughts directory for storing agent thoughts")
+            
+            # Make sure the output file directories for each task exist
+            for task_name, task_config in self.tasks_config.items():
+                if 'output_file' in task_config:
+                    output_file = task_config['output_file']
+                    output_dir = os.path.dirname(output_file)
+                    if output_dir:
+                        os.makedirs(output_dir, exist_ok=True)
+                        logger.info(f"Ensured directory exists for task output: {output_dir}")
         
         return Crew(
             agents=self.agents,  # Automatically created by the @agent decorator
@@ -870,7 +936,7 @@ class CarbonSenseCrew:
             # memory=True,         # Enable crew memory
             # cache=self.use_cache,
             manager_llm=self.agent_llms['manager'],  # Use manager LLM from ai_parameters.yaml
-            output_log_file=self.store_thoughts,  # Save output logs if store_thoughts is enabled
+            log_output_path="logs/thoughts" if self.store_thoughts else None,  # Correct parameter for log output
             output_dir="logs/thoughts" if self.store_thoughts else None,  # Save logs in the thoughts subdirectory
             full_output=self.store_thoughts,  # Include agent thoughts and reasoning in the logs
         )
@@ -891,15 +957,21 @@ class CrewAgentManager:
             use_simple_logger: Whether to use simple logger (legacy parameter)
             store_thoughts: Whether to store agent thoughts and reasoning in log files
         """
+        # Set up logger
+        if use_simple_logger:
+            global logger
+            logger = logging.getLogger(__name__)
+            
         logger.info("Initializing CrewAgentManager...")
+        
+        # Store configuration
         self.config = config
         self.debug_mode = debug_mode
         self.use_cache = use_cache
         self.use_hierarchical = use_hierarchical
-        self.use_simple_logger = use_simple_logger
         self.store_thoughts = store_thoughts
         
-        # Initialize CarbonSenseCrew with LiteLLM always enabled
+        # Initialize the carbon crew
         self.carbon_crew = CarbonSenseCrew(
             config=config,
             debug_mode=debug_mode,
@@ -908,13 +980,180 @@ class CrewAgentManager:
             store_thoughts=store_thoughts
         )
         
-        # Track current session ID
-        self.current_session_id = "current_session"
+        logger.info("✅ CrewAgentManager initialized successfully")
         
-        # Initialize shared tools using the tool initializer
-        self.shared_tools = initialize_tools(config)
+    def get_agent_for_task(self, task_name: str):
+        """Get the agent associated with a specific task.
         
-        logger.info("✅ CrewAgentManager initialized successfully with LiteLLM integration")
+        Args:
+            task_name (str): The name of the task
+            
+        Returns:
+            The agent associated with the task, or None if not found
+        """
+        try:
+            # Get task configuration to find associated agent
+            task_config = self.carbon_crew.tasks_config.get(task_name, {})
+            agent_name = task_config.get('agent')
+            
+            if not agent_name:
+                logger.warning(f"No agent specified for task {task_name}")
+                return None
+                
+            # Check if agent_name is an Agent object already
+            from crewai.agent import Agent
+            if isinstance(agent_name, Agent):
+                return agent_name
+                
+            # Try to get agent by method name
+            agent_method = getattr(self.carbon_crew, agent_name, None)
+            if agent_method:
+                try:
+                    return agent_method()
+                except Exception as e:
+                    logger.warning(f"Error getting agent {agent_name}: {e}")
+            
+            # Try to find agent by role attribute
+            for attr_name in dir(self.carbon_crew):
+                attr = getattr(self.carbon_crew, attr_name)
+                if callable(attr) and not attr_name.startswith('_'):
+                    try:
+                        potential_agent = attr()
+                        if isinstance(potential_agent, Agent) and hasattr(potential_agent, 'role'):
+                            if potential_agent.role == agent_name or attr_name == agent_name + '_agent':
+                                return potential_agent
+                    except:
+                        pass
+                        
+            logger.warning(f"Could not find agent for task {task_name}")
+            return None
+        except Exception as e:
+            logger.error(f"Error in get_agent_for_task: {str(e)}")
+            return None
+            
+    def execute_task(self, task_name: str, inputs: Dict[str, Any]) -> Any:
+        """Execute a task with the crew.
+        
+        Args:
+            task_name (str): The name of the task to execute
+            inputs (Dict[str, Any]): Inputs to the task
+            
+        Returns:
+            The task execution result
+        """
+        # Make sure to include the query in all task inputs
+        if "query" not in inputs and hasattr(self.carbon_crew, 'current_query') and self.carbon_crew.current_query:
+            inputs["query"] = self.carbon_crew.current_query
+            
+        try:
+            # Get the crew 
+            crew = self.carbon_crew
+            
+            # Get the task method by name
+            task_method = getattr(crew, task_name, None)
+            if not task_method:
+                logger.error(f"Task {task_name} not found in CarbonSenseCrew")
+                logger.error(f"Available tasks: {', '.join(dir(crew))}")
+                return None
+                
+            # Get the agent associated with this task
+            task_config = crew.tasks_config.get(task_name, {})
+            agent_name = task_config.get('agent')
+            
+            if not agent_name:
+                logger.error(f"No agent specified for task {task_name}")
+                logger.error(f"Task config: {task_config}")
+                return None
+            
+            # Handle case where agent_name is an Agent object instead of a string
+            from crewai.agent import Agent
+            
+            # If agent_name is already an Agent object, use it directly
+            if isinstance(agent_name, Agent):
+                logger.info(f"Using Agent object directly")
+                agent_obj = agent_name
+                task_obj = task_method()
+                
+                # Ensure the output directory exists for this task
+                if self.store_thoughts and hasattr(task_obj, 'output_file') and task_obj.output_file:
+                    output_dir = os.path.dirname(task_obj.output_file)
+                    if output_dir:
+                        os.makedirs(output_dir, exist_ok=True)
+                        logger.info(f"Created directory for task output: {output_dir}")
+                        
+                # Execute the task
+                logger.info(f"Executing task: {task_name} with direct Agent object")
+                task_output = agent_obj.execute_task(task_obj, context=inputs)
+                
+                return task_output
+            
+            # Try to find agent by name in crew
+            agent_method = getattr(crew, agent_name, None)
+            if not agent_method:
+                # Try to find agent by role (common attribute) if exact name not found
+                for attr_name in dir(crew):
+                    attr = getattr(crew, attr_name)
+                    if callable(attr) and not attr_name.startswith('_'):
+                        try:
+                            potential_agent = attr()
+                            if isinstance(potential_agent, Agent) and hasattr(potential_agent, 'role'):
+                                if potential_agent.role == agent_name:
+                                    logger.info(f"Found agent by role: {agent_name}")
+                                    agent_method = attr
+                                    break
+                        except:
+                            pass
+            
+            # If we still couldn't find the agent, try to create agent directly from task_config
+            if not agent_method:
+                if isinstance(task_config.get('agent'), Agent):
+                    logger.info(f"Using Agent object directly since the name {agent_name} wasn't found")
+                    agent_obj = task_config.get('agent')
+                    task_obj = task_method()
+                    
+                    # Ensure the output directory exists for this task
+                    if self.store_thoughts and hasattr(task_obj, 'output_file') and task_obj.output_file:
+                        output_dir = os.path.dirname(task_obj.output_file)
+                        if output_dir:
+                            os.makedirs(output_dir, exist_ok=True)
+                            logger.info(f"Created directory for task output: {output_dir}")
+                    
+                    # Execute the task
+                    logger.info(f"Executing task: {task_name} with direct Agent object")
+                    task_output = agent_obj.execute_task(task_obj, context=inputs)
+                    
+                    return task_output
+                else:
+                    logger.error(f"Agent {agent_name} not found in CarbonSenseCrew")
+                    logger.error(f"Available agents: {', '.join([m for m in dir(crew) if not m.startswith('_')])}")
+                    return None
+                    
+            # Create the agent and task objects using the method we found
+            try:
+                agent_obj = agent_method()
+                task_obj = task_method()
+                
+                # Ensure the output directory exists for this task
+                if self.store_thoughts and hasattr(task_obj, 'output_file') and task_obj.output_file:
+                    output_dir = os.path.dirname(task_obj.output_file)
+                    if output_dir:
+                        os.makedirs(output_dir, exist_ok=True)
+                        logger.info(f"Created directory for task output: {output_dir}")
+                
+                # Execute the task
+                logger.info(f"Executing task: {task_name}")
+                task_output = agent_obj.execute_task(task_obj, context=inputs)
+                
+                return task_output
+            except Exception as e:
+                logger.error(f"Error creating agent or task objects: {e}")
+                logger.error(f"Stack trace: {traceback.format_exc()}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error executing task {task_name}: {e}")
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            return None
 
     def process_query(self, query: str, show_context: bool = False) -> Dict[str, Any]:
         """Process a query using the crew agents."""

@@ -50,7 +50,7 @@ function addThoughtStreamingStyles() {
         }
         
         .thoughts-area {
-            max-height: 200px;
+            max-height: 350px;
             overflow-y: auto;
             padding-right: 5px;
         }
@@ -60,23 +60,43 @@ function addThoughtStreamingStyles() {
             margin: 5px 0;
             border-radius: 6px;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             animation: fadeIn 0.5s ease;
         }
         
-        .thought.thought {
+        .thought.thought, .thought.thinking {
             background: rgba(173, 216, 230, 0.3);
         }
         
-        .thought.action {
+        .thought.agent_step {
             background: rgba(144, 238, 144, 0.3);
+        }
+        
+        .thought.agent_detail {
+            background: rgba(255, 255, 224, 0.5);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            border-left: 3px solid #1a73e8;
+        }
+        
+        .thought.agent_detail .thought-icon {
+            margin-bottom: 8px;
+        }
+        
+        .thought.agent_detail .thought-content {
+            width: 100%;
+            white-space: pre-wrap;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
         }
         
         .thought.error {
             background: rgba(255, 182, 193, 0.3);
         }
         
-        .thought.complete {
+        .thought.complete, .thought.completion {
             background: rgba(152, 251, 152, 0.4);
             font-weight: bold;
         }
@@ -84,6 +104,30 @@ function addThoughtStreamingStyles() {
         .thought-icon {
             margin-right: 8px;
             color: #3f51b5;
+            flex-shrink: 0;
+        }
+        
+        .thought-content {
+            flex-grow: 1;
+            overflow-wrap: break-word;
+        }
+        
+        .thought-content.formatted {
+            white-space: pre-wrap;
+        }
+        
+        .code-block {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 8px;
+            margin: 5px 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+            max-width: 100%;
+            white-space: pre-wrap;
         }
         
         .toggle-thinking-btn {
@@ -272,21 +316,51 @@ function setupChatInteractions() {
                     if (newThoughts.length > 0) {
                         console.log('[Dashboard] Found new thoughts:', newThoughts.length);
                         
-                        // Get the latest thought (we're only displaying the latest one)
-                        const latestThought = newThoughts[newThoughts.length - 1];
-                    
+                        // Check for duplicates and filter them out
+                        const existingThoughtContents = Array.from(thoughtsArea.querySelectorAll('.thought'))
+                            .map(el => {
+                                const contentEl = el.querySelector('.thought-content');
+                                return contentEl ? contentEl.textContent : '';
+                            });
+                        
+                        // Only keep thoughts that don't have the same content as existing ones
+                        const uniqueThoughts = newThoughts.filter(thought => {
+                            const content = thought.content || '';
+                            // Check if this is a unique thought (content doesn't already exist in the UI)
+                            return !existingThoughtContents.some(existingContent => 
+                                existingContent.includes(content) || content.includes(existingContent));
+                        });
+                        
+                        console.log('[Dashboard] Filtered to unique thoughts:', uniqueThoughts.length);
+                        
+                        // Display unique new thoughts in sequence
+                        uniqueThoughts.forEach((thought, index) => {
+                            // Create a new thought element for each thought
+                            // Only update the existing one if it's the first new thought and we don't have any thoughts displayed yet
+                            if (index === 0 && thoughtsArea.children.length <= 1) {
+                                updateThoughtElement(thoughtElement, thought);
+                            } else {
+                                // Create a new thought element
+                                const newThoughtElement = document.createElement('div');
+                                newThoughtElement.className = `thought ${thought.type || 'thought'}`;
+                                newThoughtElement.innerHTML = `
+                                    <span class="thought-icon"></span>
+                                    <span class="thought-content"></span>
+                                `;
+                                thoughtsArea.appendChild(newThoughtElement);
+                                updateThoughtElement(newThoughtElement, thought);
+                            }
+                        });
+                        
                         // Update last seen thought index
                         lastSeenThoughtIndex = thoughtsData.thoughts.length - 1;
-                        
-                        // Update the thought element with the latest thought
-                        updateThoughtElement(thoughtElement, latestThought);
                         
                         // Scroll thoughts area down to show updated thought
                         thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
                     }
                     
                     // Check status for completion or error
-                    if (thoughtsData.status === 'complete') {
+                    if (thoughtsData.status === 'complete' || thoughtsData.status === 'COMPLETE') {
                         console.log('[Dashboard] Thought process complete');
                         
                         // Add final thought
@@ -301,7 +375,7 @@ function setupChatInteractions() {
                         // Stop polling when complete
                         stopPolling();
                         return; // Exit the function early
-                    } else if (thoughtsData.status === 'error') {
+                    } else if (thoughtsData.status === 'error' || thoughtsData.status === 'ERROR') {
                         console.log('[Dashboard] Thought process error');
                         
                         // Update with error thought
@@ -346,25 +420,33 @@ function setupChatInteractions() {
             const thoughtType = thought.type || 'thought';
             
             // Only change the class if the type has changed
-            if (currentThoughtType !== thoughtType) {
+            if (element.dataset.thoughtType !== thoughtType) {
                 // Update element class
                 element.className = `thought ${thoughtType}`;
-                currentThoughtType = thoughtType;
+                element.dataset.thoughtType = thoughtType;
                 
                 // Update icon based on type
                 let icon = '';
                 switch(thoughtType) {
                     case 'thought':
+                    case 'thinking':
                         icon = '<i class="fas fa-brain"></i>';
                         break;
-                    case 'action':
+                    case 'agent_step':
                         icon = '<i class="fas fa-cog fa-spin"></i>';
+                        break;
+                    case 'agent_detail':
+                        icon = '<i class="fas fa-search"></i>';
                         break;
                     case 'error':
                         icon = '<i class="fas fa-exclamation-triangle"></i>';
                         break;
                     case 'complete':
+                    case 'completion':
                         icon = '<i class="fas fa-check-circle"></i>';
+                        break;
+                    case 'start':
+                        icon = '<i class="fas fa-play"></i>';
                         break;
                     default:
                         icon = '<i class="fas fa-comment"></i>';
@@ -378,15 +460,37 @@ function setupChatInteractions() {
             }
             
             // Ensure thought.content exists before using it
-            const content = thought.content || 'No content available';
+            let content = thought.content || 'No content available';
             
-            // Update the content
+            // Filter out final answers from thought content
+            content = filterOutFinalAnswer(content);
+            
+            // Update the content based on formatting preference
             const contentElement = element.querySelector('.thought-content');
             if (contentElement) {
-                contentElement.textContent = content;
+                // Check if this thought should preserve formatting (e.g., code blocks)
+                if (thought.preserve_formatting) {
+                    // Use innerHTML and format code blocks if present
+                    let formattedContent = content;
+                    
+                    // Replace code blocks
+                    if (content.includes('```')) {
+                        // Replace markdown code blocks with HTML
+                        formattedContent = content.replace(/```(\w*)\n([\s\S]*?)```/g, 
+                            '<pre class="code-block"><code>$2</code></pre>');
+                    }
+                    
+                    // Replace newlines with <br> tags for proper display
+                    formattedContent = formattedContent.replace(/\n/g, '<br>');
+                    
+                    contentElement.innerHTML = formattedContent;
+                } else {
+                    // Use textContent for standard thoughts (safer)
+                    contentElement.textContent = content;
+                }
             }
             
-            console.log(`[Dashboard] Updated thought: ${content} (${thoughtType})`);
+            console.log(`[Dashboard] Updated thought: ${content.substring(0, 50)}... (${thoughtType})`);
         }
         
         function stopPolling() {
@@ -394,18 +498,32 @@ function setupChatInteractions() {
             
             if (thoughtPollingId !== null) {
                 thoughtPollingId = null;
-                // No longer clean up thoughts - we want to keep them
-                // fetch('/api/cleanup-thoughts', {
-                //     method: 'POST'
-                // }).catch(error => {
-                //     console.error('[Dashboard] Error cleaning up thoughts:', error);
-                // });
+                // Clean up thoughts on the server to prevent duplicates on next query
+                fetch('/api/cleanup-thoughts', {
+                    method: 'POST'
+                }).catch(error => {
+                    console.error('[Dashboard] Error cleaning up thoughts:', error);
+                });
             }
         }
         
         // Handler for successful query results - independent of thought polling
         function handleQueryResult(result) {
             console.log('[Dashboard] Query result:', result);
+            
+            // Extract the actual response data from the API response structure
+            let responseData;
+            if (result && result.result) {
+                // Handle the new API response format where data is in result property
+                responseData = result.result;
+                console.log('[Dashboard] Extracted responseData from result.result:', responseData);
+            } else {
+                // Fallback to using the entire result as response data
+                responseData = result;
+                console.log('[Dashboard] Using entire result as responseData:', responseData);
+            }
+            
+            console.log('[Dashboard] Final responseData to display:', responseData);
             
             // Handle the final result
             // Collapse thinking container
@@ -425,8 +543,8 @@ function setupChatInteractions() {
             // Add toggle button to thinking header
             thinkingHeader.appendChild(toggleButton);
             
-            // Add bot response
-            addBotMessage(result);
+            // Add bot response using the extracted response data
+            addBotMessage(responseData);
             
             // Stop polling since query is complete
             stopPolling();
@@ -455,41 +573,96 @@ function setupChatInteractions() {
 
 // Helper function to add a thought to the thoughts area
 function addThought(container, thought, type) {
-    console.log(`[Dashboard] Adding thought to UI: ${thought.content} (${type})`);
+    console.log(`[Dashboard] Adding thought to UI: ${thought.content?.substring(0, 50) || 'No content'}... (${type})`);
     const thoughtElement = document.createElement('div');
     thoughtElement.className = `thought ${type || 'thought'}`;
+    thoughtElement.dataset.thoughtType = type || 'thought';
     
     // Add icon based on type
     let icon = '';
     switch(type) {
         case 'thought':
+        case 'thinking':
             icon = '<i class="fas fa-brain"></i>';
             break;
-        case 'action':
+        case 'agent_step':
             icon = '<i class="fas fa-cog fa-spin"></i>';
+            break;
+        case 'agent_detail':
+            icon = '<i class="fas fa-search"></i>';
             break;
         case 'error':
             icon = '<i class="fas fa-exclamation-triangle"></i>';
             break;
         case 'complete':
+        case 'completion':
             icon = '<i class="fas fa-check-circle"></i>';
+            break;
+        case 'start':
+            icon = '<i class="fas fa-play"></i>';
             break;
         default:
             icon = '<i class="fas fa-comment"></i>';
     }
     
     // Ensure thought.content exists before using it
-    const content = thought.content || 'No content available';
+    let content = thought.content || 'No content available';
     
-    thoughtElement.innerHTML = `
-        <span class="thought-icon">${icon}</span>
-        <span class="thought-content">${content}</span>
-    `;
+    // Filter out final answers from thought content
+    content = filterOutFinalAnswer(content);
+    
+    // Check if we should preserve formatting
+    const shouldPreserveFormatting = thought.preserve_formatting || content.includes('```') || type === 'agent_detail';
+    
+    if (shouldPreserveFormatting) {
+        // Use a more complex structure for formatted content
+        thoughtElement.innerHTML = `
+            <span class="thought-icon">${icon}</span>
+            <div class="thought-content formatted"></div>
+        `;
+        
+        // Format the content
+        let formattedContent = content;
+        
+        // Replace code blocks
+        if (content.includes('```')) {
+            // Replace markdown code blocks with HTML
+            formattedContent = content.replace(/```(\w*)\n([\s\S]*?)```/g, 
+                '<pre class="code-block"><code>$2</code></pre>');
+        }
+        
+        // Replace newlines with <br> tags for proper display
+        formattedContent = formattedContent.replace(/\n/g, '<br>');
+        
+        thoughtElement.querySelector('.thought-content').innerHTML = formattedContent;
+    } else {
+        // Use the simple structure for plain text
+        thoughtElement.innerHTML = `
+            <span class="thought-icon">${icon}</span>
+            <span class="thought-content">${content}</span>
+        `;
+    }
     
     container.appendChild(thoughtElement);
     
     // Ensure the container is scrolled to the bottom
     container.scrollTop = container.scrollHeight;
+}
+
+// Add a new helper function to filter out final answers
+function filterOutFinalAnswer(content) {
+    if (!content) return content;
+    
+    // Remove final answer patterns from the content
+    // Pattern 1: "Final Answer: ..." until the end of the string
+    content = content.replace(/Thought:[\s\S]*$/i, '');
+    content = content.replace(/Final Answer:[\s\S]*$/i, '');
+    
+    // Pattern 2: "\nFinal Answer: ..." until the end of the string (with newline)
+    content = content.replace(/\nThought:[\s\S]*$/i, '');
+    content = content.replace(/\nFinal Answer:[\s\S]*$/i, '');
+    
+    return content;
 }
 
 // Make addUserMessage available globally for the voice handler
@@ -834,7 +1007,7 @@ function tryParseNestedJSON(jsonString) {
             return JSON.parse(jsonStr);
         }
     } catch (e) {
-        console.error("Failed to parse nested JSON:", e);
+        console.error("[Dashboard] Failed to parse nested JSON:", e);
     }
     
     return null;
@@ -842,41 +1015,78 @@ function tryParseNestedJSON(jsonString) {
 
 // Helper function to check if an object looks like a valid carbon response
 function isValidCarbonResponse(obj) {
-    return obj && 
-           typeof obj === 'object' && 
-           typeof obj.answer !== 'undefined' && 
-           typeof obj.method !== 'undefined' && 
-           typeof obj.confidence !== 'undefined' && 
-           typeof obj.category !== 'undefined';
+    // Check if it's a full response format
+    if (obj && typeof obj === 'object') {
+        // New response format that should contain answer field
+        if (typeof obj.answer !== 'undefined') {
+            return true;
+        }
+        
+        // Alternative format with result field
+        if (obj.result && typeof obj.result === 'object') {
+            return typeof obj.result.answer !== 'undefined';
+        }
+        
+        // Check for complete standard format
+        if (typeof obj.answer !== 'undefined' && 
+            typeof obj.method !== 'undefined' && 
+            typeof obj.confidence !== 'undefined' && 
+            typeof obj.category !== 'undefined') {
+            return true;
+        }
+        
+        // Simplified response format
+        if (typeof obj.response !== 'undefined') {
+            return true;
+        }
+    }
+    return false;
 }
 
 // Add bot message to the conversation
 function addBotMessage(result) {
     const conversationContainer = document.getElementById('conversation-container');
     
+    console.log('[Dashboard] addBotMessage called with data type:', typeof result);
+    console.log('[Dashboard] addBotMessage called with data:', result);
+    
+    // Handle cases where result is nested in another property
+    if (result && result.result && typeof result.result === 'object') {
+        console.log('[Dashboard] Found nested result object, using that instead');
+        result = result.result;
+    }
+    
     // Create the main message container
     const messageContainer = document.createElement('div');
     messageContainer.className = 'message bot';
     
+    console.log('[Dashboard] Processing bot message with data:', result);
+    
     // Check if result is a string or an object
     if (typeof result === 'string') {
         // Simple string response
+        console.log('[Dashboard] Handling string response');
         messageContainer.textContent = result;
     } else {
+        console.log('[Dashboard] Handling object response with properties:', Object.keys(result).join(', '));
+        
         // First, try to handle cases where answer itself contains nested JSON
         try {
             // Check for nested JSON in the answer field
             if (result.answer && typeof result.answer === 'string') {
+                console.log('[Dashboard] Attempting to parse answer as JSON:', result.answer);
                 const parsedAnswer = tryParseNestedJSON(result.answer);
                 
                 // If we successfully parsed nested JSON and it looks like a valid response
                 if (parsedAnswer && isValidCarbonResponse(parsedAnswer)) {
-                    console.log("Using nested structured data from answer field");
+                    console.log("[Dashboard] Using nested structured data from answer field");
                     result = parsedAnswer;
+                } else if (parsedAnswer) {
+                    console.log("[Dashboard] Found parseable JSON in answer but not using it - not a valid carbon response");
                 }
             }
         } catch (e) {
-            console.error("Error processing nested data:", e);
+            console.error("[Dashboard] Error processing nested data:", e);
             // Continue with original result if parsing fails
         }
         
@@ -890,7 +1100,7 @@ function addBotMessage(result) {
         answerLabel.textContent = 'Answer: ';
         
         const answerText = document.createElement('span');
-        answerText.textContent = result.answer;
+        answerText.textContent = result.answer || 'No answer available';
         
         answerSection.appendChild(answerLabel);
         answerSection.appendChild(answerText);
@@ -977,7 +1187,7 @@ function addBotMessage(result) {
                         unit = 'kg (converted from tons)';
                     }
                     
-                    console.log(`Extracted carbon value: ${carbonValue} ${unit} using pattern: ${pattern}`);
+                    console.log(`[Dashboard] Extracted carbon value: ${carbonValue} ${unit} using pattern: ${pattern}`);
                     break;
                 }
             }
@@ -990,7 +1200,7 @@ function addBotMessage(result) {
                 // Add click handler with proper event passing
                 trackButton.addEventListener('click', function(e) {
                     // Make sure the event is properly passed
-                    console.log('Track button clicked, passing event:', e);
+                    console.log('[Dashboard] Track button clicked, passing event:', e);
                     trackQuery(result.answer, result.category, carbonValue, e);
                 });
                 
@@ -1011,7 +1221,21 @@ window.trackQuery = function(query, category, carbonValue, event) {
         event.stopPropagation();
     }
     
-    console.log(`Tracking query: "${query}" in category: ${category} with value: ${carbonValue}`);
+    console.log(`[Dashboard] Tracking query: "${query}" in category: ${category} with value: ${carbonValue}`);
+    
+    // Validate carbon value
+    if (isNaN(carbonValue) || carbonValue <= 0) {
+        console.error(`[Dashboard] Invalid carbon value: ${carbonValue}`);
+        showTrackingNotification(false, 'Invalid carbon value for tracking');
+        return;
+    }
+    
+    // Disable the button if it exists
+    if (event && event.target) {
+        const button = event.target.closest('.track-query-btn') || event.target;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Tracking...';
+    }
     
     // Make API call to track the query
     fetch('/api/track-query', {
@@ -1025,19 +1249,39 @@ window.trackQuery = function(query, category, carbonValue, event) {
             carbon_value: carbonValue
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
-        console.log('Updated dashboard data:', data);
+        console.log('[Dashboard] Updated dashboard data:', data);
         
         // Update the dashboard with the new data
         updateDashboardData(data);
         
         // Show success notification
         showTrackingNotification(true, `Added ${carbonValue.toFixed(2)} kg CO₂ to your ${category} footprint.`);
+        
+        // Update the button if it exists
+        if (event && event.target) {
+            const button = event.target.closest('.track-query-btn') || event.target;
+            button.innerHTML = '<i class="fas fa-check"></i> Tracked';
+            button.classList.add('tracked');
+            button.disabled = false;
+        }
     })
     .catch(error => {
-        console.error('Error tracking query:', error);
+        console.error('[Dashboard] Error tracking query:', error);
         showTrackingNotification(false, 'Failed to track this item. Please try again.');
+        
+        // Reset the button if it exists
+        if (event && event.target) {
+            const button = event.target.closest('.track-query-btn') || event.target;
+            button.innerHTML = '<i class="fas fa-chart-line"></i> Track Impact';
+            button.disabled = false;
+        }
     });
 };
 

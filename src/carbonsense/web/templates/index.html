@@ -361,10 +361,9 @@
         })();
     </script>
     
-    <!-- Include Dashboard Script -->
+    <!-- Add before dashboard.js and voice-handler.js -->
+    <script src="{{ url_for('static', path='/js/agent-messages.js') }}"></script>
     <script src="{{ url_for('static', path='/js/dashboard.js') }}"></script>
-    
-    <!-- Include Voice Handler -->
     <script src="{{ url_for('static', path='/js/voice-handler.js') }}"></script>
     
     <script>

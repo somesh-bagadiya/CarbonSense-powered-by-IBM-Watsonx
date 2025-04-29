@@ -2,6 +2,27 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('[Voice] Initializing voice recording module');
+    
+    // Check if AGENT_MESSAGES is loaded
+    if (window.AGENT_MESSAGES) {
+        console.log('[Voice] AGENT_MESSAGES is available:', Object.keys(window.AGENT_MESSAGES).length, 'agents defined');
+    } else {
+        console.warn('[Voice] AGENT_MESSAGES not found, adding script to load it');
+        
+        // Add the agent-messages.js script if not already added
+        if (!document.querySelector('script[src*="agent-messages.js"]')) {
+            const script = document.createElement('script');
+            script.src = '/static/js/agent-messages.js';
+            script.onload = function() {
+                console.log('[Voice] AGENT_MESSAGES script loaded successfully');
+            };
+            script.onerror = function() {
+                console.error('[Voice] Failed to load AGENT_MESSAGES script');
+            };
+            document.head.appendChild(script);
+        }
+    }
+    
     setupVoiceRecording();
 });
 
@@ -74,9 +95,10 @@ function setupVoiceRecording() {
         thinkingHeader.innerHTML = '<i class="fas fa-microphone"></i> Recording...';
         thinkingContainer.appendChild(thinkingHeader);
         
-        // Create thoughts area
+        // Create thoughts area with no max-height limit
         const thoughtsArea = document.createElement('div');
         thoughtsArea.className = 'thoughts-area';
+        thoughtsArea.style.maxHeight = 'none'; // Remove max-height limit
         thinkingContainer.appendChild(thoughtsArea);
         
         // Create a single reusable thought element
@@ -90,7 +112,7 @@ function setupVoiceRecording() {
         
         // Add to conversation
         conversationContainer.appendChild(thinkingContainer);
-        conversationContainer.scrollTop = conversationContainer.scrollHeight;
+        ensureScrolling();
         
         // Start timer to update recording time display and the thought element
         recordingTimer = setInterval(function() {
@@ -192,6 +214,9 @@ function setupVoiceRecording() {
             // Update or add a thought for transcription
             const thoughtsArea = thinkingContainer.querySelector('.thoughts-area');
             if (thoughtsArea) {
+                // Make sure thoughts area has no max-height limit
+                thoughtsArea.style.maxHeight = 'none';
+                
                 // Check if there's already a thought element we can reuse
                 let thoughtElement = thoughtsArea.querySelector('.thought');
                 
@@ -226,8 +251,8 @@ function setupVoiceRecording() {
                 `;
                 thoughtsArea.appendChild(actionThought);
                 
-                // Scroll to bottom
-                thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
+                // Ensure scrolling
+                ensureScrolling();
             }
         } else {
             // Fallback to old method if thinking container not found
@@ -265,13 +290,14 @@ function setupVoiceRecording() {
         }
     }
     
+    // ----- STEP 3: FETCH TRANSCRIPTION AFTER DELAY -----
     // Fetch transcription after delay
     function fetchTranscription() {
         console.log('[Voice] Fetching transcription after delay');
         
         // Implement polling for the transcript file
         let checkCount = 0;
-        const maxChecks = 30; // Maximum number of checks
+        const maxChecks = 40; // Maximum number of checks
         const checkInterval = 1500; // Check every 1.5 seconds
         let transcriptFound = false;  // Flag to track if transcript was found
         
@@ -346,8 +372,15 @@ function setupVoiceRecording() {
                     
                     displayTranscription(data.transcript);
                     
-                    // Start the result generation phase
-                    startResultGeneration();
+                    // Start the result generation phase with a new thinking container
+                    startResultGeneration(data.transcript);
+                    
+                    // Clear any timers and return to stop further checks
+                    if (resultCheckTimer) {
+                        clearInterval(resultCheckTimer);
+                        resultCheckTimer = null;
+                    }
+                    return;
                 } else if (checkCount < maxChecks) {
                     // Schedule another check
                     setTimeout(checkTranscriptFile, checkInterval);
@@ -396,8 +429,15 @@ function setupVoiceRecording() {
                             
                             displayTranscription(data.transcription);
                             
-                            // Start the result generation phase
-                            startResultGeneration();
+                            // Start the result generation phase with a new thinking container
+                            startResultGeneration(data.transcription);
+                            
+                            // Clear any timers and return to stop further checks
+                            if (resultCheckTimer) {
+                                clearInterval(resultCheckTimer);
+                                resultCheckTimer = null;
+                            }
+                            return;
                         } else if (data.status === 'complete' && data.result && data.result.transcription) {
                             // We have a result with transcription
                             transcriptFound = true;
@@ -420,8 +460,16 @@ function setupVoiceRecording() {
                             if (data.result.response) {
                                 displayResponse(data.result);
                             } else {
-                                startResultGeneration();
+                                // Start the result generation phase with a new thinking container
+                                startResultGeneration(data.result.transcription);
                             }
+                            
+                            // Clear any timers and return to stop further checks
+                            if (resultCheckTimer) {
+                                clearInterval(resultCheckTimer);
+                                resultCheckTimer = null;
+                            }
+                            return;
                         } else {
                             console.warn('[Voice] No transcription available after maximum checks');
                             
@@ -528,8 +576,8 @@ function setupVoiceRecording() {
                 conversationContainer.appendChild(userMessageElement);
             }
             
-            // Scroll to bottom
-            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+            // Ensure scrolling
+            ensureScrolling();
         } else {
             console.warn('[Voice] Empty transcription received');
             showErrorMessage('Could not transcribe audio clearly. Please try again.');
@@ -537,112 +585,164 @@ function setupVoiceRecording() {
     }
     
     // ----- STEP 4: GENERATE RESULTS -----
-    // Start the result generation phase
-    function startResultGeneration() {
-        console.log('[Voice] Starting result generation phase');
+    // Start the result generation phase with a new thinking container
+    function startResultGeneration(transcript) {
+        console.log('[Voice] Starting result generation phase with new thinking container');
         
-        // Find the thinking container and update it
-        const thinkingContainer = document.querySelector('.thinking-container');
+        // Create a new thinking container for response generation
+        const newThinkingContainer = document.createElement('div');
+        newThinkingContainer.className = 'thinking-container';
         
-        if (thinkingContainer) {
-            // Update the header
-            const header = thinkingContainer.querySelector('.thinking-header');
-            if (header) {
-                header.innerHTML = '<i class="fas fa-robot"></i> Generating Response...';
-            }
+        // Create header for the new thinking container
+        const newHeader = document.createElement('div');
+        newHeader.className = 'thinking-header';
+        newHeader.innerHTML = '<i class="fas fa-robot"></i> Generating Response...';
+        newThinkingContainer.appendChild(newHeader);
+        
+        // Create thoughts area
+        const newThoughtsArea = document.createElement('div');
+        newThoughtsArea.className = 'thoughts-area';
+        newThoughtsArea.style.maxHeight = 'none'; // Remove max height to allow full display
+        newThinkingContainer.appendChild(newThoughtsArea);
             
             // Add a new thought about generation
-            const thoughtsArea = thinkingContainer.querySelector('.thoughts-area');
-            if (thoughtsArea) {
                 const generationThought = document.createElement('div');
                 generationThought.className = 'thought action';
                 generationThought.innerHTML = `
                     <span class="thought-icon"><i class="fas fa-cog fa-spin"></i></span>
                     <span class="thought-content">Analyzing transcript and generating a thoughtful response...</span>
                 `;
-                thoughtsArea.appendChild(generationThought);
-                thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
-            }
-        } else {
-            // Fallback to old method
-        showStatusIndicator('generating');
+        newThoughtsArea.appendChild(generationThought);
+        
+        // Add initial thought about the transcript
+        if (transcript) {
+            const transcriptThought = document.createElement('div');
+            transcriptThought.className = 'thought';
+            transcriptThought.innerHTML = `
+                <span class="thought-icon"><i class="fas fa-comment"></i></span>
+                <span class="thought-content">Processing query: "${transcript}"</span>
+            `;
+            newThoughtsArea.appendChild(transcriptThought);
         }
         
+        // Add to conversation
+        conversationContainer.appendChild(newThinkingContainer);
+        
+        // Ensure scrolling
+        ensureScrolling();
+        
         // Start checking for results
-        checkForResults();
+        checkForResults(newThinkingContainer);
     }
     
     // Check for results periodically
-    function checkForResults() {
-        console.log('[Voice] Checking for results');
+    function checkForResults(thinkingContainer) {
+        console.log('[Voice] Starting result check process');
         
         // Clear any existing check timer
         if (resultCheckTimer) {
             clearInterval(resultCheckTimer);
+            resultCheckTimer = null;
         }
         
-        // Create a counter for check attempts
+        // Create request ID for tracking
+        const requestId = `query_${Date.now()}`;
+        
+        // Create counter variables for checks
         let checkCount = 0;
-        const maxChecks = 40; // Maximum number of checks (20 * 3s = 60 seconds max)
+        const maxChecks = 60; // 3 minutes total with 3-second intervals
         let lastTranscript = null;
-        let thoughtPollingId = null; // For thought tracking
-        let lastSeenThoughtIndex = -1; // Track which thoughts we've seen
-        let isPolling = false; // Prevent concurrent polling
-
-        // Create thinking container similar to dashboard.js
-        const thinkingContainer = document.createElement('div');
-        thinkingContainer.className = 'thinking-container';
+        let lastSeenThoughtIndex = -1;
+        let isPolling = false;
+        let hasShownWaitingMessage = false;
         
-        // Create header for thinking container
-        const thinkingHeader = document.createElement('div');
-        thinkingHeader.className = 'thinking-header';
-        thinkingHeader.innerHTML = '<i class="fas fa-robot"></i> Thinking...';
-        thinkingContainer.appendChild(thinkingHeader);
+        // After 30 seconds (10 checks), show a waiting message
+        const showWaitingMessageAfter = 10;
         
-        // Create thoughts area
-        const thoughtsArea = document.createElement('div');
-        thoughtsArea.className = 'thoughts-area';
-        thinkingContainer.appendChild(thoughtsArea);
+        // Use provided thinking container or find existing one
+        let thoughtsArea;
+        let thinkingHeader;
         
-        // Create a single reusable thought element
-        const thoughtElement = document.createElement('div');
-        thoughtElement.className = 'thought';
-        thoughtElement.innerHTML = `
-            <span class="thought-icon"><i class="fas fa-brain"></i></span>
-            <span class="thought-content">Initializing analysis...</span>
-        `;
-        thoughtsArea.appendChild(thoughtElement);
+        if (!thinkingContainer) {
+            // Find existing thinking container
+            thinkingContainer = document.querySelector('.thinking-container:last-child');
+        }
         
-        // Add to conversation
-        conversationContainer.appendChild(thinkingContainer);
+        if (thinkingContainer) {
+            // Get existing elements
+            thinkingHeader = thinkingContainer.querySelector('.thinking-header');
+            thoughtsArea = thinkingContainer.querySelector('.thoughts-area');
+            
+            // Update header if needed
+            if (thinkingHeader) {
+                thinkingHeader.innerHTML = '<i class="fas fa-robot"></i> Processing with CrewAI...';
+            }
+            
+            // Add a processing thought if needed
+            if (thoughtsArea && thoughtsArea.children.length === 0) {
+                const initialThought = document.createElement('div');
+                initialThought.className = 'thought start';
+                initialThought.innerHTML = `
+                    <span class="thought-icon"><i class="fas fa-play"></i></span>
+                    <span class="thought-content">Starting carbon footprint analysis...</span>
+                `;
+                thoughtsArea.appendChild(initialThought);
+            }
+        } else {
+            // Create new thinking container if none was provided or found
+            thinkingContainer = document.createElement('div');
+            thinkingContainer.className = 'thinking-container';
+            
+            // Create header for thinking container
+            thinkingHeader = document.createElement('div');
+            thinkingHeader.className = 'thinking-header';
+            thinkingHeader.innerHTML = '<i class="fas fa-robot"></i> Processing with CrewAI...';
+            thinkingContainer.appendChild(thinkingHeader);
+            
+            // Create thoughts area
+            thoughtsArea = document.createElement('div');
+            thoughtsArea.className = 'thoughts-area';
+            thinkingContainer.appendChild(thoughtsArea);
+            
+            // Create initial thought
+            const initialThought = document.createElement('div');
+            initialThought.className = 'thought start';
+            initialThought.innerHTML = `
+                <span class="thought-icon"><i class="fas fa-play"></i></span>
+                <span class="thought-content">Starting carbon footprint analysis...</span>
+            `;
+            thoughtsArea.appendChild(initialThought);
+            
+            // Add to conversation
+            conversationContainer.appendChild(thinkingContainer);
+        }
+        
+        // Ensure container is visible and scrolled into view
         conversationContainer.scrollTop = conversationContainer.scrollHeight;
         
-        // Remove status indicator since we're using the thinking container
+        // Remove any status indicators since we're using the thinking container
         removeStatusIndicator();
         
-        // Start thought polling immediately
-        startThoughtPolling();
-        
-        // Also start the regular result checking as a fallback
-        checkOnce();
-        resultCheckTimer = setInterval(checkOnce, 3000);
+        // Start thought polling
+        const thoughtPollingId = startThoughtPolling();
         
         // Function to start thought polling
         function startThoughtPolling() {
-            console.log('[Voice] Starting independent thought polling');
-            thoughtPollingId = {};  // Use an object as a non-null identifier
+            console.log('[Voice] Starting thought polling process');
             pollForThoughts();
+            return setInterval(pollForThoughts, 3000);
         }
         
-        // Function to poll for thoughts independently
+        // Function to poll for thoughts
         async function pollForThoughts() {
             // Prevent multiple concurrent polling
             if (isPolling) return;
             
             isPolling = true;
+            checkCount++;
             
             try {
-                console.log('[Voice] Polling for thoughts directly');
+                console.log(`[Voice] Polling for thoughts (check #${checkCount}/${maxChecks})`);
                 
                 // Make direct fetch request to backend
                 const response = await fetch('/api/check-thoughts');
@@ -652,7 +752,7 @@ function setupVoiceRecording() {
                 
                 const thoughtsData = await response.json();
                 console.log('[Voice] Received thoughts data:', thoughtsData);
-                    
+                
                 // Process the thoughts if we have any
                 if (thoughtsData && thoughtsData.thoughts && thoughtsData.thoughts.length > 0) {
                     // Process only new thoughts
@@ -661,275 +761,514 @@ function setupVoiceRecording() {
                     if (newThoughts.length > 0) {
                         console.log('[Voice] Found new thoughts:', newThoughts.length);
                         
-                        // Get the latest thought (we're only displaying the latest one)
-                        const latestThought = newThoughts[newThoughts.length - 1];
-                    
+                        // If there are existing thoughts, replace the content of the last one
+                        // instead of adding many new thoughts
+                        if (thoughtsArea.children.length > 0 && newThoughts.length > 0) {
+                            // Keep only the first thought for context
+                            while (thoughtsArea.children.length > 1) {
+                                thoughtsArea.removeChild(thoughtsArea.lastChild);
+                            }
+                            
+                            // Get the most recent and relevant thought
+                            const latestThought = newThoughts[newThoughts.length - 1];
+                            
+                            // Create or update thought element
+                            let thoughtElement;
+                            if (thoughtsArea.children.length > 0) {
+                                // Update existing thought
+                                thoughtElement = thoughtsArea.lastChild;
+                            } else {
+                                // Create new thought if needed
+                                thoughtElement = document.createElement('div');
+                                thoughtElement.className = `thought ${latestThought.type || 'thought'}`;
+                                thoughtsArea.appendChild(thoughtElement);
+                            }
+                            
+                            // Add icon based on type
+                            let icon = '';
+                            switch(latestThought.type) {
+                                case 'thought':
+                                case 'thinking':
+                                    icon = '<i class="fas fa-brain"></i>';
+                                    break;
+                                case 'agent_step':
+                                    icon = '<i class="fas fa-cog fa-spin"></i>';
+                                    break;
+                                case 'agent_detail':
+                                    icon = '<i class="fas fa-search"></i>';
+                                    break;
+                                case 'error':
+                                    icon = '<i class="fas fa-exclamation-triangle"></i>';
+                                    break;
+                                case 'complete':
+                                case 'completion':
+                                    icon = '<i class="fas fa-check-circle"></i>';
+                                    break;
+                                case 'start':
+                                    icon = '<i class="fas fa-play"></i>';
+                                    break;
+                                default:
+                                    icon = '<i class="fas fa-comment"></i>';
+                            }
+                            
+                            // For agent steps, only show the agent name
+                            if (latestThought.type === 'agent_step' && latestThought.content) {
+                                // Extract just the agent name from the content
+                                let displayContent = latestThought.content;
+                                
+                                // Look for patterns like "Processing with X..." or "Agent: X"
+                                const agentNameMatch = displayContent.match(/Processing with ([^\.]+)\.{3}/) ||
+                                                     displayContent.match(/Agent:\s*([^\n]+)/);
+                                
+                                if (agentNameMatch && agentNameMatch[1]) {
+                                    // Just use the matched agent name with "Processing with..." prefix
+                                    displayContent = `Processing with ${agentNameMatch[1]}...`;
+                                } else {
+                                    // If we have an agent_ops_agent_name field, use that
+                                    const agentNameSearch = displayContent.match(/agent_ops_agent_name='([^']+)'/);
+                                    if (agentNameSearch && agentNameSearch[1]) {
+                                        displayContent = `Processing with ${agentNameSearch[1].trim()}...`;
+                                    } else {
+                                        // Fall back to just the first line of content
+                                        const firstLine = displayContent.split('\n')[0];
+                                        if (firstLine && firstLine.length > 0) {
+                                            displayContent = firstLine;
+                                        }
+                                        
+                                        // If it's still too long, truncate it
+                                        if (displayContent.length > 60) {
+                                            displayContent = displayContent.substring(0, 60) + '...';
+                                        }
+                                    }
+                                }
+                                
+                                // Simple text content
+                                thoughtElement.innerHTML = `
+                                    <span class="thought-icon">${icon}</span>
+                                    <span class="thought-content">${displayContent}</span>
+                                `;
+                            } else {
+                                // Check if this thought contains code or should preserve formatting
+                                const shouldPreserveFormatting = 
+                                    latestThought.preserve_formatting || 
+                                    (latestThought.content && latestThought.content.includes('```')) || 
+                                    latestThought.type === 'agent_detail';
+                                
+                                if (shouldPreserveFormatting) {
+                                    // Format with HTML for code blocks
+                                    thoughtElement.innerHTML = `
+                                        <span class="thought-icon">${icon}</span>
+                                        <div class="thought-content formatted"></div>
+                                    `;
+                                    
+                                    // Format the content
+                                    let formattedContent = latestThought.content || 'No content available';
+                                    
+                                    // Replace code blocks
+                                    if (formattedContent.includes('```')) {
+                                        // Replace markdown code blocks with HTML
+                                        formattedContent = formattedContent.replace(/```(\w*)\n([\s\S]*?)```/g, 
+                                            '<pre class="code-block"><code>$2</code></pre>');
+                                    }
+                                    
+                                    // Replace newlines with <br> tags for proper display
+                                    formattedContent = formattedContent.replace(/\n/g, '<br>');
+                                    
+                                    thoughtElement.querySelector('.thought-content').innerHTML = formattedContent;
+                                } else {
+                                    // Simple text content
+                                    thoughtElement.innerHTML = `
+                                        <span class="thought-icon">${icon}</span>
+                                        <span class="thought-content">${latestThought.content || 'No content available'}</span>
+                                    `;
+                                }
+                            }
+                            
+                            // Update class to match the thought type
+                            thoughtElement.className = `thought ${latestThought.type || 'thought'}`;
+                        } else {
+                            // If no existing thoughts, process normally
+                        newThoughts.forEach(thought => {
+                            // Create a new thought element
+                            const thoughtElement = document.createElement('div');
+                            thoughtElement.className = `thought ${thought.type || 'thought'}`;
+                            
+                            // Add icon based on type
+                            let icon = '';
+                            switch(thought.type) {
+                                case 'thought':
+                                case 'thinking':
+                                    icon = '<i class="fas fa-brain"></i>';
+                                    break;
+                                case 'agent_step':
+                                    icon = '<i class="fas fa-cog fa-spin"></i>';
+                                    break;
+                                case 'agent_detail':
+                                    icon = '<i class="fas fa-search"></i>';
+                                    break;
+                                case 'error':
+                                    icon = '<i class="fas fa-exclamation-triangle"></i>';
+                                    break;
+                                case 'complete':
+                                case 'completion':
+                                    icon = '<i class="fas fa-check-circle"></i>';
+                                    break;
+                                case 'start':
+                                    icon = '<i class="fas fa-play"></i>';
+                                    break;
+                                default:
+                                    icon = '<i class="fas fa-comment"></i>';
+                            }
+                            
+                                // For agent steps, only show the agent name
+                                if (thought.type === 'agent_step' && thought.content) {
+                                    // Extract just the agent name from the content
+                                    let displayContent = thought.content;
+                                    
+                                    // Look for patterns like "Processing with X..." or "Agent: X"
+                                    const agentNameMatch = displayContent.match(/Processing with ([^\.]+)\.{3}/) ||
+                                                         displayContent.match(/Agent:\s*([^\n]+)/);
+                                    
+                                    if (agentNameMatch && agentNameMatch[1]) {
+                                        // Just use the matched agent name with "Processing with..." prefix
+                                        displayContent = `Processing with ${agentNameMatch[1]}...`;
+                                    } else {
+                                        // If we have an agent_ops_agent_name field, use that
+                                        const agentNameSearch = displayContent.match(/agent_ops_agent_name='([^']+)'/);
+                                        if (agentNameSearch && agentNameSearch[1]) {
+                                            displayContent = `Processing with ${agentNameSearch[1].trim()}...`;
+                                        } else {
+                                            // Fall back to just the first line of content
+                                            const firstLine = displayContent.split('\n')[0];
+                                            if (firstLine && firstLine.length > 0) {
+                                                displayContent = firstLine;
+                                            }
+                                            
+                                            // If it's still too long, truncate it
+                                            if (displayContent.length > 60) {
+                                                displayContent = displayContent.substring(0, 60) + '...';
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Simple text content
+                                    thoughtElement.innerHTML = `
+                                        <span class="thought-icon">${icon}</span>
+                                        <span class="thought-content">${displayContent}</span>
+                                    `;
+                                } else {
+                            // Check if this thought contains code or should preserve formatting
+                            const shouldPreserveFormatting = 
+                                thought.preserve_formatting || 
+                                (thought.content && thought.content.includes('```')) || 
+                                thought.type === 'agent_detail';
+                            
+                            if (shouldPreserveFormatting) {
+                                // Format with HTML for code blocks
+                                thoughtElement.innerHTML = `
+                                    <span class="thought-icon">${icon}</span>
+                                    <div class="thought-content formatted"></div>
+                                `;
+                                
+                                // Format the content
+                                let formattedContent = thought.content || 'No content available';
+                                
+                                // Replace code blocks
+                                if (formattedContent.includes('```')) {
+                                    // Replace markdown code blocks with HTML
+                                    formattedContent = formattedContent.replace(/```(\w*)\n([\s\S]*?)```/g, 
+                                        '<pre class="code-block"><code>$2</code></pre>');
+                                }
+                                
+                                // Replace newlines with <br> tags for proper display
+                                formattedContent = formattedContent.replace(/\n/g, '<br>');
+                                
+                                thoughtElement.querySelector('.thought-content').innerHTML = formattedContent;
+                            } else {
+                                // Simple text content
+                                thoughtElement.innerHTML = `
+                                    <span class="thought-icon">${icon}</span>
+                                    <span class="thought-content">${thought.content || 'No content available'}</span>
+                                `;
+                                    }
+                            }
+                            
+                            // Add the thought to the container
+                            thoughtsArea.appendChild(thoughtElement);
+                        });
+                        }
+                        
                         // Update last seen thought index
                         lastSeenThoughtIndex = thoughtsData.thoughts.length - 1;
                         
-                        // Update the thought element with the latest thought
-                        updateThoughtElement(thoughtElement, latestThought);
-                        
-                        // Scroll thoughts area down to show updated thought
-                        thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
+                        // Ensure scrolling after updating thoughts
+                        ensureScrolling();
                     }
                     
-                    // Check status for completion or error
-                    if (thoughtsData.status === 'COMPLETE' || thoughtsData.status === 'complete') {
+                    // Check for completion status
+                    if (thoughtsData.status === 'complete' || thoughtsData.status === 'COMPLETE') {
                         console.log('[Voice] Thought process complete');
                         
-                        // Add final thought
-                        updateThoughtElement(thoughtElement, {
-                            content: 'Analysis complete!',
-                            type: 'complete'
-                        });
-                        
-                        // Retrieve the final answer from a completion thought if available
-                        const completionThoughts = thoughtsData.thoughts.filter(t => t.type === 'completion');
-                        if (completionThoughts.length > 0) {
-                            // Get the most recent completion thought
-                            const latestCompletion = completionThoughts.sort((a, b) => b.timestamp - a.timestamp)[0];
-                            
-                            // Create a result object with the completion thought content
-                            const result = {
-                                response: latestCompletion.content,
-                                transcription: lastTranscript || '',
-                                confidence: 0.8
-                            };
-                            
-                            // Display the response and stop polling
-                            clearInterval(resultCheckTimer);
-                            resultCheckTimer = null;
-                            stopPolling();
-                            
-                            // Collapse thinking container
-                            thinkingContainer.classList.add('collapsed');
-                            
-                            // Create a toggle button
-                            const toggleButton = document.createElement('button');
-                            toggleButton.className = 'toggle-thinking-btn';
-                            toggleButton.innerHTML = '<i class="fas fa-lightbulb"></i> Show Thinking';
-                            toggleButton.addEventListener('click', () => {
-                                thinkingContainer.classList.toggle('collapsed');
-                                toggleButton.innerHTML = thinkingContainer.classList.contains('collapsed') ?
-                                    '<i class="fas fa-lightbulb"></i> Show Thinking' :
-                                    '<i class="fas fa-lightbulb"></i> Hide Thinking';
-                            });
-                            
-                            // Add toggle button to thinking header
-                            thinkingHeader.appendChild(toggleButton);
-                            
-                            // Display the response
-                            displayResponse(result);
-                            return;
+                        // Add final thought if needed
+                        if (!thoughtsArea.querySelector('.thought.complete')) {
+                            const completeThought = document.createElement('div');
+                            completeThought.className = 'thought complete';
+                            completeThought.innerHTML = `
+                                <span class="thought-icon"><i class="fas fa-check-circle"></i></span>
+                                <span class="thought-content">Analysis complete! Preparing final response...</span>
+                            `;
+                            thoughtsArea.appendChild(completeThought);
+                            thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
                         }
                         
-                        // Scroll thoughts area down
-                        thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
-                    } else if (thoughtsData.status === 'ERROR' || thoughtsData.status === 'error') {
+                        // Update header
+                        if (thinkingHeader) {
+                            thinkingHeader.innerHTML = '<i class="fas fa-check-circle"></i> Analysis Complete!';
+                        }
+                        
+                        // Look for completion thoughts that contain final answer
+                        const completionThoughts = thoughtsData.thoughts.filter(t => 
+                            t.type === 'completion' || 
+                            (t.type === 'complete' && t.content && t.content.includes('answer'))
+                        );
+                        
+                        if (completionThoughts.length > 0) {
+                            // Find the most recent completion thought
+                            const latestCompletion = completionThoughts.reduce((latest, current) => {
+                                if (!latest.timestamp) return current;
+                                return current.timestamp > latest.timestamp ? current : latest;
+                            }, {});
+                            
+                            // Try to extract structured data from completion thought
+                            let result = null;
+                            
+                            try {
+                                if (latestCompletion.content) {
+                                    // Try to parse JSON data from content
+                                    const jsonMatch = latestCompletion.content.match(/```json\s*([\s\S]*?)\s*```/);
+                                    if (jsonMatch && jsonMatch[1]) {
+                                        const parsedJson = JSON.parse(jsonMatch[1]);
+                                        if (isValidCarbonResponse(parsedJson)) {
+                                            result = {
+                                                response: parsedJson,
+                                                transcription: lastTranscript || ''
+                                            };
+                                        }
+                                    } else {
+                                        // If no JSON block, just use the content as plain text
+                                        result = {
+                                            response: {
+                                                answer: latestCompletion.content.replace(/^Answer:\s*/i, ''),
+                                                method: "CrewAI Analysis",
+                                                confidence: 0.8,
+                                                category: "Analysis"
+                                            },
+                                            transcription: lastTranscript || ''
+                                        };
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('[Voice] Error parsing completion thought:', e);
+                            }
+                            
+                            // Stop polling and display result if we have one
+                            if (result) {
+                                clearInterval(thoughtPollingId);
+                                
+                                // Collapse thinking container
+                                thinkingContainer.classList.add('collapsed');
+                                
+                                // Create a toggle button
+                                const toggleButton = document.createElement('button');
+                                toggleButton.className = 'toggle-thinking-btn';
+                                toggleButton.innerHTML = '<i class="fas fa-lightbulb"></i> Show Thinking';
+                                toggleButton.addEventListener('click', () => {
+                                    thinkingContainer.classList.toggle('collapsed');
+                                    toggleButton.innerHTML = thinkingContainer.classList.contains('collapsed') ?
+                                        '<i class="fas fa-lightbulb"></i> Show Thinking' :
+                                        '<i class="fas fa-lightbulb"></i> Hide Thinking';
+                                });
+                                
+                                // Add toggle button to thinking header
+                                if (thinkingHeader) {
+                                    thinkingHeader.appendChild(toggleButton);
+                                }
+                                
+                                // Display the response
+                                displayResponse(result);
+                                return;
+                            }
+                        }
+                        
+                        // If we didn't find a usable result but status is complete,
+                        // try the regular endpoint once more
+                        checkOnce(true);
+                    } 
+                    // Check for error status
+                    else if (thoughtsData.status === 'error' || thoughtsData.status === 'ERROR') {
                         console.log('[Voice] Thought process error');
                         
-                        // Update with error thought
-                        updateThoughtElement(thoughtElement, {
-                            content: 'Error in thought processing',
-                            type: 'error'
-                        });
-                        
-                        // Find error thoughts to display a more specific message
+                        // Look for error thoughts
                         const errorThoughts = thoughtsData.thoughts.filter(t => t.type === 'error');
+                        let errorMessage = 'An error occurred during processing.';
+                        
                         if (errorThoughts.length > 0) {
                             // Get the most recent error thought
-                            const latestError = errorThoughts.sort((a, b) => b.timestamp - a.timestamp)[0];
+                            const latestError = errorThoughts.reduce((latest, current) => {
+                                if (!latest.timestamp) return current;
+                                return current.timestamp > latest.timestamp ? current : latest;
+                            }, {});
                             
-                            // Create an error result object
-                            const errorResult = {
-                                response: latestError.content || 'An error occurred during processing.',
-                                transcription: lastTranscript || '',
-                                confidence: 0.5,
-                                error: 'Processing error'
-                            };
-                            
-                            // Stop checking and display the error
-                            clearInterval(resultCheckTimer);
-                            resultCheckTimer = null;
-                            stopPolling();
-                            displayResponse(errorResult);
-                            return;
+                            errorMessage = latestError.content || errorMessage;
                         }
                         
-                        // Scroll thoughts area down
-                        thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
+                        // Add error thought if needed
+                        if (!thoughtsArea.querySelector('.thought.error')) {
+                            const errorThought = document.createElement('div');
+                            errorThought.className = 'thought error';
+                            errorThought.innerHTML = `
+                                <span class="thought-icon"><i class="fas fa-exclamation-triangle"></i></span>
+                                <span class="thought-content">${errorMessage}</span>
+                            `;
+                            thoughtsArea.appendChild(errorThought);
+                            thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
+                        }
+                        
+                        // Update header
+                        if (thinkingHeader) {
+                            thinkingHeader.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error Occurred';
+                        }
+                        
+                        // Stop polling
+                        clearInterval(thoughtPollingId);
+                        
+                        // Display error response
+                        const errorResult = {
+                            response: {
+                                answer: errorMessage,
+                                method: "Error during processing",
+                                confidence: 0.1,
+                                category: "Error"
+                            },
+                            transcription: lastTranscript || ""
+                        };
+                        
+                        // Collapse thinking container
+                        thinkingContainer.classList.add('collapsed');
+                        
+                        // Create a toggle button
+                        const toggleButton = document.createElement('button');
+                        toggleButton.className = 'toggle-thinking-btn';
+                        toggleButton.innerHTML = '<i class="fas fa-lightbulb"></i> Show Thinking';
+                        toggleButton.addEventListener('click', () => {
+                            thinkingContainer.classList.toggle('collapsed');
+                            toggleButton.innerHTML = thinkingContainer.classList.contains('collapsed') ?
+                                '<i class="fas fa-lightbulb"></i> Show Thinking' :
+                                '<i class="fas fa-lightbulb"></i> Hide Thinking';
+                        });
+                        
+                        // Add toggle button to thinking header
+                        if (thinkingHeader) {
+                            thinkingHeader.appendChild(toggleButton);
+                        }
+                        
+                        displayResponse(errorResult);
+                        return;
                     }
                 } else {
                     console.log('[Voice] No thoughts available yet');
+                    
+                    // If we've been waiting a while, show a waiting message
+                    if (!hasShownWaitingMessage && checkCount >= showWaitingMessageAfter) {
+                        hasShownWaitingMessage = true;
+                        const waitingThought = document.createElement('div');
+                        waitingThought.className = 'thought action';
+                        waitingThought.innerHTML = `
+                            <span class="thought-icon"><i class="fas fa-clock"></i></span>
+                            <span class="thought-content">This is taking longer than usual. Still processing your request...</span>
+                        `;
+                        thoughtsArea.appendChild(waitingThought);
+                        thoughtsArea.scrollTop = thoughtsArea.scrollHeight;
+                    }
+                    
+                    // Check the regular endpoint after a few attempts with no thoughts
+                    // This helps us get results faster if the thoughts API isn't returning data
+                    if (checkCount % 5 === 0) {  // Check every 15 seconds (5 polling intervals)
+                        console.log('[Voice] Checking regular endpoint in parallel for faster response');
+                        checkOnce(false);
+                    }
+                    
+                    // After max checks with no thoughts, try the regular endpoint once more as fallback
+                    if (checkCount >= maxChecks) {
+                        checkOnce(true);
+                        clearInterval(thoughtPollingId);
+                    }
                 }
             } catch (error) {
                 console.error('[Voice] Error fetching thoughts:', error);
+                
+                // After several consecutive errors, try the regular endpoint once
+                if (checkCount > 5) {
+                    checkOnce(true);
+                    clearInterval(thoughtPollingId);
+                }
             } finally {
                 isPolling = false;
-                
-                // Continue polling with a delay regardless of backend response
-                if (thoughtPollingId !== null) {
-                    // Use exponential backoff for polling frequency
-                    const delayMs = Math.min(1000 * Math.pow(1.2, Math.min(checkCount, 10)), 5000);
-                    console.log(`[Voice] Next thought poll in ${delayMs/1000} seconds`);
-                    
-                    setTimeout(() => {
-                        if (thoughtPollingId !== null) {  // Check again in case stopped during timeout
-                            pollForThoughts();
-                        }
-                    }, delayMs);
-                }
             }
         }
         
-        // Function to update the thought element, same as in dashboard.js
-        function updateThoughtElement(element, thought) {
-            // Get thought type or default to 'thought'
-            const thoughtType = thought.type || 'thought';
-            
-            // Only change the class if the type has changed
-            if (element.className !== `thought ${thoughtType}`) {
-                // Update element class
-                element.className = `thought ${thoughtType}`;
-                
-                // Update icon based on type
-                let icon = '';
-                switch(thoughtType) {
-                    case 'thought':
-                    case 'thinking':
-                        icon = '<i class="fas fa-brain"></i>';
-                        break;
-                    case 'action':
-                        icon = '<i class="fas fa-cog fa-spin"></i>';
-                        break;
-                    case 'error':
-                        icon = '<i class="fas fa-exclamation-triangle"></i>';
-                        break;
-                    case 'complete':
-                    case 'completion':
-                        icon = '<i class="fas fa-check-circle"></i>';
-                        break;
-                    default:
-                        icon = '<i class="fas fa-comment"></i>';
-                }
-                
-                // Update the icon
-                const iconElement = element.querySelector('.thought-icon');
-                if (iconElement) {
-                    iconElement.innerHTML = icon;
-                }
-            }
-            
-            // Ensure thought.content exists before using it
-            const content = thought.content || 'No content available';
-            
-            // Update the content
-            const contentElement = element.querySelector('.thought-content');
-            if (contentElement) {
-                contentElement.textContent = content;
-            }
-            
-            console.log(`[Voice] Updated thought: ${content} (${thoughtType})`);
-        }
-        
-        function stopPolling() {
-            console.log('[Voice] Stopping thought polling');
-            
-            if (thoughtPollingId !== null) {
-                thoughtPollingId = null;
-                // No need to clean up thoughts as we want to keep them visible in the UI
-            }
-        }
-
-        // Regular result checking as fallback
-        function checkOnce() {
-            checkCount++;
-            console.log(`[Voice] Result check ${checkCount}/${maxChecks}`);
-            
-            // Stop checking after maximum attempts
-            if (checkCount >= maxChecks) {
-                clearInterval(resultCheckTimer);
-                resultCheckTimer = null;
-                stopPolling();
-                
-                // If we have a transcript but no complete response, show partial result
-                if (lastTranscript) {
-                    const fallbackResult = {
-                        response: `I processed your query: "${lastTranscript}" but couldn't generate a complete response in time.`,
-                        transcription: lastTranscript,
-                        confidence: 0.5
-                    };
-                    
-                    displayResponse(fallbackResult);
-                } else {
-                showErrorMessage('Response generation timed out. Please try asking again.');
-                }
-                return;
-            }
+        // Function to check the regular endpoint once as fallback
+        function checkOnce(isFinalAttempt = false) {
+            console.log(`[Voice] Checking session status: ${sessionId}, final attempt: ${isFinalAttempt}`);
             
             fetch(`/api/check-processing/${sessionId}`)
             .then(response => response.json())
             .then(data => {
-                console.log('[Voice] Result check response:', data);
+                console.log('[Voice] Session status result:', data);
                 
-                // Save the transcript we're seeing
+                // Save transcript if available
                 if (data.result && data.result.transcription) {
                     lastTranscript = data.result.transcription;
                 } else if (data.transcription) {
                     lastTranscript = data.transcription;
                 }
                 
-                // Check if we have a full response with response field
-                if (data.status === 'complete' && data.result && data.result.response) {
-                    // We have the response, display it
-                    clearInterval(resultCheckTimer);
-                    resultCheckTimer = null;
-                    stopPolling();
-                    
-                    // Collapse thinking container
-                    thinkingContainer.classList.add('collapsed');
-                    
-                    // Create a toggle button
-                    const toggleButton = document.createElement('button');
-                    toggleButton.className = 'toggle-thinking-btn';
-                    toggleButton.innerHTML = '<i class="fas fa-lightbulb"></i> Show Thinking';
-                    toggleButton.addEventListener('click', () => {
-                        thinkingContainer.classList.toggle('collapsed');
-                        toggleButton.innerHTML = thinkingContainer.classList.contains('collapsed') ?
-                            '<i class="fas fa-lightbulb"></i> Show Thinking' :
-                            '<i class="fas fa-lightbulb"></i> Hide Thinking';
-                    });
-                    
-                    // Add toggle button to thinking header
-                    thinkingHeader.appendChild(toggleButton);
-                    
-                    displayResponse(data.result);
+                // Check for nested result format
+                if (data.result && data.result.result && typeof data.result.result === 'object') {
+                    data.result = data.result.result;
                 }
-                // Check for errors
-                else if (data.result && data.result.error) {
-                    console.log('[Voice] Detected processing error');
-                    clearInterval(resultCheckTimer);
-                    resultCheckTimer = null;
-                    stopPolling();
+                
+                // Check if we have a complete response
+                if (data.status === 'complete' && data.result) {
+                    // Format the data for display
+                    let formattedResult;
                     
-                    // Try to reset the system if it's a CrewAI error
-                    if (data.result.error === "CrewAI processing error") {
-                        fetch('/api/reset', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(resetData => {
-                            console.log('[Voice] System reset result:', resetData);
-                    })
-                    .catch(error => {
-                            console.error('[Voice] Error resetting system:', error);
-                        });
+                    // Check if we already have a nice response object
+                    if (data.result.response && typeof data.result.response === 'object') {
+                        formattedResult = data.result;
+                    } else {
+                        formattedResult = formatApiResponseData(data.result);
                     }
                     
+                    console.log('[Voice] Formatted result:', formattedResult);
+                    
+                    // Prevent displaying empty or error results unless this is the final attempt
+                    if (!isFinalAttempt) {
+                        // Check if we have a valid response
+                        const hasValidResponse = 
+                            (formattedResult && formattedResult.response && 
+                             formattedResult.response.answer && 
+                             formattedResult.response.answer !== "I apologize, but the response is taking longer than expected. Please try asking your question again.");
+                        
+                        if (!hasValidResponse) {
+                            console.log('[Voice] Skipping invalid or incomplete response in regular check');
+                            return;
+                        }
+                    }
+                    
+                    // Only clear interval and display result if this is a final attempt 
+                    // or we have a valid result
+                    if (isFinalAttempt || (formattedResult && formattedResult.response)) {
                     // Collapse thinking container
                     thinkingContainer.classList.add('collapsed');
                     
@@ -945,24 +1284,173 @@ function setupVoiceRecording() {
                     });
                     
                     // Add toggle button to thinking header
-                    thinkingHeader.appendChild(toggleButton);
+                    if (thinkingHeader) {
+                        thinkingHeader.appendChild(toggleButton);
+                    }
                     
-                    // Display the error response
-                    displayResponse(data.result);
+                    // Display the response
+                    displayResponse(formattedResult);
+                    clearInterval(thoughtPollingId);
+                    }
+                    return;
+                }
+                // Handle error responses
+                else if (data.result && data.result.error) {
+                    // Only show error and clear interval if this is a final attempt
+                    if (isFinalAttempt) {
+                    const errorResult = {
+                        response: {
+                            answer: `Error: ${data.result.error}`,
+                            method: data.result.response || "Error during processing",
+                            confidence: 0.1,
+                            category: "Error"
+                        },
+                        transcription: lastTranscript || ""
+                    };
+                    
+                    // Collapse thinking container
+                    thinkingContainer.classList.add('collapsed');
+                    
+                    // Create a toggle button
+                    const toggleButton = document.createElement('button');
+                    toggleButton.className = 'toggle-thinking-btn';
+                    toggleButton.innerHTML = '<i class="fas fa-lightbulb"></i> Show Thinking';
+                    toggleButton.addEventListener('click', () => {
+                        thinkingContainer.classList.toggle('collapsed');
+                        toggleButton.innerHTML = thinkingContainer.classList.contains('collapsed') ?
+                            '<i class="fas fa-lightbulb"></i> Show Thinking' :
+                            '<i class="fas fa-lightbulb"></i> Hide Thinking';
+                    });
+                    
+                    // Add toggle button to thinking header
+                    if (thinkingHeader) {
+                        thinkingHeader.appendChild(toggleButton);
+                    }
+                    
+                    // Display the error
+                    displayResponse(errorResult);
+                    clearInterval(thoughtPollingId);
+                    }
+                    return;
+                }
+                
+                // Handle final attempt timeout
+                if (isFinalAttempt) {
+                    // If we have a transcript but no response, show a fallback message
+                    if (lastTranscript) {
+                        const timeoutResult = {
+                            response: {
+                                answer: "I apologize, but the response is taking longer than expected. Please try asking your question again.",
+                                method: "The system timed out while processing your query about carbon footprint calculation.",
+                                confidence: 0.5,
+                                category: "Error"
+                            },
+                            transcription: lastTranscript
+                        };
+                        
+                        // Display timeout message
+                        displayResponse(timeoutResult);
+                        clearInterval(thoughtPollingId);
+                    } else {
+                        showErrorMessage('Response generation timed out. Please try asking again.');
+                        clearInterval(thoughtPollingId);
+                    }
                 }
             })
             .catch(error => {
-                console.error('[Voice] Error checking for results:', error);
+                console.error('[Voice] Error checking session status:', error);
                 
-                // Stop checking after 3 consecutive errors
-                if (checkCount > 3) {
-                    clearInterval(resultCheckTimer);
-                    resultCheckTimer = null;
-                    stopPolling();
+                if (isFinalAttempt) {
                     showErrorMessage('Error retrieving response. Please try again.');
+                    clearInterval(thoughtPollingId);
                 }
             });
         }
+        
+        // Start the polling process
+        return thoughtPollingId;
+    }
+    
+    // Helper function to format the API response consistently
+    function formatApiResponseData(apiResult) {
+        console.log('[Voice] Formatting API result:', apiResult);
+        
+        // If response is already in the expected format, use it directly
+        if (apiResult && typeof apiResult.response === 'object' && apiResult.response.answer) {
+            return apiResult;
+        }
+        
+        // If response is a string, try to parse it as JSON
+        if (apiResult && typeof apiResult.response === 'string') {
+            const parsedResponse = tryParseNestedJSON(apiResult.response);
+            if (parsedResponse && isValidCarbonResponse(parsedResponse)) {
+                return {
+                    response: parsedResponse,
+                    transcription: apiResult.transcription || ""
+                };
+            }
+        }
+        
+        // Handle special case where result has the properties directly
+        if (apiResult && typeof apiResult.answer !== 'undefined') {
+            return {
+                response: {
+                    answer: apiResult.answer,
+                    method: apiResult.method || apiResult.methodology || "Carbon Footprint Analysis",
+                    confidence: apiResult.confidence || 0.8,
+                    category: apiResult.category || "Analysis"
+                },
+                transcription: apiResult.transcription || ""
+            };
+        }
+        
+        // If we have an answer field nested under result
+        if (apiResult && apiResult.result && typeof apiResult.result.answer !== 'undefined') {
+            return {
+                response: {
+                    answer: apiResult.result.answer,
+                    method: apiResult.result.method || apiResult.result.methodology || "Carbon Footprint Analysis",
+                    confidence: apiResult.result.confidence || 0.8,
+                    category: apiResult.result.category || "Analysis"
+                },
+                transcription: apiResult.transcription || ""
+            };
+        }
+        
+        // Handle case where response is direct text
+        if (apiResult && typeof apiResult === 'string') {
+            return {
+                response: {
+                    answer: apiResult,
+                    method: "Direct Response",
+                    confidence: 0.7,
+                    category: "Analysis"
+                },
+                transcription: ""
+            };
+        }
+        
+        // Last resort - try to extract any text content
+        if (apiResult) {
+            // Look for any property that might contain the answer
+            const possibleAnswerFields = ['response', 'text', 'content', 'message', 'output'];
+            for (const field of possibleAnswerFields) {
+                if (apiResult[field] && typeof apiResult[field] === 'string' && apiResult[field].length > 10) {
+                    return {
+                        response: {
+                            answer: apiResult[field],
+                            method: "Extracted Response",
+                            confidence: 0.6,
+                            category: "Analysis"
+                        },
+                        transcription: apiResult.transcription || ""
+                    };
+                }
+            }
+        }
+        
+        // Default format - return as is
+        return apiResult;
     }
     
     // Display the final response
@@ -972,338 +1460,364 @@ function setupVoiceRecording() {
         // Remove any status indicator
         removeStatusIndicator();
         
+        // Find the most recent thinking container
+        const thinkingContainer = document.querySelector('.thinking-container:last-child');
+        
+        // Check for nested result structure (result.result pattern)
+        if (result && result.result && typeof result.result === 'object') {
+            console.log('[Voice] Detected nested result structure, extracting result.result');
+            result = {
+                response: result.result,
+                transcription: result.transcription || ""
+            };
+        }
+        
         // Display the bot's response
-        if (result.response) {
+        if (result && (result.response || typeof result === 'string')) {
             if (typeof window.addBotMessage === 'function') {
-                console.log('[Voice] Using global addBotMessage function');
+                console.log('[Voice] Using global addBotMessage function from dashboard.js');
                 
-                // Just pass the result directly to addBotMessage which will handle formatting
-                window.addBotMessage(result);
+                // Format the result to match what dashboard.js expects
+                let formattedResult;
+                
+                // Handle different response formats
+                if (typeof result === 'string') {
+                    // Simple string result
+                    formattedResult = result;
+                } else if (typeof result.response === 'string') {
+                    try {
+                        // Try to parse the string as JSON
+                        const parsedResponse = tryParseNestedJSON(result.response);
+                        if (parsedResponse && isValidCarbonResponse(parsedResponse)) {
+                            formattedResult = parsedResponse;
+                        } else {
+                            // If not valid JSON, use as plain text
+                            formattedResult = result.response;
+                        }
+                    } catch (e) {
+                        console.error('[Voice] Error parsing response string:', e);
+                        formattedResult = result.response;
+                    }
+                } else if (typeof result.response === 'object') {
+                    // If it's already an object, use it directly
+                    formattedResult = result.response;
+                } else {
+                    // Fallback for any other type
+                    formattedResult = String(result.response || result);
+                }
+                
+                console.log('[Voice] Formatted result for addBotMessage:', formattedResult);
+                
+                // Pass the formatted result to the global addBotMessage function
+                window.addBotMessage(formattedResult);
             } else {
-                console.log('[Voice] Using fallback display method');
+                console.log('[Voice] Using local display method (addBotMessage not available)');
                 // Create message container
                 const messageContainer = document.createElement('div');
                 messageContainer.className = 'message bot';
                 
                 // Check if result is a string or an object
-                if (typeof result.response === 'string') {
-                    // Parse result.response for nested JSON
-                    let parsedResponse = null;
-                    try {
-                        // Try standard JSON format first
-                        if (result.response.trim().startsWith('{') && result.response.trim().endsWith('}')) {
-                            parsedResponse = JSON.parse(result.response);
-                        }
-                        // Try parsing Python-style dict with single quotes
-                        else if (result.response.trim().startsWith("{'") && result.response.trim().endsWith("'}")) {
-                            const jsonStr = result.response
-                                .replace(/'/g, '"')  // Replace single quotes with double quotes
-                                .replace(/None/g, 'null')  // Replace None with null
-                                .replace(/True/g, 'true')  // Replace True with true
-                                .replace(/False/g, 'false'); // Replace False with false
-                            
-                            parsedResponse = JSON.parse(jsonStr);
-                        }
-                    } catch (e) {
-                        console.error("[Voice] Failed to parse nested JSON:", e);
-                    }
+                if (typeof result === 'string') {
+                    // Try to parse string as JSON first
+                    const parsedResponse = tryParseNestedJSON(result);
                     
-                    // If we have a parsed response and it looks like a carbon response, use it
-                    if (parsedResponse && 
-                        typeof parsedResponse === 'object' && 
-                        typeof parsedResponse.answer !== 'undefined' && 
-                        typeof parsedResponse.method !== 'undefined' && 
-                        typeof parsedResponse.confidence !== 'undefined' && 
-                        typeof parsedResponse.category !== 'undefined') {
-                        
-                        // Create structured response elements
-                        
-                        // Create answer paragraph with label
-                        const answerSection = document.createElement('div');
-                        answerSection.className = 'response-section';
-                        
-                        const answerLabel = document.createElement('strong');
-                        answerLabel.textContent = 'Answer: ';
-                        
-                        const answerText = document.createElement('span');
-                        answerText.textContent = parsedResponse.answer;
-                        
-                        answerSection.appendChild(answerLabel);
-                        answerSection.appendChild(answerText);
-                        messageContainer.appendChild(answerSection);
-                        
-                        // Method/Methodology section
-                        if (parsedResponse.method) {
-                            const methodSection = document.createElement('div');
-                            methodSection.className = 'response-section';
-                            
-                            const methodLabel = document.createElement('strong');
-                            methodLabel.textContent = 'Methodology: ';
-                            
-                            const methodText = document.createElement('span');
-                            methodText.textContent = parsedResponse.method;
-                            
-                            methodSection.appendChild(methodLabel);
-                            methodSection.appendChild(methodText);
-                            messageContainer.appendChild(methodSection);
-                        }
-                        
-                        // Confidence section
-                        if (parsedResponse.confidence !== undefined) {
-                            const confidenceSection = document.createElement('div');
-                            confidenceSection.className = 'response-section';
-                            
-                            const confidenceLabel = document.createElement('strong');
-                            confidenceLabel.textContent = 'Confidence: ';
-                            
-                            const confidenceText = document.createElement('span');
-                            confidenceText.textContent = parsedResponse.confidence;
-                            
-                            confidenceSection.appendChild(confidenceLabel);
-                            confidenceSection.appendChild(confidenceText);
-                            messageContainer.appendChild(confidenceSection);
-                        }
-                        
-                        // Category section
-                        if (parsedResponse.category && parsedResponse.category !== 'Unknown') {
-                            const categorySection = document.createElement('div');
-                            categorySection.className = 'response-section';
-                            
-                            const categoryLabel = document.createElement('strong');
-                            categoryLabel.textContent = 'Category: ';
-                            
-                            const categoryText = document.createElement('span');
-                            categoryText.textContent = parsedResponse.category;
-                            
-                            categorySection.appendChild(categoryLabel);
-                            categorySection.appendChild(categoryText);
-                            messageContainer.appendChild(categorySection);
-                        }
-                        
-                        // Add Track Impact button if applicable
-                        if (parsedResponse.category && parsedResponse.answer) {
-                            // Try to extract numeric value from the answer
-                            const carbonPatterns = [
-                                /(\d+(?:\.\d+)?)\s*(?:kg|kilograms?)\s*(?:of)?\s*(?:CO2e?|carbon dioxide equivalent)/i,
-                                /(\d+(?:\.\d+)?)\s*(?:g|grams?)\s*(?:of)?\s*(?:CO2e?|carbon dioxide equivalent)/i,
-                                /(\d+(?:\.\d+)?)\s*(?:tons?|tonnes?)\s*(?:of)?\s*(?:CO2e?|carbon dioxide equivalent)/i,
-                                /(\d+(?:\.\d+)?)\s*(?:kg|kilograms?)/i,  // Less specific fallback
-                                /(\d+(?:\.\d+)?)\s*(?:g|grams?)/i,      // Less specific fallback
-                                /(\d+(?:\.\d+)?)\s*(?:CO2e?)/i,         // Just the number with CO2
-                                /carbon footprint of (\d+(?:\.\d+)?)/i,  // Phrases like "carbon footprint of X"
-                                /(\d+(?:\.\d+)?)/                       // Last resort: just find any number
-                            ];
-                            
-                            let carbonValue = null;
-                            let unit = 'kg';  // Default unit
-                            
-                            // Try each pattern until we find a match
-                            for (const pattern of carbonPatterns) {
-                                const match = parsedResponse.answer.match(pattern);
-                                if (match) {
-                                    carbonValue = parseFloat(match[1]);
-                                    
-                                    // Adjust for different units
-                                    if (pattern.source.includes('grams?') && !pattern.source.includes('kg')) {
-                                        carbonValue = carbonValue / 1000;  // Convert grams to kg
-                                        unit = 'kg (converted from g)';
-                                    } else if (pattern.source.includes('tons?|tonnes?')) {
-                                        carbonValue = carbonValue * 1000;  // Convert tons to kg
-                                        unit = 'kg (converted from tons)';
-                                    }
-                                    
-                                    console.log(`[Voice] Extracted carbon value: ${carbonValue} ${unit} using pattern: ${pattern}`);
-                                    break;
-                                }
-                            }
-                            
-                            if (carbonValue !== null) {
-                                const trackButton = document.createElement('button');
-                                trackButton.className = 'track-query-btn';
-                                trackButton.innerHTML = '<i class="fas fa-chart-line"></i> Track Impact';
-                                
-                                // Add click handler with proper event passing
-                                trackButton.addEventListener('click', function(e) {
-                                    // Call the trackQuery function with the extracted value
-                                    trackQuery(parsedResponse.answer, parsedResponse.category, carbonValue, e);
-                                });
-                                
-                                messageContainer.appendChild(trackButton);
-                            }
-                        }
-            } else {
-                        // Simple string response
-                        messageContainer.textContent = result.response;
-                    }
-                } else if (typeof result.response === 'object') {
-                    // If it's already an object with answer field, create structured response
-                    if (result.response.answer) {
-                        // Create answer paragraph with label
-                        const answerSection = document.createElement('div');
-                        answerSection.className = 'response-section';
-                        
-                        const answerLabel = document.createElement('strong');
-                        answerLabel.textContent = 'Answer: ';
-                        
-                        const answerText = document.createElement('span');
-                        answerText.textContent = result.response.answer;
-                        
-                        answerSection.appendChild(answerLabel);
-                        answerSection.appendChild(answerText);
-                        messageContainer.appendChild(answerSection);
-                        
-                        // Method/Methodology section
-                        if (result.response.method) {
-                            const methodSection = document.createElement('div');
-                            methodSection.className = 'response-section';
-                            
-                            const methodLabel = document.createElement('strong');
-                            methodLabel.textContent = 'Methodology: ';
-                            
-                            const methodText = document.createElement('span');
-                            methodText.textContent = result.response.method;
-                            
-                            methodSection.appendChild(methodLabel);
-                            methodSection.appendChild(methodText);
-                            messageContainer.appendChild(methodSection);
-                        }
-                        
-                        // Confidence section
-                        if (result.response.confidence !== undefined) {
-                            const confidenceSection = document.createElement('div');
-                            confidenceSection.className = 'response-section';
-                            
-                            const confidenceLabel = document.createElement('strong');
-                            confidenceLabel.textContent = 'Confidence: ';
-                            
-                            const confidenceText = document.createElement('span');
-                            confidenceText.textContent = result.response.confidence;
-                            
-                            confidenceSection.appendChild(confidenceLabel);
-                            confidenceSection.appendChild(confidenceText);
-                            messageContainer.appendChild(confidenceSection);
-                        }
-                        
-                        // Category section
-                        if (result.response.category && result.response.category !== 'Unknown') {
-                            const categorySection = document.createElement('div');
-                            categorySection.className = 'response-section';
-                            
-                            const categoryLabel = document.createElement('strong');
-                            categoryLabel.textContent = 'Category: ';
-                            
-                            const categoryText = document.createElement('span');
-                            categoryText.textContent = result.response.category;
-                            
-                            categorySection.appendChild(categoryLabel);
-                            categorySection.appendChild(categoryText);
-                            messageContainer.appendChild(categorySection);
-                        }
-                        
-                        // Add Track Impact button if applicable
-                        if (result.response.category && result.response.answer) {
-                            // Use same carbon value extraction as above
-                            const carbonPatterns = [
-                                /(\d+(?:\.\d+)?)\s*(?:kg|kilograms?)\s*(?:of)?\s*(?:CO2e?|carbon dioxide equivalent)/i,
-                                /(\d+(?:\.\d+)?)\s*(?:g|grams?)\s*(?:of)?\s*(?:CO2e?|carbon dioxide equivalent)/i,
-                                /(\d+(?:\.\d+)?)\s*(?:tons?|tonnes?)\s*(?:of)?\s*(?:CO2e?|carbon dioxide equivalent)/i,
-                                /(\d+(?:\.\d+)?)\s*(?:kg|kilograms?)/i,
-                                /(\d+(?:\.\d+)?)\s*(?:g|grams?)/i,
-                                /(\d+(?:\.\d+)?)\s*(?:CO2e?)/i,
-                                /carbon footprint of (\d+(?:\.\d+)?)/i,
-                                /(\d+(?:\.\d+)?)/
-                            ];
-                            
-                            let carbonValue = null;
-                            let unit = 'kg';
-                            
-                            for (const pattern of carbonPatterns) {
-                                const match = result.response.answer.match(pattern);
-                                if (match) {
-                                    carbonValue = parseFloat(match[1]);
-                                    
-                                    if (pattern.source.includes('grams?') && !pattern.source.includes('kg')) {
-                                        carbonValue = carbonValue / 1000;
-                                        unit = 'kg (converted from g)';
-                                    } else if (pattern.source.includes('tons?|tonnes?')) {
-                                        carbonValue = carbonValue * 1000;
-                                        unit = 'kg (converted from tons)';
-                                    }
-                                    
-                                    console.log(`[Voice] Extracted carbon value: ${carbonValue} ${unit} using pattern: ${pattern}`);
-                                    break;
-                                }
-                            }
-                            
-                            if (carbonValue !== null) {
-                                const trackButton = document.createElement('button');
-                                trackButton.className = 'track-query-btn';
-                                trackButton.innerHTML = '<i class="fas fa-chart-line"></i> Track Impact';
-                                
-                                trackButton.addEventListener('click', function(e) {
-                                    trackQuery(result.response.answer, result.response.category, carbonValue, e);
-                                });
-                                
-                                messageContainer.appendChild(trackButton);
-                            }
-                        }
+                    if (parsedResponse && isValidCarbonResponse(parsedResponse)) {
+                        displayStructuredResponse(messageContainer, parsedResponse);
                     } else {
-                        // Generic object, convert to string
-                        messageContainer.textContent = JSON.stringify(result.response);
+                        // Simple string response
+                        messageContainer.textContent = result;
+                    }
+                } else if (result.response) {
+                    // Result with response field
+                    if (typeof result.response === 'string') {
+                        // Try to parse string response as JSON
+                        const parsedResponse = tryParseNestedJSON(result.response);
+                        
+                        if (parsedResponse && isValidCarbonResponse(parsedResponse)) {
+                            displayStructuredResponse(messageContainer, parsedResponse);
+                        } else {
+                            // Simple string response
+                            messageContainer.textContent = result.response;
+                        }
+                    } else if (typeof result.response === 'object') {
+                        // Object response
+                        displayStructuredResponse(messageContainer, result.response);
+                    } else {
+                        // Fallback for any other type
+                        messageContainer.textContent = String(result.response);
                     }
                 } else {
-                    // Fallback for any other type
-                    messageContainer.textContent = String(result.response);
+                    // No response field but might have direct properties like "answer"
+                    if (typeof result.answer !== 'undefined') {
+                        displayStructuredResponse(messageContainer, result);
+                    } else {
+                        // Last resort - stringify the object
+                        messageContainer.textContent = JSON.stringify(result);
+                    }
                 }
                 
                 // Add to conversation and scroll
                 conversationContainer.appendChild(messageContainer);
-            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+                ensureScrolling();
             }
             
-            // Clean up transcript file
-            console.log('[Voice] Cleaning up transcript file');
-            fetch('/api/cleanup-transcript', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+            // If we have a thinking container, collapse it and add a toggle button
+            if (thinkingContainer) {
+                // Don't collapse the thinking container, leave it fully visible
+                // thinkingContainer.classList.add('collapsed');
+                
+                // Check if toggle button already exists
+                if (!thinkingContainer.querySelector('.toggle-thinking-btn')) {
+                    // Create a toggle button
+                    const toggleButton = document.createElement('button');
+                    toggleButton.className = 'toggle-thinking-btn';
+                    toggleButton.innerHTML = '<i class="fas fa-lightbulb"></i> Hide Thinking';
+                    toggleButton.addEventListener('click', () => {
+                        thinkingContainer.classList.toggle('collapsed');
+                        toggleButton.innerHTML = thinkingContainer.classList.contains('collapsed') ?
+                            '<i class="fas fa-lightbulb"></i> Show Thinking' :
+                            '<i class="fas fa-lightbulb"></i> Hide Thinking';
+                        
+                        // After toggling, ensure scrolling
+                        ensureScrolling();
+                    });
+                    
+                    // Add toggle button to thinking header
+                    const thinkingHeader = thinkingContainer.querySelector('.thinking-header');
+                    if (thinkingHeader) {
+                        thinkingHeader.appendChild(toggleButton);
+                    }
                 }
-            })
-            .then(response => {
-                console.log('[Voice] Cleanup response status:', response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log('[Voice] Transcript cleanup result:', data);
-            })
-            .catch(error => {
-                console.error('[Voice] Error cleaning up transcript:', error);
-            });
+                
+                // Ensure conversation is scrolled to the latest content
+                ensureScrolling();
+            }
             
-            // Reset the global transcript variable (if any) by sending an extra request
-            console.log('[Voice] Resetting global transcript');
-            fetch('/api/reset-transcript', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .catch(error => {
-                console.error('[Voice] Error resetting transcript:', error);
-            });
-            
-            // Also clean up thoughts
-            console.log('[Voice] Cleaning up thoughts');
-            fetch('/api/cleanup-thoughts', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .catch(error => {
-                console.error('[Voice] Error cleaning up thoughts:', error);
-            });
+            // Clean up temporary files
+            cleanupTemporaryFiles();
         }
+    }
+    
+    // Clean up temporary files created during voice processing
+    function cleanupTemporaryFiles() {
+        console.log('[Voice] Cleaning up temporary files');
+        
+        // Clean up transcript file
+        fetch('/api/cleanup-transcript', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+            console.error('[Voice] Error cleaning up transcript:', error);
+        });
+        
+        // Reset the global transcript variable
+        fetch('/api/reset-transcript', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+            console.error('[Voice] Error resetting transcript:', error);
+        });
+        
+        // Clean up thoughts
+        fetch('/api/cleanup-thoughts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+            console.error('[Voice] Error cleaning up thoughts:', error);
+        });
+    }
+    
+    // Helper function to display structured response 
+    function displayStructuredResponse(result) {
+        console.log('[Voice] Displaying structured response:', result);
+        
+        // Handle different response formats
+        let content, carbonValue = null, category = null;
+        
+        if (typeof result === 'string') {
+            // Simple string response
+            content = result;
+        } else if (result && typeof result === 'object') {
+            // Extract content based on available fields
+            if (result.result) {
+                if (typeof result.result === 'string') {
+                    content = result.result;
+                } else if (typeof result.result === 'object') {
+                    content = result.result.answer || result.result.final_answer || JSON.stringify(result.result);
+                }
+            } else if (result.answer || result.final_answer) {
+                content = result.answer || result.final_answer;
+            } else {
+                content = JSON.stringify(result);
+            }
+            
+            // Extract carbon value and category if available
+            // Check in different possible locations based on the structure
+            if (result.result && result.result.estimated_footprints) {
+                const footprints = result.result.estimated_footprints;
+                if (footprints.length > 0) {
+                    carbonValue = footprints[0].value;
+                    category = footprints[0].category || footprints[0].entity;
+                }
+            } else if (result.estimated_footprints) {
+                const footprints = result.estimated_footprints;
+                if (footprints.length > 0) {
+                    carbonValue = footprints[0].value;
+                    category = footprints[0].category || footprints[0].entity;
+                }
+            } else if (result.result && result.result.carbon_value) {
+                carbonValue = result.result.carbon_value;
+                category = result.result.category;
+            } else if (result.carbon_value) {
+                carbonValue = result.carbon_value;
+                category = result.category;
+            }
+        } else {
+            content = "Could not parse response";
+        }
+        
+        // Clean up the content if needed
+        if (!content) {
+            content = "No content available in the response";
+        }
+        
+        // Add the response to the chat
+        addBotMessage(content);
+        
+        // Add Track Impact button if we have a carbon value
+        if (carbonValue !== null && category !== null) {
+            console.log('[Voice] Adding Track Impact button for:', carbonValue, category);
+            
+            // Create a container for the button
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'track-button-container';
+            
+            // Create the button
+            const trackButton = document.createElement('button');
+            trackButton.className = 'btn btn-primary track-query-btn';
+            trackButton.innerHTML = '<i class="fas fa-chart-line"></i> Track Impact';
+            
+            // Set up the event listener
+            trackButton.addEventListener('click', function(event) {
+                trackQuery(content, category, carbonValue, event);
+            });
+            
+            // Add button to container
+            buttonContainer.appendChild(trackButton);
+            
+            // Add the button container to the chat
+            const messagesContainer = document.getElementById('messages');
+            if (messagesContainer) {
+                messagesContainer.appendChild(buttonContainer);
+            } else {
+                console.error('[Voice] Could not find messages container');
+            }
+        }
+        
+        // Scroll to the bottom of the messages container
+        const messagesContainer = document.getElementById('messages');
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Hide spinner and enable record button
+        hideSpinner();
+        enableRecordButton();
+    }
+    
+    // Helper function to check if an object looks like a valid carbon response (from dashboard.js)
+    function isValidCarbonResponse(obj) {
+        // Check if it's a full response format
+        if (obj && typeof obj === 'object') {
+            // New response format that should contain answer field
+            if (typeof obj.answer !== 'undefined') {
+                return true;
+            }
+            
+            // Alternative format with result field
+            if (obj.result && typeof obj.result === 'object') {
+                return typeof obj.result.answer !== 'undefined';
+            }
+            
+            // Check for complete standard format
+            if (typeof obj.answer !== 'undefined' && 
+                (typeof obj.method !== 'undefined' || typeof obj.methodology !== 'undefined') && 
+                typeof obj.confidence !== 'undefined' && 
+                typeof obj.category !== 'undefined') {
+                return true;
+            }
+            
+            // Simplified response format
+            if (typeof obj.response !== 'undefined') {
+                // If response is an object, it should have an answer
+                if (typeof obj.response === 'object') {
+                    return typeof obj.response.answer !== 'undefined';
+                }
+                // If response is a string, it should be non-empty
+                if (typeof obj.response === 'string' && obj.response.trim().length > 0) {
+                return true;
+                }
+            }
+            
+            // Check for nested response.response patterns (common in some API responses)
+            if (obj.response && obj.response.response) {
+                if (typeof obj.response.response === 'object') {
+                    return typeof obj.response.response.answer !== 'undefined';
+                }
+                if (typeof obj.response.response === 'string' && obj.response.response.trim().length > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    // Helper function for parsing nested JSON (from dashboard.js)
+    function tryParseNestedJSON(jsonString) {
+        if (typeof jsonString !== 'string') return null;
+        
+        // Skip if not likely to be JSON
+        if (!jsonString.trim().startsWith('{') && !jsonString.trim().startsWith("{'") && 
+            !jsonString.trim().startsWith('[') && !jsonString.trim().startsWith("['")) {
+            return null;
+        }
+        
+        try {
+            // Try standard JSON format first
+            if ((jsonString.trim().startsWith('{') && jsonString.trim().endsWith('}')) ||
+                (jsonString.trim().startsWith('[') && jsonString.trim().endsWith(']'))) {
+                return JSON.parse(jsonString);
+            }
+            
+            // Try parsing Python-style dict with single quotes
+            if ((jsonString.trim().startsWith("{'") && jsonString.trim().endsWith("'}")) ||
+                (jsonString.trim().startsWith("['") && jsonString.trim().endsWith("']"))) {
+                const jsonStr = jsonString
+                    .replace(/'/g, '"')  // Replace single quotes with double quotes
+                    .replace(/None/g, 'null')  // Replace None with null
+                    .replace(/True/g, 'true')  // Replace True with true
+                    .replace(/False/g, 'false'); // Replace False with false
+                
+                return JSON.parse(jsonStr);
+            }
+            
+            // Search for JSON-like content within the string (for when JSON is embedded in text)
+            const jsonRegex = /{[\s\S]*?}/g;
+            const match = jsonString.match(jsonRegex);
+            if (match && match[0]) {
+                try {
+                    const extracted = match[0];
+                    return JSON.parse(extracted);
+                } catch (e) {
+                    // If nested extraction fails, just continue with other attempts
+                    console.warn('[Voice] Failed to extract nested JSON:', e);
+                }
+            }
+        } catch (e) {
+            console.error("[Voice] Failed to parse nested JSON:", e);
+        }
+        
+        return null;
     }
     
     // ----- HELPER FUNCTIONS -----
@@ -1406,7 +1920,7 @@ function setupVoiceRecording() {
         // Add to conversation
         if (conversationContainer) {
             conversationContainer.appendChild(indicatorElement);
-            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+            ensureScrolling();
         }
     }
     
@@ -1429,21 +1943,79 @@ function setupVoiceRecording() {
         
         if (conversationContainer) {
             conversationContainer.appendChild(errorElement);
-            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+            ensureScrolling();
         }
     }
 }
 
-// Make sure transcription results can be tracked similar to text queries
-function trackQuery(query, category, value, event) {
-    console.log('[Voice] Tracking query:', query, 'Category:', category, 'Value:', value);
-    // Check if window.trackQuery is available (from tracking.js)
+// Add the trackQuery function if it doesn't exist already in this context
+function trackQuery(answer, category, carbonValue, event) {
+    console.log('[Voice] Tracking query with carbonValue:', carbonValue, 'category:', category);
+    
+    // Use the global trackQuery if it exists
     if (typeof window.trackQuery === 'function') {
-        console.log('[Voice] Using global trackQuery function');
-        window.trackQuery(query, category, value, event);
-    } else {
-        console.error('[Voice] trackQuery function not available');
+        console.log('[Voice] Using global trackQuery function from dashboard.js');
+        window.trackQuery(answer, category, carbonValue, event);
+        return;
     }
+    
+    // Fallback implementation if global trackQuery is not available
+    console.log('[Voice] Using local trackQuery implementation');
+    
+    // Get target button from event or find it
+    const targetButton = event ? event.currentTarget : document.querySelector('.track-query-btn');
+    if (!targetButton) {
+        console.error('[Voice] Could not find track button');
+        return;
+    }
+    
+    // Disable the button to prevent multiple submissions
+    targetButton.disabled = true;
+    targetButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Tracking...';
+    
+    // Send tracking request
+    fetch('/api/track-query', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            query: answer,
+            category: category,
+            carbonValue: carbonValue
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('[Voice] Query tracked successfully:', data);
+        
+        // Update button to show success
+        targetButton.innerHTML = '<i class="fas fa-check"></i> Tracked';
+        targetButton.classList.add('tracked');
+        
+        // Show tracking confirmation toast if function exists
+        if (typeof window.showToast === 'function') {
+            window.showToast('Query tracked successfully!', 'success');
+        } else {
+            // Simple alert fallback
+            alert('Carbon impact tracked successfully!');
+        }
+    })
+    .catch(error => {
+        console.error('[Voice] Error tracking query:', error);
+        
+        // Reset button
+        targetButton.disabled = false;
+        targetButton.innerHTML = '<i class="fas fa-chart-line"></i> Track Impact';
+        
+        // Show error toast if function exists
+        if (typeof window.showToast === 'function') {
+            window.showToast('Failed to track query. Please try again.', 'error');
+        } else {
+            // Simple alert fallback
+            alert('Failed to track carbon impact. Please try again.');
+        }
+    });
 }
 
 // Export to make functions available to other modules
@@ -1452,3 +2024,179 @@ window.VoiceHandler = {
 };
 
 console.log('[Voice] Voice handler module loaded');
+
+// --- Streaming agent step logic for voice mode ---
+function streamAgentStepsVoice(query) {
+    console.log('[Voice] Starting agent step streaming for voice query');
+    const conversationContainer = document.getElementById('conversation-container');
+    const requestId = `query_${Date.now()}`;
+    
+    // Remove any previous status indicators
+    removeStatusIndicator();
+
+    // Create a new thinking/status container
+    const thinkingContainer = document.createElement('div');
+    thinkingContainer.className = 'thinking-container';
+    
+    // Create header for thinking container
+    const thinkingHeader = document.createElement('div');
+    thinkingHeader.className = 'thinking-header';
+    thinkingHeader.innerHTML = '<i class="fas fa-robot"></i> Thinking...';
+    thinkingContainer.appendChild(thinkingHeader);
+    
+    // Create thoughts area with no max-height limit
+    const thoughtsArea = document.createElement('div');
+    thoughtsArea.className = 'thoughts-area';
+    thoughtsArea.style.maxHeight = 'none'; // Remove max-height limit
+    thinkingContainer.appendChild(thoughtsArea);
+    
+    // Create initial thought element
+    const initialThought = document.createElement('div');
+    initialThought.className = 'thought start';
+    initialThought.innerHTML = `
+        <span class="thought-icon"><i class="fas fa-play"></i></span>
+        <span class="thought-content">Starting analysis of your voice query: "${query}"</span>
+    `;
+    thoughtsArea.appendChild(initialThought);
+    
+    // Add container to conversation
+    conversationContainer.appendChild(thinkingContainer);
+    
+    // Ensure scrollability
+    ensureScrolling();
+
+    // Start SSE connection with request ID for tracking
+    console.log(`[Voice] Creating SSE connection with request ID: ${requestId}`);
+    const evtSource = new EventSource(`/api/stream-agent-step?query=${encodeURIComponent(query)}&request_id=${requestId}`);
+    
+    // Handle incoming messages
+    evtSource.onmessage = function(event) {
+        try {
+            // Skip keep-alive messages
+            if (event.data.trim() === '') return;
+            
+            const data = JSON.parse(event.data);
+            console.log('[Voice] Received agent step update:', data);
+            
+            // Check for completion
+            if (data.agent === 'done') {
+                console.log('[Voice] Agent processing complete');
+                thinkingHeader.innerHTML = '<i class="fas fa-check-circle"></i> Analysis Complete!';
+                
+                // Add a final completion thought
+                const completionThought = document.createElement('div');
+                completionThought.className = 'thought complete';
+                completionThought.innerHTML = `
+                    <span class="thought-icon"><i class="fas fa-check-circle"></i></span>
+                    <span class="thought-content">Analysis complete! Preparing final response...</span>
+                `;
+                thoughtsArea.appendChild(completionThought);
+                
+                // Ensure scrollability
+                ensureScrolling();
+                
+                // Close the connection
+                evtSource.close();
+                
+                // Add a toggle button
+                const toggleButton = document.createElement('button');
+                toggleButton.className = 'toggle-thinking-btn';
+                toggleButton.innerHTML = '<i class="fas fa-lightbulb"></i> Hide Thinking';
+                toggleButton.addEventListener('click', () => {
+                    thinkingContainer.classList.toggle('collapsed');
+                    toggleButton.innerHTML = thinkingContainer.classList.contains('collapsed') ?
+                        '<i class="fas fa-lightbulb"></i> Show Thinking' :
+                        '<i class="fas fa-lightbulb"></i> Hide Thinking';
+                    
+                    // After toggling, ensure scrolling
+                    ensureScrolling();
+                });
+                
+                // Add toggle button to thinking header
+                if (thinkingHeader) {
+                    thinkingHeader.appendChild(toggleButton);
+                }
+                
+                // Don't collapse thinking container by default
+                // thinkingContainer.classList.add('collapsed');
+                
+                // Ensure scrolling one more time
+                ensureScrolling();
+                
+                return;
+            }
+            
+            // Get the appropriate message for this agent
+            const msg = window.getAgentMessage ? 
+                window.getAgentMessage(data.agent) : 
+                (data.message || `Processing with ${data.agent}...`);
+            
+            // Create a new thought for this agent step
+            const agentThought = document.createElement('div');
+            agentThought.className = 'thought agent_step';
+            agentThought.innerHTML = `
+                <span class="thought-icon"><i class="fas fa-cog fa-spin"></i></span>
+                <span class="thought-content">${msg}</span>
+            `;
+            
+            // Add the new thought
+            thoughtsArea.appendChild(agentThought);
+            
+            // Ensure scrollability
+            ensureScrolling();
+            
+        } catch (e) {
+            console.error('[Voice] Error processing SSE message:', e, event.data);
+        }
+    };
+    
+    // Handle connection open
+    evtSource.onopen = function() {
+        console.log('[Voice] SSE connection opened');
+    };
+    
+    // Handle errors
+    evtSource.onerror = function(err) {
+        console.error('[Voice] SSE connection error:', err);
+        
+        // Add an error thought
+        const errorThought = document.createElement('div');
+        errorThought.className = 'thought error';
+        errorThought.innerHTML = `
+            <span class="thought-icon"><i class="fas fa-exclamation-triangle"></i></span>
+            <span class="thought-content">Connection error. The system may still be processing your query.</span>
+        `;
+        thoughtsArea.appendChild(errorThought);
+        
+        // Ensure scrollability
+        ensureScrolling();
+        
+        // Close the connection
+        evtSource.close();
+    };
+}
+
+// Update the ensureScrolling function to not rely on a global conversationContainer variable
+function ensureScrolling() {
+    // Get the conversation container element directly instead of relying on global scope
+    const conversationContainer = document.getElementById('conversation-container');
+    
+    // Ensure the main conversation container is scrolled down
+    if (conversationContainer) {
+        // Force layout recalculation to get accurate scrollHeight
+        conversationContainer.scrollTop = conversationContainer.scrollHeight;
+        
+        // In some browsers, an immediate second scroll ensures animation completes
+        setTimeout(() => {
+            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+        }, 50);
+    }
+    
+    // Also ensure any thoughts areas are scrolled
+    const thoughtsAreas = document.querySelectorAll('.thoughts-area');
+    thoughtsAreas.forEach(area => {
+        if (area) {
+            area.scrollTop = area.scrollHeight;
+        }
+    });
+}

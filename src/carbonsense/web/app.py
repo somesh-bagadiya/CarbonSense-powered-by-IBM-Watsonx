@@ -260,10 +260,56 @@ config = ConfigManager()
 # Initialize carbon flow as the primary engine
 carbon_flow = CarbonSenseFlow(
     config=config,
-    debug_mode=False,
+    debug_mode=True,
     use_cache=False,
     store_thoughts=True
 )
+
+# Ensure all logs directories exist
+for log_dir in ["logs/thoughts", "logs/visualizations", "logs/communication"]:
+    os.makedirs(log_dir, exist_ok=True)
+    logger.info(f"Created log directory: {log_dir}")
+
+# Create the numbered log files if they don't exist
+for i in range(1, 15):
+    if i == 1:
+        suffix = "classification.json"
+    elif i == 2:
+        suffix = "entities.json"
+    elif i == 3:
+        suffix = "normalized.json"
+    elif i == 4:
+        suffix = "cache.json"
+    elif i == 5:
+        suffix = "milvus.json"
+    elif i == 6:
+        suffix = "discovery.json"
+    elif i == 7:
+        suffix = "serper.json"
+    elif i == 8:
+        suffix = "harmonised.json"
+    elif i == 9:
+        suffix = "estimation.json"
+    elif i == 10:
+        suffix = "ranked.json"
+    elif i == 11:
+        suffix = "comparison.json"
+    elif i == 12:
+        suffix = "recommendation.json"
+    elif i == 13:
+        suffix = "explanation.json"
+    elif i == 14:
+        suffix = "formatted_answer.json"
+    
+    log_file = f"logs/{i}_{suffix}"
+    # Create empty file if it doesn't exist
+    if not os.path.exists(log_file):
+        try:
+            with open(log_file, 'w') as f:
+                f.write('')
+            logger.info(f"Created log file: {log_file}")
+        except Exception as e:
+            logger.error(f"Error creating log file {log_file}: {e}")
 
 # Keep crew_manager for backward compatibility
 crew_manager = None
@@ -456,496 +502,546 @@ async def apply_tip(request: Request):
         }
     }
 
-# API endpoint for streaming agent thoughts
-@app.get("/api/stream-thoughts")
-async def stream_thoughts(request: Request, query: str):
-    """Stream agent thoughts as Server-Sent Events."""
-    # Generate a unique ID for this streaming connection
-    request_id = f"request_{int(time.time() * 1000)}"
-    
-    logger.info(f"========== THOUGHT STREAM REQUEST ==========")
-    logger.info(f"Request ID: {request_id}")
-    logger.info(f"Query: {query}")
-    logger.info(f"Client: {request.client.host if request.client else 'Unknown'}")
-    logger.info(f"============================================")
-    
-    # Create a dedicated queue for this request
-    thought_queues[request_id] = queue.Queue()
-    
-    # Start thought simulation in a background thread
-    thread = threading.Thread(
-        target=simulate_agent_thoughts,
-        args=(request_id, query),
-        daemon=True
-    )
-    thread.start()
-    
-    # Define the SSE generator
-    async def event_generator():
-        try:
-            logger.info(f"Starting event generator for request: {request_id}, query: {query}")
-            
-            # Send retry interval and initial connection message
-            yield "retry: 1000\n\n"
-            yield f"id: {request_id}\n"
-            yield f"data: {json.dumps({'type': 'info', 'content': 'Connection established'})}\n\n"
-            logger.info(f"[{request_id}] Sent initial connection message")
-            
-            # Wait a moment to ensure the client has connected
-            await asyncio.sleep(0.2)
-            
-            # Send a test thought to verify streaming is working
-            test_thought = {'type': 'thought', 'content': f'Initializing analysis for: {query}'}
-            yield f"id: {int(time.time() * 1000)}\n"
-            yield f"data: {json.dumps(test_thought)}\n\n"
-            logger.info(f"[{request_id}] Sent initial thought: {test_thought}")
-            
-            counter = 0
-            disconnect_counter = 0
-            max_counter = 60  # 30 seconds max
-            max_disconnect_attempts = 3
-            
-            while counter < max_counter:
-                counter += 1
-                try:
-                    # Non-blocking get with timeout
-                    thought_data = thought_queues[request_id].get(timeout=0.5)
-                    
-                    # Reset disconnect counter on successful data retrieval
-                    disconnect_counter = 0
-                    
-                    # Handle "DONE" signal
-                    if thought_data == "DONE":
-                        logger.info(f"[{request_id}] Received DONE signal, completing stream")
-                        yield f"id: {int(time.time() * 1000)}\n"
-                        yield f"data: {json.dumps({'type': 'complete', 'content': 'Processing completed'})}\n\n"
-                        break
-                    
-                    # Send the thought data as a server-sent event
-                    # Include event ID, event type, and proper formatting with double newlines
-                    event_id = int(time.time() * 1000)
-                    yield f"id: {event_id}\n"
-                    yield f"data: {json.dumps(thought_data)}\n\n"
-                    logger.info(f"[{request_id}] Sent event: {thought_data}")
-                    
-                except queue.Empty:
-                    # No messages available, send a keep-alive comment
-                    yield ": keep-alive\n\n"
-                    await asyncio.sleep(0.5)
-                    
-                    # If client has disconnected, the keep-alive won't be sent successfully
-                    # Check if request is still active
-                    try:
-                        # If client disconnected, this will raise an exception 
-                        await request.is_disconnected()
-                        disconnect_counter += 1
-                        
-                        if disconnect_counter >= max_disconnect_attempts:
-                            logger.warning(f"[{request_id}] Client appears to be disconnected after {disconnect_counter} attempts")
-                            break
-                            
-                    except:
-                        # Request is still connected if is_disconnected throws an exception
-                        pass
-                    
-                    continue
-                except KeyError:
-                    # Queue has been removed, likely due to client disconnect
-                    logger.warning(f"[{request_id}] Queue no longer exists, client likely disconnected")
-                    break
-                except Exception as e:
-                    logger.error(f"[{request_id}] Error in event stream: {str(e)}")
-                    yield f"id: {int(time.time() * 1000)}\n"
-                    yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
-                    break
-        except Exception as e:
-            logger.error(f"Error in event generator: {e}")
-        finally:
-            # Clean up the queue when done
-            if request_id in thought_queues:
-                logger.info(f"[{request_id}] Cleaning up queue")
-                del thought_queues[request_id]
-                logger.info(f"[{request_id}] Stream closed")
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "Connection": "keep-alive",
-            "Content-Type": "text/event-stream",
-            "Access-Control-Allow-Origin": ",".join(ALLOWED_ORIGINS),
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "X-Accel-Buffering": "no"  # Disable buffering for Nginx
-        }
-    )
-
-def simulate_agent_thoughts(request_id: str, query: str):
-    """Simulate agent thoughts based on the query content."""
-    try:
-        logger.info(f"Starting thought simulation for {request_id}")
-        logger.info(f"[{request_id}] Query: {query}")
-        
-        # Initialize the thought process
-        set_thought_status("processing", request_id)
-        
-        # Initial thought
-        time.sleep(0.5)
-        add_thought("thought", f"Analyzing query: '{query}'", request_id)
-        
-        # Determine query type to provide relevant thoughts
-        query_lower = query.lower()
-        
-        # Define thought patterns based on query content with built-in delays
-        thoughts = []
-        delay = 1.5  # Base delay between thoughts in seconds
-        
-        # Food-related query
-        if any(food_term in query_lower for food_term in ["food", "eat", "beef", "meat", "apple", "fruit"]):
-            logger.info(f"[{request_id}] Detected food-related query")
-            thoughts = [
-                {"type": "thought", "content": "This query relates to food carbon footprint. I need to find data specific to this food item.", "delay": delay},
-                {"type": "action", "content": "Searching for food carbon footprint data", "delay": delay},
-                {"type": "thought", "content": "Food carbon footprints vary widely based on production methods, transportation, and processing.", "delay": delay},
-                {"type": "action", "content": "Retrieving comparative food carbon footprint values", "delay": delay},
-                {"type": "thought", "content": "I need to account for serving size and provide context like comparing to other foods.", "delay": delay}
-            ]
-        # Transport-related query
-        elif any(transport_term in query_lower for transport_term in ["drive", "car", "transport"]):
-            logger.info(f"[{request_id}] Detected transport-related query")
-            thoughts = [
-                {"type": "thought", "content": "This is about transportation carbon footprint. I need specific vehicle emission data.", "delay": delay},
-                {"type": "action", "content": "Searching for transportation emissions data", "delay": delay},
-                {"type": "thought", "content": "Vehicle emissions depend on fuel type, efficiency, distance, and number of passengers.", "delay": delay},
-                {"type": "action", "content": "Calculating emissions based on distance and vehicle type", "delay": delay},
-                {"type": "thought", "content": "I should provide comparative context with other transportation methods.", "delay": delay}
-            ]
-        # Energy-related query
-        elif any(energy_term in query_lower for energy_term in ["electricity", "energy", "power"]):
-            logger.info(f"[{request_id}] Detected energy-related query")
-            thoughts = [
-                {"type": "thought", "content": "This query is about energy usage. I need to find electricity carbon intensity data.", "delay": delay},
-                {"type": "action", "content": "Searching for electricity carbon footprint data", "delay": delay},
-                {"type": "thought", "content": "Carbon footprint of electricity varies by region based on energy mix.", "delay": delay},
-                {"type": "action", "content": "Calculating emissions based on regional electricity grid data", "delay": delay},
-                {"type": "thought", "content": "I should account for renewable energy sources in the calculation.", "delay": delay}
-            ]
-        # Default pattern for other queries
-        else:
-            logger.info(f"[{request_id}] Using default thought pattern for query")
-            thoughts = [
-                {"type": "thought", "content": "I need to understand what information is being requested and search for relevant data.", "delay": delay},
-                {"type": "action", "content": "Searching for carbon footprint data related to the query", "delay": delay},
-                {"type": "thought", "content": "Evaluating multiple sources to find accurate carbon footprint measurements.", "delay": delay},
-                {"type": "action", "content": "Retrieving and comparing data from scientific sources", "delay": delay},
-                {"type": "thought", "content": "Need to synthesize this information into a clear, accurate response with confidence levels.", "delay": delay}
-            ]
-        
-        # Send the thoughts with a delay between each
-        for i, thought_data in enumerate(thoughts):
-            # Extract the delay and remove it from what we send
-            current_delay = thought_data.pop("delay", delay)
-            time.sleep(current_delay)  # Delay between thoughts
-            
-            # Add the thought
-            add_thought(thought_data["type"], thought_data["content"], request_id)
-        
-        # Final delay before completing
-        time.sleep(1.5)
-        
-        # Add a concluding thought
-        add_thought("thought", "I've gathered all the relevant information and am ready to provide a complete answer.", request_id)
-        
-        # Signal completion - don't need to do this here as the query processing will handle it
-        # set_thought_status("complete", request_id)
-        
-        logger.info(f"[{request_id}] Thought simulation completed")
-        
-    except Exception as e:
-        logger.error(f"Error in simulate_agent_thoughts: {e}", exc_info=True)
-        # Make sure we always set an error status
-        set_thought_status("error", request_id)
-
-def extract_structured_response(response_data):
-    """
-    Extract a properly structured response from potentially nested or malformed responses.
-    
-    Args:
-        response_data: The response data from the crew manager
-        
-    Returns:
-        A dictionary with normalized keys: answer, method, confidence, category, sources
-    """
-    # Helper function to parse Python-style dictionaries
-    def try_parse_python_dict_style(s):
-        try:
-            import json
-            s = s.replace("'", '"')
-            s = s.replace("None", "null").replace("True", "true").replace("False", "false")
-            return json.loads(s)
-        except Exception as e:
-            print(f"Failed to parse Python-style JSON: {e}")
-            return None
-    
-    # Initialize default structured response
-    structured_response = {
-        "answer": "",
-        "method": "Based on environmental data analysis.",
-        "confidence": 0.7,
-        "category": "Miscellaneous",
-        "sources": []
-    }
-    
-    # Get the response content - could be in response_data directly or in a 'response' field
-    if isinstance(response_data, dict) and "response" in response_data:
-        response_content = response_data["response"]
-    else:
-        response_content = response_data
-    
-    # Case 1: Handle JSON code blocks in strings
-    if isinstance(response_content, str) and "```json" in response_content:
-        try:
-            import re
-            import json
-            match = re.search(r'```json\s*(.*?)\s*```', response_content, re.DOTALL)
-            if match:
-                json_str = match.group(1)
-                extracted = json.loads(json_str)
-                if isinstance(extracted, dict):
-                    response_content = extracted
-        except Exception as e:
-            print(f"Error extracting JSON from code block: {str(e)}")
-    
-    # Case 2: Already properly structured content
-    if isinstance(response_content, dict) and all(k in response_content for k in ["answer", "method", "confidence", "category"]):
-        # Check if answer field itself contains nested JSON or Python-style dict
-        if isinstance(response_content["answer"], str):
-            nested_json = None
-            
-            # Try standard JSON format
-            if response_content["answer"].startswith("{") and response_content["answer"].endswith("}"):
-                try:
-                    import json
-                    nested_json = json.loads(response_content["answer"])
-                except Exception as e:
-                    print(f"Failed to parse nested JSON in answer field: {str(e)}")
-                    # Try Python style dict as fallback
-                    nested_json = try_parse_python_dict_style(response_content["answer"])
-            
-            # If we successfully parsed nested JSON, check if it's a complete response
-            if nested_json and isinstance(nested_json, dict) and all(k in nested_json for k in ["answer", "method", "confidence", "category"]):
-                print("Extracted nested JSON or Python dict from answer field")
-                return nested_json
-        
-        structured_response.update(response_content)
-    
-    # Case 3: Dict with some of the required fields
-    elif isinstance(response_content, dict):
-        # Update any matching fields
-        for key in response_content:
-            if key in structured_response:
-                structured_response[key] = response_content[key]
-        
-        # Special case - if there's an "answer" field with JSON or Python-style dict in it
-        if "answer" in response_content and isinstance(response_content["answer"], str):
-            nested_json = None
-            
-            # Try standard JSON format
-            if response_content["answer"].startswith("{") and response_content["answer"].endswith("}"):
-                try:
-                    import json
-                    nested_json = json.loads(response_content["answer"])
-                except Exception as e:
-                    print(f"Error extracting JSON from answer field: {str(e)}")
-                    # Try Python style dict
-                    nested_json = try_parse_python_dict_style(response_content["answer"])
-            
-            # Process nested JSON if found
-            if nested_json and isinstance(nested_json, dict):
-                # If the nested JSON contains full structured response, return it directly
-                if all(k in nested_json for k in ["answer", "method", "confidence", "category"]):
-                    print("Extracted complete structured response from answer field")
-                    return nested_json
-                
-                # Otherwise, only copy the fields we care about
-                for key in nested_json:
-                    if key in structured_response:
-                        structured_response[key] = nested_json[key]
-            
-            # Also check for JSON inside ```json blocks
-            elif "```json" in response_content["answer"]:
-                try:
-                    import re
-                    import json
-                    match = re.search(r'```json\s*(.*?)\s*```', response_content["answer"], re.DOTALL)
-                    if match:
-                        json_str = match.group(1)
-                        extracted = json.loads(json_str)
-                        if isinstance(extracted, dict) and "answer" in extracted:
-                            # Update only the fields we care about
-                            for key in extracted:
-                                if key in structured_response:
-                                    structured_response[key] = extracted[key]
-                except Exception as e:
-                    print(f"Error extracting JSON from answer field code block: {str(e)}")
-        
-        # If we still don't have an answer, create one from available data
-        if not structured_response["answer"] and response_content:
-            if "value" in response_content:
-                structured_response["answer"] = f"The carbon footprint is approximately {response_content['value']} {response_content.get('emission_unit', 'CO2e')}."
-            else:
-                structured_response["answer"] = str(response_content)
-    
-    # Case 4: String content
-    elif isinstance(response_content, str):
-        # Check if the entire string is a JSON object or Python-style dict
-        json_data = None
-        
-        if response_content.strip().startswith("{") and response_content.strip().endswith("}"):
-            try:
-                import json
-                json_data = json.loads(response_content)
-            except Exception as e:
-                print(f"Failed to parse string as JSON: {str(e)}")
-                # Try Python style dict
-                json_data = try_parse_python_dict_style(response_content)
-        
-        if json_data and isinstance(json_data, dict):
-            if all(k in json_data for k in ["answer", "method", "confidence", "category"]):
-                print("Extracted structured response from string JSON/dict")
-                return json_data
-            
-            for key in json_data:
-                if key in structured_response:
-                    structured_response[key] = json_data[key]
-            
-            if "answer" not in json_data:
-                structured_response["answer"] = str(json_data)
-        else:
-            structured_response["answer"] = response_content
-    
-    # Case 5: Any other type
-    else:
-        structured_response["answer"] = str(response_content)
-    
-    # Add sources if available in context
-    if isinstance(response_data, dict) and "context" in response_data:
-        context = response_data["context"]
-        if isinstance(context, dict) and "sources" in context:
-            structured_response["sources"] = context["sources"]
-    
-    # Normalize category
-    category_mapping = {
-        # Standard categories (keep as is)
-        "Food & Diet": "Food & Diet",
-        "Energy Use": "Energy Use", 
-        "Mobility": "Mobility",
-        "Purchases": "Purchases",
-        "Miscellaneous": "Miscellaneous",
-        
-        # Variations and older categories
-        "Food": "Food & Diet",
-        "Diet": "Food & Diet",
-        "Transportation": "Mobility",
-        "Energy": "Energy Use",
-        "Energy Usage": "Energy Use",
-        "Shopping": "Purchases", 
-        "Consumer Goods": "Purchases",
-        "Carbon Footprint": "Miscellaneous",
-        "Sustainability Practice": "Miscellaneous",
-        "Emission Reduction": "Miscellaneous",
-        "Carbon Offset": "Miscellaneous",
-        "Data Analysis": "Miscellaneous",
-        "Unknown": "Miscellaneous",
-        "Error": "Miscellaneous"
-    }
-    
-    current_category = structured_response["category"]
-    structured_response["category"] = category_mapping.get(current_category, "Miscellaneous")
-    
-    # Add debug logging
-    print("Final structured_response:")
-    print(structured_response)
-    
-    return structured_response
-
 @app.post("/api/query")
 async def query_carbon(request: Request):
     """
-    Process a carbon footprint query.
+    Process a carbon footprint query and return the result.
+    
+    This endpoint accepts a query text and optional request_id and processes it using 
+    the CarbonSenseFlow engine. It returns the result or error information.
     """
     try:
+        # Parse request data
         data = await request.json()
         query = data.get('query', '')
-        request_id = data.get('request_id', None)
-        use_crew = data.get('use_crew', False)  # Parameter to choose crew vs flow (default is flow)
         
+        # Use provided request_id if available, otherwise generate a new one
+        request_id = data.get('request_id')
+        if not request_id:
+            request_id = f"query_{int(time.time() * 1000)}"
+        
+        logger.info(f"Received query request: '{query}' with ID: {request_id}")
+        
+        # Validate the query
         if not query:
             return JSONResponse(
                 status_code=400,
-                content={"error": "Query cannot be empty"}
+                content={"error": "Query cannot be empty", "message": "Please provide a query"}
             )
         
-        # Create stream file and tracking for the query
-        write_thoughts_to_file([])
-        set_thought_status('PROCESSING', request_id)
+        # Process the query with flow
+        result = await process_query_with_flow(query, request_id)
         
-        # Process the query directly (async)
-        try:
-            result = await process_query_with_flow(query, request_id)
-            return JSONResponse(
-                content={"result": result, "request_id": request_id}
-            )
-        except Exception as process_err:
-            logger.error(f"Error processing query: {str(process_err)}")
-            return JSONResponse(
-                status_code=500, 
-                content={"error": f"Error processing query: {str(process_err)}"}
-            )
+        # Ensure the result is properly formatted (already done in process_query_with_flow)
+        # This is a double check in case any changes bypass the formatting in process_query_with_flow
+        formatted_result = ensure_proper_json_format(result)
+        
+        # Return the result
+        logger.info(f"Successfully processed query with ID: {request_id}")
+        return JSONResponse(content={
+            "result": formatted_result, 
+            "request_id": request_id,
+            "status": "success"
+        })
     except Exception as e:
-        print(f"Error in query_carbon endpoint: {str(e)}")
-        print(traceback.format_exc())
+        logger.error(f"Error in query_carbon endpoint: {e}", exc_info=True)
         return JSONResponse(
-            status_code=500, 
-            content={"error": f"Error processing query: {str(e)}"}
+            status_code=500,
+            content={
+                "error": f"Error processing query: {str(e)}",
+                "message": "An error occurred while processing your request. Please try again.",
+                "status": "error"
+            }
         )
 
-async def process_query_with_flow(query: str, request_id: str):
-    """Process a query using the Flow-based approach with thought streaming."""
+# Add after other global variables
+agent_step_queues = {}
+
+# Define agent messages for streaming to the frontend
+AGENT_MESSAGES = {
+    "query_classifier": "Classifying your query to understand your intent and category...",
+    "entity_extractor": "Extracting key entities and details from your question...",
+    "unit_normalizer": "Normalizing all quantities and units for consistency...",
+    "footprint_cache": "Checking the cache for existing carbon footprint data...",
+    "milvus_researcher": "Searching the Milvus database for relevant carbon data...",
+    "discovery_researcher": "Searching Watson Discovery for scientific carbon data...",
+    "serper_researcher": "Searching the web for recent carbon footprint information...",
+    "unit_harmoniser": "Harmonizing all carbon metrics into a standard format...",
+    "carbon_estimator": "Calculating precise carbon footprints using the best data...",
+    "metric_ranker": "Evaluating and ranking all carbon metrics for reliability...",
+    "comparison_formatter": "Comparing carbon footprints to highlight differences...",
+    "recommendation_agent": "Generating personalized recommendations to reduce your footprint...",
+    "explanation_agent": "Providing clear explanations and debunking myths...",
+    "answer_formatter": "Formatting the final answer for you...",
+    "answer_consolidator": "Consolidating all information into a cohesive response...",
+    "manager": "Managing the analysis workflow...",
+    "intent_classifier": "Determining the intention behind your query...",
+    "entity_recognition": "Identifying key entities in your question...",
+    "activity_processor": "Processing your activity details...",
+    "footprint_calculator": "Calculating accurate carbon footprints...",
+    "recommendations_generator": "Generating tailored recommendations...",
+    "data_collector": "Collecting relevant carbon data sources...",
+    "done": "Analysis complete! Preparing final response..."
+}
+
+# Custom agent callback that emits events for streaming
+def agent_callback_with_emit(agent):
+    logger.info(f"Agent callback triggered for: {agent}")
+    
+    # Extract the agent name/role from potentially complex agent objects
+    agent_name = "system"  # Default value
+    agent_thought = None   # To capture detailed thoughts
+    agent_task = None      # To capture task description
+    agent_final_answer = None  # To capture final answer
+    agent_code_blocks = []  # To capture code blocks
+    
     try:
-        # Start processing
-        add_thought("start", f"Processing query: {query}", request_id)
-        add_thought("thinking", "Using CarbonSenseFlow to process your query with event-driven architecture...", request_id)
+        # Extract agent name based on the type of object
+        if isinstance(agent, str):
+            agent_name = agent.strip()
+        elif hasattr(agent, 'role'):
+            agent_name = agent.role.strip()
+            # Try to extract detailed thoughts if available
+            if hasattr(agent, 'last_output'):
+                agent_thought = agent.last_output
+        elif isinstance(agent, dict) and 'role' in agent:
+            agent_name = agent['role'].strip()
+            # Try to get detailed thoughts
+            if 'last_output' in agent:
+                agent_thought = agent['last_output']
+        elif hasattr(agent, '__dict__') and 'role' in agent.__dict__:
+            agent_name = agent.__dict__['role'].strip()
+            # Try to get detailed thoughts
+            if 'last_output' in agent.__dict__:
+                agent_thought = agent.__dict__['last_output']
+        # Additional check for common agent object structure seen in logs
+        elif str(agent).startswith("id=") and "role=" in str(agent):
+            # Try to extract role from string representation
+            role_part = str(agent).split("role=")[1].split("'")[1]
+            if role_part:
+                agent_name = role_part.strip()
         
-        # Add intermediate thoughts to mimic the flow's steps
-        add_thought("thinking", "Analyzing query intent and extracting entities...", request_id)
-        add_thought("thinking", "Researching carbon footprint data from multiple sources...", request_id)
-        add_thought("thinking", "Harmonizing data and calculating carbon estimates...", request_id)
+        # Extract detailed content from string representation - works with any agent type
+        agent_str = str(agent)
         
-        # Process query with flow (directly use the global instance) using async method
-        result = await carbon_flow.process_query_with_flow_async(query)
+        # Extract task description if present
+        if "## Task:" in agent_str:
+            task_parts = agent_str.split("## Task:")[1].split("\n\n")[0].strip()
+            agent_task = f"Task: {task_parts}"
         
-        # Format result for output
-        formatted_result = result
-        if isinstance(result, dict) and "answer" in result:
-            formatted_result = result["answer"]
+        # Extract thought content if present
+        if "Thought:" in agent_str:
+            thought_parts = agent_str.split("Thought:")[1]
+            if "Final Answer:" in thought_parts:
+                thought_parts = thought_parts.split("Final Answer:")[0]
+            elif "\n\n" in thought_parts:
+                thought_parts = thought_parts.split("\n\n")[0]
+            agent_thought = f"Thought: {thought_parts.strip()}"
+        
+        # Extract final answer if present
+        if "## Final Answer:" in agent_str:
+            answer_parts = agent_str.split("## Final Answer:")[1].strip()
+            agent_final_answer = f"Final Answer: {answer_parts}"
+        elif "Final Answer:" in agent_str:
+            answer_parts = agent_str.split("Final Answer:")[1].strip()
+            agent_final_answer = f"Final Answer: {answer_parts}"
             
-        # Add completion thought with result
-        add_thought("completion", formatted_result, request_id)
+        # Extract JSON code blocks - commonly found in output
+        # Match patterns like ```json ... ``` or just plain JSON objects
+        if "```json" in agent_str:
+            json_blocks = agent_str.split("```json")
+            for block in json_blocks[1:]:  # Skip the first part before any json block
+                if "```" in block:
+                    json_content = block.split("```")[0].strip()
+                    agent_code_blocks.append(f"```json\n{json_content}\n```")
         
-        # Update status
-        set_thought_status("COMPLETE", request_id)
+        # For any JSON that's not in code blocks but directly in the answer or thought
+        if agent_final_answer and "```" not in agent_final_answer:
+            # Try to detect JSON in the final answer
+            try:
+                # Check for common JSON patterns like "{"answer": ..."
+                if ("{" in agent_final_answer and "}" in agent_final_answer) or \
+                   ("[" in agent_final_answer and "]" in agent_final_answer):
+                    # Find the JSON structure from { to }
+                    json_start = agent_final_answer.find("{")
+                    if json_start >= 0:
+                        # Find the balanced closing bracket
+                        open_count = 0
+                        for i, char in enumerate(agent_final_answer[json_start:]):
+                            if char == '{':
+                                open_count += 1
+                            elif char == '}':
+                                open_count -= 1
+                                if open_count == 0:
+                                    json_content = agent_final_answer[json_start:json_start+i+1]
+                                    # Format it nicely if it's valid JSON
+                                    try:
+                                        parsed = json.loads(json_content)
+                                        formatted_json = json.dumps(parsed, indent=2)
+                                        agent_code_blocks.append(f"```json\n{formatted_json}\n```")
+                                    except json.JSONDecodeError:
+                                        # Not valid JSON, just add as is
+                                        agent_code_blocks.append(f"```\n{json_content}\n```")
+                                    break
+            except Exception as e:
+                logger.warning(f"Error parsing JSON in answer: {e}")
+            
+    except Exception as e:
+        logger.warning(f"Error extracting agent details: {e}, using basic information", exc_info=True)
+    
+    # Clean up agent name by removing any newlines and excessive whitespace
+    if agent_name and isinstance(agent_name, str):
+        agent_name = agent_name.replace('\n', ' ').strip()
         
+    logger.info(f"Extracted agent name: {agent_name}")
+    
+    # Build content with all available parts
+    content_parts = [f"Processing with {agent_name}..."]
+    
+    if agent_task:
+        content_parts.append(agent_task)
+        logger.info(f"Extracted task: {agent_task[:100]}...")
+        
+    if agent_thought:
+        content_parts.append(agent_thought)
+        logger.info(f"Extracted thought: {agent_thought[:100]}...")
+        
+    if agent_final_answer:
+        content_parts.append(agent_final_answer)
+        logger.info(f"Extracted final answer: {agent_final_answer[:100]}...")
+    
+    # Add any code blocks if they're not already in the final answer
+    for block in agent_code_blocks:
+        if not any(block in part for part in content_parts):
+            content_parts.append(block)
+            logger.info(f"Added code block: {block[:50]}...")
+    
+    # Join all parts with newlines
+    content = "\n\n".join(content_parts)
+    
+    # Add thought with the extracted content
+    add_thought(
+        thought_type="agent_step",
+        content=content,
+        query_id=CURRENT_QUERY_ID
+    )
+    
+    # Emit the step for event streaming
+    emit_agent_step(CURRENT_QUERY_ID, agent_name)
+
+# Update the emit_agent_step function to ensure it correctly handles agent names
+def emit_agent_step(request_id: str, agent: str):
+    """Emit the current agent step to the frontend."""
+    if request_id in agent_step_queues:
+        # Ensure agent is not None or empty
+        if not agent or not isinstance(agent, str) or agent.strip() == "":
+            agent = "system"
+            
+        agent_message = AGENT_MESSAGES.get(agent, f"Processing step: {agent}")
+        
+        agent_step_queues[request_id].put({
+            "agent": agent,
+            "message": agent_message
+        })
+        
+        # Also update the thought status with this agent
+        set_thought_status("processing", request_id, agent)
+
+# Add the streaming endpoint
+@app.get("/api/stream-agent-step")
+async def stream_agent_step(request: Request, query: str, request_id: Optional[str] = None):
+    """Stream the current agent step as each task is executed.
+    
+    This endpoint creates a Server-Sent Events stream that emits agent steps as they occur
+    during query processing. The frontend can use this to show real-time progress to the user.
+    """
+    # Use the provided request_id if available, otherwise generate a new one
+    if not request_id:
+        request_id = f"query_{int(time.time() * 1000)}"
+    
+    # Create a queue for this request
+    agent_step_queues[request_id] = queue.Queue()
+    
+    # Log that we're creating a stream for this request ID
+    logger.info(f"Starting agent step stream for request: {request_id}")
+    
+    try:
+        async def event_generator():
+            try:
+                while True:
+                    try:
+                        # Non-blocking get with timeout
+                        data = agent_step_queues[request_id].get(timeout=0.5)
+                        yield f"data: {json.dumps(data)}\n\n"
+                        
+                        # Log the step for debugging
+                        logger.info(f"Emitted agent step: {data['agent']} for request: {request_id}")
+                        
+                        # If this was the final step, break
+                        if data["agent"] == "done":
+                            logger.info(f"Agent steps complete for request: {request_id}")
+                            break
+                    except queue.Empty:
+                        # Send keep-alive
+                        yield ": keep-alive\n\n"
+                        await asyncio.sleep(0.5)
+                        
+                        # Check if request is still active
+                        try:
+                            is_disconnected = await request.is_disconnected()
+                            if is_disconnected:
+                                logger.info(f"Client disconnected from SSE stream for request: {request_id}")
+                                break
+                        except Exception as e:
+                            logger.error(f"Error checking connection status: {e}")
+                            break
+            except Exception as e:
+                logger.error(f"Error in event generator for request {request_id}: {e}")
+            finally:
+                # Cleanup
+                if request_id in agent_step_queues:
+                    logger.info(f"Cleaning up agent step queue for request: {request_id}")
+                    del agent_step_queues[request_id]
+        
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Content-Type": "text/event-stream"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error in stream_agent_step for request {request_id}: {e}")
+        if request_id in agent_step_queues:
+            del agent_step_queues[request_id]
+        raise
+
+# Add a helper function after the other helper functions, around line 407
+def ensure_proper_json_format(result):
+    """
+    Ensures the result is in the expected JSON format for the frontend.
+    
+    This function cleans the result to remove any markdown code blocks or formatting
+    and ensures it contains the expected fields: answer, method, confidence, and category.
+    
+    Args:
+        result: The result from carbon flow processing, could be a dict, string, or formatted string
+        
+    Returns:
+        dict: A properly formatted dictionary ready for JSON serialization
+    """
+    logger.info(f"Ensuring proper JSON format for result: {type(result)}")
+    
+    # Initialize default response structure
+    formatted_response = {
+        "answer": "",
+        "method": "No methodology information provided.",
+        "confidence": 0.5,
+        "category": "Miscellaneous"
+    }
+    
+    try:
+        # If result is already a dictionary, use it as base
+        if isinstance(result, dict):
+            # Extract relevant fields
+            if "answer" in result:
+                formatted_response["answer"] = str(result["answer"]).strip()
+            elif "response" in result:
+                formatted_response["answer"] = str(result["response"]).strip()
+                
+            # Copy other fields if they exist
+            for field in ["method", "confidence", "category"]:
+                if field in result:
+                    formatted_response[field] = result[field]
+            
+            # Special handling for when the entire response is in a string format inside the result
+            if isinstance(formatted_response["answer"], str) and formatted_response["answer"].startswith("```json"):
+                json_str = formatted_response["answer"]
+                # Remove code block markers
+                json_str = json_str.replace("```json", "").replace("```", "").strip()
+                try:
+                    # Parse the JSON string
+                    parsed_json = json.loads(json_str)
+                    # Update formatted_response with values from parsed JSON
+                    if isinstance(parsed_json, dict):
+                        for key in ["answer", "method", "confidence", "category"]:
+                            if key in parsed_json:
+                                formatted_response[key] = parsed_json[key]
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse JSON string in answer: {json_str}")
+        
+        # If result is a string, try to extract JSON from it if it contains code blocks
+        elif isinstance(result, str):
+            result_str = result.strip()
+            
+            # Check if the result contains a JSON code block
+            if "```json" in result_str:
+                # Extract JSON from code block
+                json_block = result_str.split("```json")[1].split("```")[0].strip()
+                try:
+                    parsed_json = json.loads(json_block)
+                    if isinstance(parsed_json, dict):
+                        # Update formatted_response with values from parsed JSON
+                        for key in ["answer", "method", "confidence", "category"]:
+                            if key in parsed_json:
+                                formatted_response[key] = parsed_json[key]
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse JSON in code block: {json_block}")
+                    formatted_response["answer"] = result_str
+            else:
+                # If it's a simple string, use it as the answer
+                formatted_response["answer"] = result_str
+        
+        # Ensure fields have the correct types
+        if "confidence" in formatted_response and not isinstance(formatted_response["confidence"], (int, float)):
+            try:
+                formatted_response["confidence"] = float(formatted_response["confidence"])
+            except (ValueError, TypeError):
+                formatted_response["confidence"] = 0.5
+        
+        # If confidence is out of range, fix it
+        if "confidence" in formatted_response:
+            if formatted_response["confidence"] > 1.0:
+                formatted_response["confidence"] = float(formatted_response["confidence"]) / 100 if formatted_response["confidence"] <= 100 else 1.0
+            elif formatted_response["confidence"] < 0:
+                formatted_response["confidence"] = 0.0
+        
+        logger.info(f"Formatted response: {formatted_response}")
+        return formatted_response
+        
+    except Exception as e:
+        logger.error(f"Error formatting JSON response: {str(e)}", exc_info=True)
+        # Return a basic response in case of errors
+        return {
+            "answer": str(result) if result is not None else "No answer available.",
+            "method": "Error in result formatting.",
+            "confidence": 0.5,
+            "category": "Miscellaneous"
+        }
+
+# Update process_query_with_flow to format the response correctly, around line 842
+async def process_query_with_flow(query: str, request_id: str):
+    """Process a query using the Flow-based approach with event-driven architecture."""
+    try:
+        # Initialize thoughts file with starting state
+        initial_state = {
+            "query_id": request_id,
+            "thoughts": [],
+            "status": "processing",
+            "response": "",
+            "transcript": query,
+            "last_updated": time.time(),
+            "current_agent": "system",  # Set a default agent to avoid null
+            "error": None
+        }
+        
+        with open(THOUGHTS_FILE_PATH, 'w') as f:
+            json.dump(initial_state, f, indent=2)
+        
+        logger.info(f"Initialized thought state for request {request_id}")
+        
+        def update_thoughts(agent_name=None, thought_content=None, status=None):
+            try:
+                with open(THOUGHTS_FILE_PATH, 'r') as f:
+                    current_state = json.load(f)
+                
+                # Only update the agent name if provided and not None
+                if agent_name is not None and agent_name.strip() != "":
+                    current_state["current_agent"] = agent_name
+                
+                if thought_content:
+                    current_state["thoughts"].append({
+                        "type": "agent_step",
+                        "content": thought_content,
+                        "timestamp": time.time()
+                    })
+                
+                if status:
+                    current_state["status"] = status
+                
+                current_state["last_updated"] = time.time()
+                
+                with open(THOUGHTS_FILE_PATH, 'w') as f:
+                    json.dump(current_state, f, indent=2)
+                
+                logger.info(f"Updated thoughts for {current_state.get('query_id')}: {thought_content}")
+            except Exception as e:
+                logger.error(f"Error updating thoughts: {str(e)}")
+        
+        # Process query with flow
+        update_thoughts(thought_content="Starting query processing...")
+        
+        # Start with the first update
+        emit_agent_step(request_id, "query_classifier")
+        
+        result = await carbon_flow.process_query_with_flow_async(
+            query,
+            agent_callback=agent_callback_with_emit
+        )
+        
+        # Format the response to ensure proper JSON structure
+        formatted_result = ensure_proper_json_format(result)
+        
+        # Update final state but preserve current agent
+        try:
+            with open(THOUGHTS_FILE_PATH, 'r') as f:
+                current_state = json.load(f)
+            current_agent = current_state.get("current_agent")
+        except Exception:
+            current_agent = None
+        
+        # Update final state
+        final_state = {
+            "query_id": request_id,
+            "thoughts": [],
+            "status": "complete",
+            "response": formatted_result,
+            "transcript": query,
+            "last_updated": time.time(),
+            "current_agent": current_agent,  # Preserve the current agent
+            "error": None
+        }
+        
+        with open(THOUGHTS_FILE_PATH, 'w') as f:
+            json.dump(final_state, f, indent=2)
+            
+        # Send the 'done' signal to indicate completion
+        emit_agent_step(request_id, "done")
+        
+        logger.info(f"Completed processing for {request_id}")
         return formatted_result
         
     except Exception as e:
-        print(f"Error processing query with flow: {str(e)}")
-        print(traceback.format_exc())
+        logger.error(f"Error in process_query_with_flow: {e}")
         
-        # Add error thought
-        add_thought("error", f"An error occurred while processing your query: {str(e)}", request_id)
-        set_thought_status("ERROR", request_id)
+        # Get the current agent if exists
+        try:
+            with open(THOUGHTS_FILE_PATH, 'r') as f:
+                current_state = json.load(f)
+            current_agent = current_state.get("current_agent")
+        except Exception:
+            current_agent = None
+        
+        # Update error state
+        error_state = {
+            "query_id": request_id,
+            "thoughts": [],
+            "status": "error",
+            "response": str(e),
+            "transcript": query,
+            "last_updated": time.time(),
+            "current_agent": current_agent,  # Preserve the current agent
+            "error": str(e)
+        }
+        
+        with open(THOUGHTS_FILE_PATH, 'w') as f:
+            json.dump(error_state, f, indent=2)
+            
+        # Send the 'done' signal even in case of error
+        emit_agent_step(request_id, "done")
+        
         return {
             "error": str(e),
             "response": f"An error occurred: {str(e)}"
@@ -999,33 +1095,23 @@ async def process_voice_query(request: Request, audio_data: UploadFile = File(..
         result = await process_query_with_flow(transcript, request_id)
         
         # Format the result to match expected structure
-        if not isinstance(result, dict):
-            formatted_result = {
-                "response": str(result),
-                "transcription": transcript,
-                "confidence": 0.8,
-                "sources": []
-            }
-        else:
-            formatted_result = result
-            formatted_result["transcription"] = transcript
-            if "confidence" not in formatted_result:
-                formatted_result["confidence"] = 0.8
-            if "sources" not in formatted_result:
-                formatted_result["sources"] = []
+        formatted_result = ensure_proper_json_format(result)
+        
+        # Add transcription to the formatted result
+        formatted_result["transcription"] = transcript
         
         # Check for errors
-        if isinstance(formatted_result, dict) and "error" in formatted_result:
+        if isinstance(result, dict) and "error" in result:
             set_thought_status("ERROR", request_id)
             return JSONResponse(
                 status_code=400,
-                content={"error": formatted_result["error"], "message": formatted_result.get("response", "An error occurred")}
+                content={"error": result["error"], "message": result.get("response", "An error occurred")}
             )
         
         # Set thought processing as complete
         set_thought_status("COMPLETE", request_id)
         
-        # Return the response
+        # Return the formatted response
         return formatted_result
     except Exception as e:
         logger.error(f"Error processing voice query: {str(e)}")
@@ -1107,7 +1193,6 @@ async def start_recording():
         # Try to find Lenovo Performance Audio microphone (index 4)
         device_index = None
         for idx, device in input_devices:
-            print(f"---------------------------------> idx: {idx}, Device: {device}")
             if "Lenovo Performance" in device.get('name', '') and idx == 4:
                 device_index = idx
                 logger.info(f"Selected preferred microphone: Lenovo Performance Audio (index: {idx})")
@@ -1352,7 +1437,7 @@ async def stop_recording(request: Request):
                 transcript = global_transcript
                 if not transcript:
                     try:
-                        transcript_path = os.path.join(project_root, "transcript.txt")
+                        transcript_path = os.path.join(project_root, "logs/transcript.txt")
                         if os.path.exists(transcript_path):
                             with open(transcript_path, 'r') as f:
                                 transcript = f.read().strip()
@@ -1542,7 +1627,7 @@ async def check_processing(session_id: str):
     # If global transcript is empty, try to read from file
     if not _transcript:
         try:
-            transcript_path = os.path.join(project_root, "transcript.txt")
+            transcript_path = os.path.join(project_root, "logs/transcript.txt")
             if os.path.exists(transcript_path):
                 with open(transcript_path, 'r') as f:
                     _transcript = f.read().strip()
@@ -1560,12 +1645,20 @@ async def check_processing(session_id: str):
                 if content:
                     try:
                         result = json.loads(content)
+                        # Format the result properly
+                        formatted_result = ensure_proper_json_format(result)
+                        # Add transcription if available
+                        if "transcription" in result:
+                            formatted_result["transcription"] = result["transcription"]
+                        elif _transcript:
+                            formatted_result["transcription"] = _transcript
+                            
                         # Return the result directly if we have valid content
-                        if result.get("transcription") and result.get("response"):
+                        if formatted_result["answer"]:
                             logger.info(f"Found complete result in temp file for session {session_id}")
                             return {
                                 "status": "complete",
-                                "result": result
+                                "result": formatted_result
                             }
                     except json.JSONDecodeError:
                         logger.warning(f"Couldn't parse JSON in temp file: {temp_file}")
@@ -1585,13 +1678,12 @@ async def check_processing(session_id: str):
                 if completion_thoughts:
                     # Sort by timestamp and get the most recent
                     latest_completion = sorted(completion_thoughts, key=lambda x: x.get("timestamp", 0))[-1]
+                    # Create a formatted response
+                    formatted_result = ensure_proper_json_format(latest_completion.get("content", "Processing completed."))
+                    formatted_result["transcription"] = _transcript
                     return {
                         "status": "complete",
-                        "result": {
-                            "transcription": _transcript,
-                            "response": latest_completion.get("content", "Processing completed."),
-                            "confidence": 0.8
-                        }
+                        "result": formatted_result
                     }
             
             # If there was an error, return it
@@ -1601,33 +1693,42 @@ async def check_processing(session_id: str):
                 if error_thoughts:
                     # Sort by timestamp and get the most recent
                     latest_error = sorted(error_thoughts, key=lambda x: x.get("timestamp", 0))[-1]
+                    error_content = latest_error.get("content", "An error occurred.")
+                    # Create a formatted response for the error
+                    formatted_result = ensure_proper_json_format({
+                        "answer": f"Error: {error_content}",
+                        "method": "Processing encountered an error.",
+                        "confidence": 0.1,
+                        "category": "Error"
+                    })
+                    formatted_result["transcription"] = _transcript
+                    formatted_result["error"] = error_content
                     return {
                         "status": "error",
-                        "result": {
-                            "transcription": _transcript,
-                            "response": latest_error.get("content", "An error occurred."),
-                            "error": "Processing error",
-                            "confidence": 0.5
-                        }
+                        "result": formatted_result
                     }
             
-            # If processing, show that it's in progress
-            elif status == "PROCESSING":
+            # If we have a transcript but processing is ongoing, return as partial result
+            elif _transcript:
                 # Get the most recent thought to show progress
                 if thoughts_data.get("thoughts"):
                     thoughts = sorted(thoughts_data["thoughts"], key=lambda x: x.get("timestamp", 0))
                     latest_thought = thoughts[-1]
+                    # Create a formatted progress response
+                    progress_result = {
+                        "transcription": _transcript,
+                        "answer": f"Processing query: {_transcript}",
+                        "method": f"Current status: {latest_thought.get('content', 'Processing...')}",
+                        "confidence": 0.5,
+                        "category": "Processing"
+                    }
                     return {
                         "status": "processing",
-                        "progress": {
-                            "transcription": _transcript,
-                            "current_step": latest_thought.get("content", "Processing in progress..."),
-                            "type": latest_thought.get("type", "thinking")
-                        }
+                        "result": progress_result
                     }
     except Exception as e:
         logger.error(f"Error checking thoughts tracking: {str(e)}")
-
+    
     # Finally, if we just have a transcript but no other information, return it
     print("--------------------------------")
     print()
@@ -1637,13 +1738,17 @@ async def check_processing(session_id: str):
     print("--------------------------------")
 
     if _transcript:
+        # Create a formatted response for just transcription
+        basic_result = ensure_proper_json_format({
+            "answer": f"Processing query: {_transcript}",
+            "method": "Transcription received, awaiting processing.",
+            "confidence": 0.5,
+            "category": "Pending"
+        })
+        basic_result["transcription"] = _transcript
         return {
             "status": "transcribed",
-            "result": {
-                "transcription": _transcript,
-                "response": f"Processing query: {_transcript}",
-                "confidence": 0.5
-            }
+            "result": basic_result
         }
     else:
         return {
@@ -1660,7 +1765,7 @@ async def check_transcript_file():
     logger.info("Checking transcript file")
     try:
         # Use absolute path for transcript file
-        transcript_path = os.path.join(project_root, "transcript.txt")
+        transcript_path = os.path.join(project_root, "logs/transcript.txt")
         if os.path.exists(transcript_path):
             with open(transcript_path, 'r') as f:
                 transcript = f.read().strip()
@@ -1694,7 +1799,7 @@ async def check_transcript_file():
 # Add this function to clean up transcript file
 def cleanup_transcript_file():
     """Clean up the transcript file if it exists."""
-    transcript_path = os.path.join(project_root, "transcript.txt")
+    transcript_path = os.path.join(project_root, "logs/transcript.txt")
     temp_path = transcript_path + ".tmp"
     
     try:
@@ -1737,7 +1842,7 @@ async def reset_transcript():
 def write_transcript_to_file(transcript_text):
     """Write transcript to file in an atomic operation."""
     try:
-        transcript_path = os.path.join(project_root, "transcript.txt")
+        transcript_path = os.path.join(project_root, "logs/transcript.txt")
         temp_path = transcript_path + ".tmp"
         
         # Write to temporary file first
@@ -1759,7 +1864,7 @@ def reset_crew_manager():
         # Re-initialize the crew manager
         crew_manager = CrewAgentManager(
             config=config,
-            debug_mode=False,
+            debug_mode=True,
             use_cache=False,
             use_hierarchical=True,
             store_thoughts=True
@@ -1777,7 +1882,7 @@ def reset_carbon_flow():
         # Reinitialize the carbon flow with original settings
         carbon_flow = CarbonSenseFlow(
             config=config,
-            debug_mode=False,
+            debug_mode=True,
             use_cache=False,
             store_thoughts=True
         )
@@ -1833,6 +1938,34 @@ def process_query_with_fallback(crew_manager, transcript, show_context=False):
 def write_thoughts_to_file(thoughts_data):
     """Write thoughts to file in an atomic operation."""
     try:
+        # Ensure the thoughts_data has all required fields
+        if isinstance(thoughts_data, dict):
+            # Add default fields if missing
+            thoughts_data.setdefault("query_id", None)
+            thoughts_data.setdefault("thoughts", [])
+            thoughts_data.setdefault("status", "idle")
+            thoughts_data.setdefault("response", "")
+            thoughts_data.setdefault("transcript", "")
+            thoughts_data.setdefault("last_updated", time.time())
+            
+            # Always ensure current_agent exists and is not None
+            if "current_agent" not in thoughts_data or thoughts_data["current_agent"] is None:
+                thoughts_data["current_agent"] = "system"
+                
+            thoughts_data.setdefault("error", None)
+        else:
+            # If not a dict, create a default structure
+            thoughts_data = {
+                "query_id": None,
+                "thoughts": thoughts_data if isinstance(thoughts_data, list) else [],
+                "status": "idle",
+                "response": "",
+                "transcript": "",
+                "last_updated": time.time(),
+                "current_agent": "system",
+                "error": None
+            }
+            
         temp_path = THOUGHTS_FILE_PATH + ".tmp"
         
         # Write to temporary file first
@@ -1852,10 +1985,31 @@ def read_thoughts_from_file():
     """Read thoughts from file."""
     try:
         if os.path.exists(THOUGHTS_FILE_PATH):
-            with open(THOUGHTS_FILE_PATH, 'r') as f:
-                thoughts_data = json.load(f)
-                logger.info(f"Successfully read thoughts from file")
-                return thoughts_data
+            try:
+                with open(THOUGHTS_FILE_PATH, 'r') as f:
+                    thoughts_data = json.load(f)
+                    
+                    # Ensure all required fields exist
+                    if "current_agent" not in thoughts_data or thoughts_data["current_agent"] is None:
+                        thoughts_data["current_agent"] = "system"
+                    
+                    logger.info(f"Successfully read thoughts from file")
+                    return thoughts_data
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON in thoughts file - creating new empty file")
+                # Create a fresh thoughts file
+                default_thoughts = {
+                    "query_id": None,
+                    "thoughts": [],
+                    "status": "idle",
+                    "response": "",
+                    "transcript": "",
+                    "last_updated": time.time(),
+                    "current_agent": "system",
+                    "error": None
+                }
+                write_thoughts_to_file(default_thoughts)
+                return default_thoughts
         else:
             logger.warning(f"Thoughts file does not exist: {THOUGHTS_FILE_PATH}")
             return None
@@ -1898,19 +2052,30 @@ def cleanup_thoughts_file():
 
 # Update function to add thought to the state and file
 def add_thought(thought_type, content, query_id=None):
-    """Add a thought to the current state and write to file."""
+    """Add a thought to the current state and write to file.
+    
+    Args:
+        thought_type (str): Type of thought (e.g., "agent_step", "agent_detail", "thinking", "completion", "error")
+        content (str): The content of the thought
+        query_id (str, optional): The query ID to associate with this thought
+    """
     global current_thought_state
     
     try:
         # Log detailed debugging info
-        logger.info(f"Adding thought - Type: {thought_type}, Content: {content}, Query ID: {query_id}")
+        logger.info(f"Adding thought - Type: {thought_type}, Content length: {len(content)}, Query ID: {query_id}")
         
         # Create thought object
         timestamp = time.time()
+        
+        # Check if this is a detailed agent output that should be preserved as is
+        preserve_formatting = thought_type == "agent_detail" or "```" in content
+        
         thought = {
             "type": thought_type,
             "content": content,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "preserve_formatting": preserve_formatting
         }
         
         # If query_id is provided, update the current state
@@ -1957,21 +2122,37 @@ def add_thought(thought_type, content, query_id=None):
         return False
 
 # Add a function to set the thought process status
-def set_thought_status(status, query_id=None):
+def set_thought_status(status, query_id=None, agent_name=None):
     """Set the status of the thought process."""
     global current_thought_state
     
     try:
+        # Load current state from file first
+        current_state = read_thoughts_from_file() or current_thought_state
+        
         # Update query_id if provided
         if query_id is not None:
-            current_thought_state["query_id"] = query_id
+            current_state["query_id"] = query_id
         
         # Update status
-        current_thought_state["status"] = status
-        logger.info(f"Updated thought process status to: {status} for query ID: {current_thought_state['query_id']}")
+        current_state["status"] = status
+        
+        # Update agent if provided and not None
+        if agent_name is not None:
+            current_state["current_agent"] = agent_name
+        elif "current_agent" not in current_state or current_state["current_agent"] is None:
+            current_state["current_agent"] = "system"  # Ensure a default value
+        
+        # Update timestamp
+        current_state["last_updated"] = time.time()
+        
+        # Update the global state
+        current_thought_state = current_state
+        
+        logger.info(f"Updated thought process status to: {status} for query ID: {current_state['query_id']}")
         
         # Write updated state to file
-        success = write_thoughts_to_file(current_thought_state)
+        success = write_thoughts_to_file(current_state)
         
         return success
     except Exception as e:
@@ -1983,25 +2164,44 @@ def set_thought_status(status, query_id=None):
 async def check_thoughts():
     """Check for thoughts from the file."""
     try:
-        # Read thoughts from file
-        thoughts_data = read_thoughts_from_file()
-        
-        if thoughts_data:
-            logger.info(f"Returning thoughts data - Status: {thoughts_data.get('status')}, Thought count: {len(thoughts_data.get('thoughts', []))}")
-            return thoughts_data
-        else:
-            logger.warning("No thoughts data available")
+        if not os.path.exists(THOUGHTS_FILE_PATH):
             return {
                 "query_id": None,
                 "thoughts": [],
-                "status": "idle"
+                "status": "idle",
+                "response": "",
+                "transcript": "",
+                "last_updated": time.time(),
+                "current_agent": None,
+                "error": None
             }
+            
+        with open(THOUGHTS_FILE_PATH, 'r') as f:
+            current_state = json.load(f)
+            
+        # Ensure all required fields exist
+        current_state.setdefault("query_id", None)
+        current_state.setdefault("thoughts", [])
+        current_state.setdefault("status", "idle")
+        current_state.setdefault("response", "")
+        current_state.setdefault("transcript", "")
+        current_state.setdefault("last_updated", time.time())
+        current_state.setdefault("current_agent", None)
+        current_state.setdefault("error", None)
+        
+        logger.info(f"Returning thoughts data - Status: {current_state['status']}, Thought count: {len(current_state['thoughts'])}")
+        return current_state
+        
     except Exception as e:
         logger.error(f"Error checking thoughts: {str(e)}")
         return {
             "query_id": None,
             "thoughts": [],
             "status": "error",
+            "response": "",
+            "transcript": "",
+            "last_updated": time.time(),
+            "current_agent": None,
             "error": str(e)
         }
 
@@ -2034,10 +2234,8 @@ def process_query_sync(query, request_id=None):
         global carbon_flow
         result = carbon_flow.process_query_with_flow(query)
         
-        # Format result for output (matching process_query_with_flow)
-        formatted_result = result
-        if isinstance(result, dict) and "answer" in result:
-            formatted_result = result["answer"]
+        # Format result to ensure proper JSON structure
+        formatted_result = ensure_proper_json_format(result)
             
         # Add completion thought with result
         add_thought("completion", formatted_result, request_id)
@@ -2057,6 +2255,140 @@ def process_query_sync(query, request_id=None):
             "error": str(e),
             "response": f"An error occurred: {str(e)}"
         }
+
+# Add after the RecordingManager class
+
+class CommunicationStateManager:
+    def __init__(self):
+        self.state_file = os.path.join(project_root, "logs", "communication", "state.json")
+        self.ensure_state_file()
+        
+    def ensure_state_file(self):
+        """Ensure the state file and directory exist."""
+        os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
+        if not os.path.exists(self.state_file):
+            self.write_state({
+                "status": "idle",
+                "query_id": None,
+                "transcript": "",
+                "response": "",
+                "thoughts": [],
+                "last_updated": time.time()
+            })
+    
+    def read_state(self):
+        """Read the current state from file."""
+        try:
+            with open(self.state_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error reading state file: {str(e)}")
+            return None
+            
+    def write_state(self, state):
+        """Write state to file atomically."""
+        temp_file = f"{self.state_file}.tmp"
+        try:
+            with open(temp_file, 'w') as f:
+                json.dump(state, f, indent=2)
+            os.replace(temp_file, self.state_file)
+            return True
+        except Exception as e:
+            logger.error(f"Error writing state file: {str(e)}")
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except:
+                    pass
+            return False
+            
+    def update_state(self, **kwargs):
+        """Update specific fields in the state."""
+        current_state = self.read_state() or {}
+        current_state.update(kwargs)
+        current_state["last_updated"] = time.time()
+        return self.write_state(current_state)
+        
+    def reset_state(self):
+        """Reset the state to idle."""
+        return self.write_state({
+            "status": "idle",
+            "query_id": None,
+            "transcript": "",
+            "response": "",
+            "thoughts": [],
+            "last_updated": time.time()
+        })
+
+# Initialize the communication state manager
+comm_manager = CommunicationStateManager()
+
+@app.post("/api/cleanup-state")
+async def cleanup_state():
+    """Reset the communication state."""
+    try:
+        success = comm_manager.reset_state()
+        return {"status": "success" if success else "error"}
+    except Exception as e:
+        logger.error(f"Error cleaning up state: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+# Function to capture detailed agent output from logs
+def capture_agent_output(agent_type, output_text, query_id=None):
+    """
+    Capture detailed agent output from logs and add it to the thoughts file.
+    
+    Args:
+        agent_type (str): The type/role of the agent (e.g., "Carbon Metric Standardization Specialist")
+        output_text (str): The full output text from the agent
+        query_id (str, optional): The query ID to associate with this thought
+    """
+    logger.info(f"Capturing detailed output for agent: {agent_type}")
+    
+    try:
+        # Extract useful sections from the output text
+        sections = []
+        
+        # Add agent header
+        sections.append(f"# Agent: {agent_type}")
+        
+        # Extract task if present
+        if "## Task:" in output_text:
+            task_parts = output_text.split("## Task:")[1].split("## Final Answer:" if "## Final Answer:" in output_text else "\n\n# Agent:")[0].strip()
+            sections.append(f"## Task:{task_parts}")
+        
+        # Extract thought process if present
+        if "Thought:" in output_text:
+            thought_parts = output_text.split("Thought:")[1].split("Final Answer:" if "Final Answer:" in output_text else "\n\n")[0].strip()
+            sections.append(f"Thought: {thought_parts}")
+        
+        # Extract final answer if present
+        if "## Final Answer:" in output_text:
+            answer_parts = output_text.split("## Final Answer:")[1].split("\n\n# Agent:" if "\n\n# Agent:" in output_text else "")[0].strip()
+            sections.append(f"## Final Answer:\n{answer_parts}")
+        elif "Final Answer:" in output_text:
+            answer_parts = output_text.split("Final Answer:")[1].split("\n\n# Agent:" if "\n\n# Agent:" in output_text else "")[0].strip()
+            sections.append(f"Final Answer:\n{answer_parts}")
+        
+        # Combine all sections
+        detailed_output = "\n\n".join(sections)
+        
+        # Only add if we have substantial content
+        if len(detailed_output) > 50:  # More than just the agent header
+            # Add to thoughts
+            add_thought(
+                thought_type="agent_detail",
+                content=detailed_output,
+                query_id=query_id or CURRENT_QUERY_ID
+            )
+            logger.info(f"Added detailed agent output to thoughts ({len(detailed_output)} chars)")
+            return True
+        else:
+            logger.info("Not enough detailed content to add to thoughts")
+            return False
+    except Exception as e:
+        logger.error(f"Error capturing agent output: {e}", exc_info=True)
+        return False
 
 # Run the app using uvicorn if executed directly
 if __name__ == "__main__":

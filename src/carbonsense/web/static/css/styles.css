@@ -652,13 +652,13 @@ h1 {
 
 #conversation-container {
     flex: 1;
-    padding: 24px; /* Increased from 20px */
     overflow-y: auto;
-    background-color: #f9f9f9;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px; /* Increased from 12px */
-    max-height: 500px; /* Increased from 400px */
+    gap: 12px;
+    max-height: calc(100vh - 220px); /* Adjust based on your header/footer heights */
+    scroll-behavior: smooth; /* Enable smooth scrolling */
 }
 
 .chat-input-container {
@@ -828,65 +828,32 @@ h1 {
 }
 
 .message {
-    padding: 16px 20px; /* Increased from 14px 18px */
+    margin-bottom: 12px;
+    max-width: 90%;
+    padding: 12px 16px;
     border-radius: 8px;
-    max-width: 80%;
-    line-height: 1.5;
     position: relative;
-    animation: messageIn 0.3s ease-out;
+    word-wrap: break-word;
+    animation: fadeIn 0.3s ease;
 }
 
 .message.user {
-    background-color: var(--user-msg-bg);
-    color: var(--text-dark);
     align-self: flex-end;
-    border-bottom-right-radius: 2px;
+    background-color: #e6f7ff;
+    color: #003a8c;
+    margin-left: auto;
 }
 
 .message.bot {
-    background-color: var(--bot-msg-bg);
-    color: var(--text-dark);
     align-self: flex-start;
-    border-bottom-left-radius: 2px;
-    box-shadow: var(--shadow-sm);
+    background-color: #f0f2f5;
+    color: #333;
 }
 
-.message.thought {
-    background-color: var(--thought-bg);
-    color: var(--text-dark);
-    align-self: flex-start;
-    border-bottom-left-radius: 2px;
-    border-left: 3px solid var(--primary-color);
-    font-style: italic;
-    opacity: 0.9;
-}
-
-.message.action {
-    background-color: var(--action-bg);
-    color: var(--text-dark);
-    align-self: flex-start;
-    border-bottom-left-radius: 2px;
-    border-left: 3px solid var(--green-color);
-    font-weight: 500;
-}
-
-.message.loading {
-    align-self: flex-start;
-    border-bottom-left-radius: 2px;
-    background-color: var(--bot-msg-bg);
-    color: var(--text-light);
-}
-
-.message.loading::after {
-    content: "...";
-    display: inline-block;
-    animation: loading-dots 1.5s infinite;
-}
-
-@keyframes loading-dots {
-    0%, 20% { content: "."; }
-    40% { content: ".."; }
-    60%, 100% { content: "..."; }
+/* Animation for fading in new content */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Footer */
@@ -921,18 +888,6 @@ h1 {
 
 .footer-links a:hover {
     text-decoration: underline;
-}
-
-/* Animation for messages */
-@keyframes messageIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 /* Animations */
@@ -1104,11 +1059,12 @@ h1 {
 
 /* Voice Recording styles */
 #mic-button {
-    background-color: #f8f9fa;
-    border: 1px solid #ddd;
+    background-color: var(--primary-color);
+    border: none;
+    color: white;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1118,7 +1074,7 @@ h1 {
 }
 
 #mic-button:hover {
-    background-color: #e9ecef;
+    background-color: var(--primary-dark);
 }
 
 #mic-button.recording {
@@ -1234,4 +1190,90 @@ h1 {
     background-color: rgba(220, 53, 69, 0.1);
     border: 1px solid rgba(220, 53, 69, 0.3);
     color: #dc3545;
+}
+
+/* Style for thinking containers - allow them to display fully */
+.thinking-container {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 3px solid #3742fa;
+    padding: 12px;
+    margin-bottom: 12px;
+    width: 100%;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: visible; /* Allow content to be fully visible */
+}
+
+/* Style for thoughts area - remove max height limit */
+.thoughts-area {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: visible; /* Allow full content display */
+    transition: max-height 0.3s ease;
+    padding-left: 8px;
+}
+
+/* Only when collapsed, limit the height */
+.thinking-container.collapsed .thoughts-area {
+    max-height: 0;
+    overflow: hidden;
+    margin-top: 0;
+}
+
+/* Keep thinking header visible even when collapsed */
+.thinking-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+/* Style for the toggle button */
+.toggle-thinking-btn {
+    background-color: #e6f7ff;
+    border: 1px solid #91d5ff;
+    border-radius: 4px;
+    color: #1890ff;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 8px;
+    transition: all 0.2s;
+}
+
+.toggle-thinking-btn:hover {
+    background-color: #bae7ff;
+}
+
+/* Ensure thought items display correctly */
+.thought {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 6px;
+    animation: fadeIn 0.3s ease;
+    position: relative;
+}
+
+.thought-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #e6f7ff;
+    color: #1890ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    font-size: 12px;
+}
+
+.thought-content {
+    font-size: 14px;
+    color: #333;
+    flex: 1;
+    line-height: 1.4;
 } 

@@ -65,6 +65,7 @@ Desktop.ini
 # *.json
 # *.docx
 # *.doc
+*.mp4
 
 # Logs
 *.log

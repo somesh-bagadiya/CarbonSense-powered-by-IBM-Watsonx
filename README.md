@@ -1,11 +1,94 @@
 # CarbonSense powered by IBM Watsonx
 
-A comprehensive system for carbon footprint data analysis powered by IBM watsonx.ai. This system processes, analyzes, and provides insights into carbon footprint data from various sources.
+![CarbonSense Logo](images/CarbonSense_Logo.png)
 
-For detailed technical documentation, please refer to:
+A comprehensive system for carbon footprint data analysis powered by IBM watsonx.ai. This system processes, analyzes, and provides insights into carbon footprint data from various sources through an innovative multi-agent AI architecture.
 
-- [Implementation Details](IMPLEMENTATION.md) - Technical implementation details and configurations
-- [System Architecture](ARCHITECTURE.md) - System design and component interactions
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [System Architecture](#system-architecture)
+- [Agentic Pipeline](#agentic-pipeline)
+- [Key Features](#key-features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Directory Structure](#directory-structure)
+- [Usage](#usage)
+- [Troubleshooting](#troubleshooting)
+- [Technical Documentation](#technical-documentation)
+
+## Project Overview
+
+CarbonSense is an AI-driven interactive platform designed to help individuals assess and reduce their carbon emissions. By leveraging Large Language Models (LLMs), Retrieval-Augmented Generation (RAG), and verified environmental datasets, this system provides real-time insights, personalized recommendations, and engaging sustainability tracking.
+
+The platform addresses the challenge many individuals face in understanding their personal carbon footprint and discovering practical, personalized ways to reduce it. Using advanced AI technologies from IBM Watsonx, CarbonSense makes sustainable choices accessible and actionable.
+
+![CarbonSense UI](images/image.png)
+
+## System Architecture
+
+CarbonSense employs a sophisticated architecture combining multiple IBM Watsonx services to deliver accurate carbon footprint analysis:
+
+![System Architecture](images/Architectural%20Diagram.png)
+
+The system consists of two main components:
+
+### Frontend / UI (FastAPI)
+
+- Dashboard for visualizing carbon usage
+- Text and voice input interfaces
+- IBM Speech-to-Text conversion for voice queries
+- Prompt building and response formatting
+
+### Backend
+
+- AI Foundation Models from IBM WatsonX
+- Milvus Vector Database for embedding storage
+- IBM Cloud Object Storage for data management
+- IBM Watson Discovery for web search
+- Agentic processing pipeline for query handling
+
+## Agentic Pipeline
+
+CarbonSense uses a modular, multi-agent pipeline to process sustainability-related queries. This approach allows for specialized handling of different query types and improved accuracy in responses.
+
+![Agentic Pipeline](images/Agentic%20Architecture%20Diagram%20(4).png)
+
+The pipeline consists of five key layers:
+
+1. **Query Understanding Layer**
+
+   - Query Classifier: Determines query intent and type
+   - Entity Extractor: Identifies products, quantities, and units
+   - Unit Normalizer: Standardizes measurements for consistent analysis
+2. **Retrieval & Research Layer**
+
+   - Milvus Researcher: Searches vector database for relevant carbon data
+   - Watson Discovery Researcher: Analyzes structured knowledge base
+   - Serper Web Search Researcher: Retrieves up-to-date information from the web
+3. **Carbon Estimation & Synthesis**
+
+   - Harmoniser: Combines data from multiple sources
+   - Carbon Estimator: Calculates carbon footprint values
+   - Metric Ranker: Prioritizes most reliable metrics
+4. **Intent-Specific Processing**
+
+   - Comparison Formatter: Structures comparative analyses
+   - Recommendation Agent: Generates sustainability suggestions
+   - Explanation Agent: Provides educational content
+5. **Response Generation**
+
+   - Answer Formatter: Creates clear, well-structured responses
+
+## Key Features
+
+- **Automated Carbon Footprint Calculation**: Estimates emissions for various activities and products using verified datasets
+- **Voice & Text Query Support**: Interact through natural language text or voice commands
+- **Multi-Agent AI System**: Uses specialized AI agents for accurate, contextual responses
+- **Web-Enhanced Retrieval**: Combines local data with real-time web information
+- **Comparison Analysis**: Compare carbon footprints of different products or activities
+- **Visual Dashboard**: Track carbon usage across different categories
+- **Recommendation Engine**: Get personalized suggestions for reducing carbon footprint
 
 ## Prerequisites
 
@@ -39,10 +122,10 @@ cd CarbonSense-powered-by-IBM-Watsonx
 
 ```powershell
 # Create virtual environment
-python -m venv venv
+python -m venv carbon_env
 
 # Activate virtual environment
-.\venv\Scripts\activate
+.\carbon_env\Scripts\activate
 ```
 
 ### 3. Install Dependencies
@@ -105,6 +188,7 @@ python -m src.carbonsense.main --mode fetch_certs
 ```
 
 This command will:
+
 - Create a backup of any existing certificate
 - Fetch the new certificate from the Milvus server
 - Save it in the root directory as `milvus-grpc.crt`
@@ -112,27 +196,37 @@ This command will:
 
 ## Directory Structure
 
-The system creates the following structure:
+The system uses the following structure:
 
 ```
 .
-├── Data_RAW/                # Raw data files
-│   └── industries/          # Industry data files
 ├── Data_processed/          # Processed data files
-│   ├── Global/              # Global data
-│   └── United States of America/  # US-specific data
+│   ├── electricity/         # Electricity production data
+│   ├── industry/            # Industry-specific data
+│   ├── metadata/            # Supporting information
+│   └── regional/            # Region-specific data
 ├── logs/                    # Logs for agent thoughts and processing steps
-├── file_cache/              # Local file cache
+│   ├── communication/       # Agent communication logs
+│   ├── thoughts/            # Agent reasoning logs
+│   └── visualizations/      # Data visualization logs
 ├── Embeddings/              # Local embedding storage
-│   ├── embeddings_30m/      # 30M model embeddings
-│   ├── embeddings_125m/     # 125M model embeddings
-│   └── embeddings_granite/  # Granite model embeddings
-├── milvus-grpc.crt          # Milvus certificate
+│   ├── Embeddings_30m/      # 30M model embeddings
+│   ├── Embeddings_125m/     # 125M model embeddings
+│   └── Embeddings_granite/  # Granite model embeddings
+├── images/                  # Project images and diagrams
+├── scripts/                 # Utility scripts
+│   ├── preprocess_dataset.py  # Data preprocessing script
+│   ├── setup.ps1            # Setup automation script
+│   └── process_industry_data.py # Industry data processor
 ├── src/                     # Source code
 │   └── carbonsense/         # Main package
 │       ├── core/            # Core functionality
-│       │   ├── crew_agent.py # CrewAI orchestration
-│       │   ├── yaml_manager.py # YAML config manager
+│       │   ├── carbon_agent.py  # Standard agent implementation
+│       │   ├── carbon_flow.py   # Process flow manager
+│       │   ├── crew_agent.py    # CrewAI orchestration
+│       │   ├── embedding_generator.py # Embedding creation
+│       │   ├── rag_generator.py # RAG implementation
+│       │   ├── yaml_manager.py  # YAML config manager
 │       │   ├── config/      # YAML configuration files
 │       │   │   ├── agents.yaml  # Agent definitions
 │       │   │   ├── tasks.yaml   # Task workflow definitions
@@ -140,11 +234,23 @@ The system creates the following structure:
 │       │   │   └── common_schema.yaml # Common schema definitions
 │       │   └── tools/       # Agent tools
 │       ├── services/        # Service integrations
+│       │   ├── cache_service.py # Caching functionality
+│       │   ├── cos_service.py   # Cloud Object Storage
+│       │   ├── discovery_service.py # Watson Discovery
+│       │   ├── embedding_storage_service.py # Vector storage
+│       │   ├── milvus_service.py  # Milvus integration
+│       │   ├── watsonx_service.py # WatsonX AI
+│       │   └── litellm_watsonx_service.py # WatsonX via LiteLLM
 │       ├── utils/           # Utility functions
 │       ├── config/          # Configuration management
 │       ├── web/             # Web interface
+│       │   ├── app.py       # FastAPI application
+│       │   ├── run_server.py # Server runner
+│       │   ├── templates/   # HTML templates
+│       │   └── static/      # CSS, JS, and images
 │       └── main.py          # Command-line interface
-└── scripts/                 # Utility scripts
+├── .env                     # Environment variables
+└── milvus-grpc.crt          # Milvus certificate
 ```
 
 ## Usage
@@ -171,10 +277,11 @@ python -m src.carbonsense.main --mode generate
 python -m src.carbonsense.main --mode generate --model granite
 
 # Process specific files
-python -m src.carbonsense.main --mode generate --files Data_processed/Global/file1.xlsx Data_processed/Global/file2.xlsx
+python -m src.carbonsense.main --mode generate --files Data_processed/regional/europe_consolidated.xlsx Data_processed/electricity/electricity_USA.xlsx
 ```
 
 Available options:
+
 - `--mode generate`: Required. Specifies the generation mode
 - `--model`: Optional. Specify which model to use:
   - `30m`: ibm/slate-30m-english-rtrvr-v2 (384 dimensions)
@@ -202,6 +309,9 @@ python -m src.carbonsense.main --mode rag_agent --query "What is the carbon foot
 
 # Advanced CrewAI agent
 python -m src.carbonsense.main --mode crew_agent --query "Compare the carbon footprint of paper vs plastic bags"
+
+# Flow-based agent (alternative implementation)
+python -m src.carbonsense.main --mode flow_agent --query "What is the carbon impact of flying from New York to London?"
 ```
 
 #### Voice Queries
@@ -212,11 +322,14 @@ python -m src.carbonsense.main --mode stt_query --record_duration 15
 
 # Voice query with CrewAI multi-agent system (advanced)
 python -m src.carbonsense.main --mode stt_crew_agent --record_duration 15 --show_context --debug
+
+# Voice query with flow-based agent
+python -m src.carbonsense.main --mode stt_flow_agent --record_duration 15 --debug
 ```
 
 #### Additional Options
 
-- `--mode`: Choose between `rag_agent` (standard), `crew_agent` (CrewAI), `stt_query` (voice), or `stt_crew_agent` (voice with CrewAI)
+- `--mode`: Choose between `rag_agent`, `crew_agent`, `flow_agent`, `stt_query`, `stt_crew_agent`, or `stt_flow_agent`
 - `--query`: Your question about carbon footprint (required for text queries)
 - `--show_context`: Shows the sources or agents used to generate the answer
 - `--model`: Specify which model to use (30m, 125m, or granite)
@@ -239,28 +352,28 @@ python -m src.carbonsense.main --mode cleanup
 ### 1. Common Issues
 
 #### API Authentication
+
 - Verify API keys in .env file
 - Check service URLs
 - Ensure proper permissions
 
 #### Audio Recording Issues
+
 - Check microphone permissions
 - Test with `--input_device` to select a specific microphone
 - Verify Speech-to-Text credentials
 
 #### Certificate Issues
+
 - Run `fetch_certs` command to update certificates
 - Verify certificate paths in .env file
 - Check certificate permissions
 
-### 2. Error Messages
+## Technical Documentation
 
-#### "API Key Invalid"
-- Verify API key in .env file
-- Check service status
-- Ensure proper permissions
+For more detailed information about the system, please refer to:
 
-#### "Rate Limit Exceeded"
-- Wait for cooldown period
-- Reduce batch size
-- Check service quotas
+- [Implementation Details](IMPLEMENTATION.md) - Technical implementation details and configurations
+- [System Architecture](ARCHITECTURE.md) - System design and component interactions
+- [Agentic Pipeline](agentic_pipeline.md) - Details about the multi-agent workflow
+- [Dataset Column Description](Dataset_Column_Description.md) - Information about the data structure

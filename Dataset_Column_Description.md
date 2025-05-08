@@ -52,16 +52,16 @@ Contains supporting information:
 
 ## Data Processing
 
-The dataset undergoes several processing steps performed by the `preprocess_dataset.py` script:
+The dataset undergoes several processing steps performed by the `preprocess_dataset.py` and related scripts in the `scripts` directory:
 
 1. **Data Cleaning**
    - Standardization of column names and units (e.g., carbon → carbon (kg CO2 eq))
-   - Filtering to keep only the most relevant columns
+   - Filtering to keep only the most relevant columns (using `shortlist_of_columns.txt`)
    - Adding data type annotations as Excel comments
    - Normalization of text fields
 
 2. **Semantic Enhancement**
-   - Generation of vector embeddings for each data chunk
+   - Generation of vector embeddings for each data chunk (via `src.carbonsense.core.embedding_generator`)
    - Storage in Milvus vector database
    - Metadata tagging for improved retrieval
 

@@ -1,0 +1,47 @@
+﻿Contribution to CarbonSense by Somesh Bagadiya:
+
+
+14th Feb - 28th Feb:
+* The project idea and initial required research are needed to see the feasibility of this solution.
+* Investigated ways to implement and designed the project architecture, and planned the development
+* Delivered the project pitch documentation that included the project pitch, Gantt chart, and a basic overview of the planned solution
+
+
+1st Mar - 15th Mar:
+* Presented the solution and started task planning and alignment for the project.
+* Researched the services that IBM has provided access to.
+* Researched data sources and where to get our data from.
+* Finalized user persona.
+
+
+16th Mar - 31st Mar:
+* Setting up IBM Cloud for the project.
+* I faced major challenges due to access limitations, and I needed detailed analysis and debugging to resolve the development issues.
+* Setting up all IBM Services like IBM WatsonX AI, IBM WatsonX Data, Milvus, Watson Discovery, IBM Object Cloud Storage, and all other necessary assets and services for the project.
+   * By setting up, I mean writing short scripts to test the access.
+* Set up the embedding generation and storing process with metadata in Milvus and object cloud storage.
+
+
+1st Apr - 15th Apr:
+* Major Development, listing all the developments implemented in this period:
+   * Setting up Milvus DB and setting up the embedding generation pipeline. Tested 3 models to generate the embeddings. ibm/slate-125m-english-rtrvr, ibm/slate-30m-english-rtrvr, granite-embedding-278m-multilingual
+   * Preprocessed the data to store it in the vector db.
+   * Setting up Watson Discovery and the webcrawler to crawl the web for relevant data. 
+   * Created a basic agentic pipeline with simple prompt engineering for the whole flow.
+   * Next, created a crewai agentic pipeline, which was sent for testing to check the results and enhance the pipeline. 
+   * Included a third data source in the pipeline using a web search.
+   * Integrated IBM Speech-to-Text services to implement a voice input feature in the whole pipeline.
+   * Tested generation model’s llama-3-3-70b-instruct , granite-3-3-8b-instruct, llama-4-scout-17b-16e-instruct, llama-3-2-3b-instruct, best performing model as per accuracy and speed was granite-3-3-8b-instruct as the agent model and llama-3-3-70b-instruct as the manager model
+
+
+16th Apr - 30th Apr:
+* Started the UI Development:
+   * Researched on how to use IBM WatsonX Assistant.
+   * Used FastAPI for development
+   * Created an initial mock of the ui.
+   * Created a revised ui with improved ux and tracking system.
+   * Integrated all the backend services with the ui that showed the transcription, thought, and final answer on the ui in a streamlined experience.
+* Enhanced the Watson Discovery crawler to improve document storage and retrieval.
+* After feedback from testing, I implemented the revised crewai agentic pipeline, and this was a robust pipeline with enhanced accuracy and performance.
+* Redrew the whole architecture diagram.
+* Helped with the final slides and presentation to the team.

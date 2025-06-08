@@ -78,6 +78,9 @@ htmlcov/
 .coverage.*
 coverage.xml
 *.cover
+.cursor
+
+.cursor/
 
 # Test cache
 .pytest_cache/

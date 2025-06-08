@@ -5,12 +5,12 @@
       "total": 2.8
     },
     "Energy Use": {
-      "count": 5,
-      "total": 1.408629
+      "count": 4,
+      "total": 1.504
     },
     "Mobility": {
-      "count": 5,
-      "total": 2.370000000000001
+      "count": 2,
+      "total": 0.520000000000001
     },
     "Purchases": {
       "count": 3,
@@ -27,12 +27,12 @@
       "total": 91.6
     },
     "Energy Use": {
-      "count": 8,
-      "total": 9.408629
+      "count": 10,
+      "total": 12.512628999999999
     },
     "Mobility": {
-      "count": 10,
-      "total": 34.73
+      "count": 11,
+      "total": 37.879999999999995
     },
     "Purchases": {
       "count": 5,
@@ -49,12 +49,12 @@
       "total": 131.2
     },
     "Energy Use": {
-      "count": 21,
-      "total": 34.708629
+      "count": 23,
+      "total": 37.812629
     },
     "Mobility": {
-      "count": 27,
-      "total": 104.63000000000001
+      "count": 28,
+      "total": 107.78000000000002
     },
     "Purchases": {
       "count": 16,

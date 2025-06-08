@@ -67,6 +67,8 @@ Desktop.ini
 # *.doc
 *.mp4
 
+
+
 # Logs
 *.log
 logs/
@@ -78,9 +80,11 @@ htmlcov/
 .coverage.*
 coverage.xml
 *.cover
-.cursor
 
+# Cursor
+.cursor
 .cursor/
+@.cursor
 
 # Test cache
 .pytest_cache/
